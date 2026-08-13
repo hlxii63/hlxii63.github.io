@@ -331,6 +331,7 @@ select {
 }
 .lib-item {
   display: flex;
+  flex-wrap: wrap;   /* ★ 修复：排行面板/管理栏换行占满整行，不再挤乱简介 */
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -345,6 +346,7 @@ select {
 .lib-item-btns button { padding: 5px 10px; min-height: 30px; font-size: 12.5px; }
 button.danger { background: #fdecea; border-color: #ef9a9a; color: #c62828; }
 button.danger:hover { background: #fbe3e1; }
+button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 .lib-empty { padding: 18px 12px; text-align: center; color: #90a4ae; font-size: 13px; }
 
 /* ---------- 社区：徽章 / 排行榜 / 管理 / 搜索 ---------- */
@@ -520,6 +522,8 @@ button.danger:hover { background: #fbe3e1; }
         <label class="field check">
           <input id="p-numbers" type="checkbox" checked> 显示序号
         </label>
+        <button id="p-answer" class="act" title="查看官方答案（看完不计入排行榜和实力）">👁 查看答案</button>
+        <button id="p-exit" class="act" title="退出并保存当前作答进度">⏏ 退出</button>
         <button id="p-back" class="act">✏️ 返回编辑</button>
         <span id="p-levelname" class="levelname"></span>
       </div>
@@ -620,36 +624,25 @@ button.danger:hover { background: #fbe3e1; }
       <!-- 社区 -->
       <div id="lib-community-pane" class="lib-pane hidden">
         <div class="lib-actions">
-          <label class="field">存储方式
-            <select id="lib-store-mode">
-              <option value="server">自建服务器</option>
-              <option value="repo">GitHub 仓库（推荐·大陆可用）</option>
-              <option value="gist">GitHub Gist（海外可用）</option>
-            </select>
-          </label>
-        </div>
-        <div id="lib-server-fields" class="lib-actions">
-          <input id="lib-server" type="text" placeholder="服务器地址，如 http://192.168.1.5:8080" spellcheck="false">
-          <button id="lib-server-save" class="act">保存地址</button>
-        </div>
-        <div id="lib-repo-fields" class="lib-actions hidden">
-          <span id="lib-repo-status" class="lib-status"></span>
-          <button id="lib-repo-edit" class="act">⚙ 修改</button>
-          <div id="lib-repo-inputs" class="lib-actions hidden">
-            <input id="lib-repo" type="text" placeholder="仓库地址，如 https://github.com/hlxii63/hlxii63.github.io" spellcheck="false">
-            <input id="lib-repo-token" type="password" placeholder="GitHub Token（可长按粘贴）" autocomplete="off">
-            <button id="lib-repo-eye" class="act" title="显示/隐藏 Token">👁</button>
-            <button id="lib-repo-save" class="act">保存</button>
-          </div>
-        </div>
-        <div id="lib-gist-fields" class="lib-actions hidden">
-          <input id="lib-gist" type="text" placeholder="Gist 地址，如 https://gist.github.com/用户名/一串id" spellcheck="false">
-          <input id="lib-gist-token" type="password" placeholder="GitHub Token（可长按粘贴）" autocomplete="off">
-          <button id="lib-gist-eye" class="act" title="显示/隐藏 Token">👁</button>
-          <button id="lib-gist-save" class="act">保存</button>
+          <span class="lib-status">🌐 已连接共享社区（hlxii63.github.io）</span>
+          <button id="lib-dev" class="act">🔒 开发者</button>
         </div>
         <div class="lib-actions">
           <input id="lib-search" type="search" placeholder="🔍 搜索关卡名称…" spellcheck="false">
+          <select id="lib-sort">
+            <option value="">排序：精选优先</option>
+            <option value="difficulty">排序：难度高→低</option>
+            <option value="time">排序：最新上传</option>
+            <option value="plays">排序：游玩最多</option>
+            <option value="likes">排序：点赞最多</option>
+          </select>
+          <select id="lib-filter-status">
+            <option value="">全部关卡</option>
+            <option value="done">已完成</option>
+            <option value="undone">未完成</option>
+            <option value="mylevel">我的关卡</option>
+            <option value="mylikes">我的点赞</option>
+          </select>
           <select id="lib-filter-featured">
             <option value="">精选：全部</option>
             <option value="V">精选 V</option>
@@ -664,7 +657,6 @@ button.danger:hover { background: #fbe3e1; }
           </select>
         </div>
         <div class="lib-actions">
-          <button id="lib-test" class="act">🧪 测试连接</button>
           <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
           <button id="lib-refresh" class="act">🔄 刷新</button>
           <label class="field">昵称
@@ -672,7 +664,7 @@ button.danger:hover { background: #fbe3e1; }
           </label>
           <span id="lib-skill" class="lib-skill"></span>
         </div>
-        <p class="modal-tip" id="lib-community-tip">「GitHub 仓库」：直接读写你仓库里的 levels.json（https://用户名.github.io/levels.json 读取，大陆可访问）。有 Token 者可上传/删除/给关卡设精选（V&gt;S&gt;A）与难度评级；通关社区关卡会自动上榜（作者本人不计入自己关卡的排行榜）。</p>
+        <p class="modal-tip" id="lib-community-tip">所有玩家共用同一个社区（hlxii63.github.io）。通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；开发者输入密码后可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
         <div id="lib-community-list" class="lib-list"></div>
       </div>
 
@@ -2549,6 +2541,8 @@ const Player = (function () {
   let won = false;
   let drawing = false;
   let showNumbers = true;   // ★ 显示序号默认勾选
+  let showAnswer = false;   // ★ 查看答案（显示官方解）
+  let viewedAnswer = false; // ★ 看过答案后不计入排行榜/实力
   let startTime = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -2565,6 +2559,8 @@ const Player = (function () {
     $('p-clear').addEventListener('click', clearPath);
     $('p-numbers').addEventListener('change', e => { showNumbers = e.target.checked; render(); });
     $('p-back').addEventListener('click', () => App.switchMode('editor'));
+    $('p-exit').addEventListener('click', exitSave);
+    $('p-answer').addEventListener('click', viewAnswer);
 
     $('win-restart').addEventListener('click', () => {
       hideWin();
@@ -2579,6 +2575,20 @@ const Player = (function () {
     level = r.level;
     reset();
     $('p-levelname').textContent = '关卡：' + level.name + ' · 难度 ' + fmtDifficulty(level.difficulty);
+    /* ★ 恢复上次退出的作答进度（社区关卡） */
+    if (typeof Library !== 'undefined' && Library.getDraft) {
+      const draft = Library.getDraft();
+      if (draft && Array.isArray(draft.path) && draft.path.length >= 1) {
+        path = draft.path.map(p => [p[0], p[1]]);
+        viewedAnswer = !!draft.viewed;
+        showAnswer = viewedAnswer;
+        won = false;
+        analysis = analyzePath(level, path);
+        render();
+        updateStatus();
+        App.toast('↩ 已恢复上次作答进度' + (viewedAnswer ? '（此局已标记查看过答案）' : ''));
+      }
+    }
   }
 
   function reset() {
@@ -2668,9 +2678,15 @@ const Player = (function () {
       ' · 覆盖 ' + an.totalNormal + ' 个普通格 + ' + level.hubs.size + ' 个枢纽';
     showWin();
     App.setStatus('🎉 通关成功！');
-    /* ★ 社区关卡：自动记录完成时间（进排行榜） */
+    /* ★ 社区关卡：自动记录完成时间（进排行榜）；看过答案则不计入 */
     if (typeof Library !== 'undefined' && Library.onWin) {
-      try { Library.onWin(); } catch (e) { /* 静默 */ }
+      try { Library.onWin(viewedAnswer); } catch (e) { /* 静默 */ }
+    }
+    if (typeof Library !== 'undefined' && Library.clearDraft) {
+      try { Library.clearDraft(); } catch (e) { /* 静默 */ }
+    }
+    if (viewedAnswer) {
+      $('win-stats').textContent += '（已查看答案，不计入排行榜）';
     }
   }
 
@@ -2706,11 +2722,16 @@ const Player = (function () {
     if (analysis && (analysis.redCells.length || analysis.dupCells.length)) {
       h.errors = analysis.redCells.concat(analysis.dupCells);
     }
-    Render.draw(canvas, level, {
+    const opts = {
       path,
       showNumbers,
       highlights: h
-    });
+    };
+    /* ★ 查看答案：显示官方解（灰色虚线） */
+    if (showAnswer && level.solution && level.solution.length) {
+      opts.solution = { path: level.solution, showNumbers: true };
+    }
+    Render.draw(canvas, level, opts);
   }
 
   function updateStatus() {
@@ -2736,17 +2757,41 @@ const Player = (function () {
     $('win-overlay').classList.remove('show');
   }
 
+  /* ★ 查看答案：显示官方解，之后通关不计入排行榜/实力 */
+  function viewAnswer() {
+    if (!level || !level.solution || !level.solution.length) {
+      App.toast('这关还没有官方答案');
+      return;
+    }
+    showAnswer = true;
+    viewedAnswer = true;
+    render();
+    App.toast('👁 已显示答案，本次通关不计入排行榜和实力');
+  }
+
+  /* ★ 退出并保存作答进度（社区关卡），下次载入自动恢复 */
+  function exitSave() {
+    if (typeof Library !== 'undefined' && Library.saveDraft) {
+      Library.saveDraft(path, viewedAnswer);
+      App.toast('⏏ 作答进度已保存，随时回来继续');
+    }
+    App.switchMode('editor');
+  }
+
   /* ★ 新增：离开试玩时清理状态（清空玩家路径、隐藏通关浮层）。
    * 修复「从试玩返回编辑器时试玩路径没有删除、通关返回后窗口不消失」 */
   function stop() {
     path = [];
     won = false;
     analysis = null;
+    showAnswer = false;
+    viewedAnswer = false;
     hideWin();
   }
 
   return {
-    init, loadLevel, undoStep, undoSteps, clearPath, reset, render, stop
+    init, loadLevel, undoStep, undoSteps, clearPath, reset, render, stop,
+    viewAnswer, exitSave
   };
 })();
 
@@ -2797,13 +2842,8 @@ const Library = (function () {
   const GIST_KEY = 'path-game:gist-url';
   const GIST_TOKEN_KEY = 'path-game:gist-token';
 
-  function storeMode() {
-    const m = localStorage.getItem(STORE_KEY);
-    return (m === 'gist' || m === 'server') ? m : 'repo';   /* 默认 GitHub 仓库 */
-  }
-  function setStoreMode(m) {
-    localStorage.setItem(STORE_KEY, (m === 'gist' || m === 'repo') ? m : 'server');
-  }
+  function storeMode() { return 'repo'; }   /* ★ 固定共享社区，不再可选 */
+  function setStoreMode() { /* 兼容旧调用，固定 repo */ }
   function gistUrl() { return localStorage.getItem(GIST_KEY) || ''; }
   function gistToken() { return localStorage.getItem(GIST_TOKEN_KEY) || ''; }
   function setGist(url, token) {
@@ -2861,9 +2901,24 @@ const Library = (function () {
   const REPO_KEY = 'path-game:repo-url';
   const REPO_TOKEN_KEY = 'path-game:repo-token';
   const REPO_FILE = 'levels.json';
+  const DEV_KEY = 'path-game:dev-key';
 
-  function repoUrl() { return localStorage.getItem(REPO_KEY) || ''; }
-  function repoToken() { return localStorage.getItem(REPO_TOKEN_KEY) || ''; }
+  /* ★ 内置共享社区（所有玩家共用；开发者密码 = Token 内容） */
+  const DEFAULT_REPO = 'https://github.com/hlxii63/hlxii63.github.io';
+  const DEFAULT_TOKEN = 'ghp_RNURH4Aypl6T4IUdQHDYzj4vURjbON4Ah2nJ';
+
+  function repoUrl() { return DEFAULT_REPO; }
+  function repoToken() { return DEFAULT_TOKEN; }
+  /* 开发者钥匙（输入密码=Token 后解锁精选/评级） */
+  function devKey() { return localStorage.getItem(DEV_KEY) || ''; }
+  function unlockDev(pw) {
+    if (pw && pw.trim() === repoToken()) {
+      localStorage.setItem(DEV_KEY, pw.trim());
+      return true;
+    }
+    return false;
+  }
+  function lockDev() { localStorage.removeItem(DEV_KEY); }
   function setRepo(url, token) {
     const u = String(url || '').trim().replace(/\/+$/, '').replace(/\.git$/, '');
     const t = String(token || '').trim();
@@ -2928,14 +2983,27 @@ const Library = (function () {
   /* ---------- 社区进阶功能：精选 / 评级 / 排行榜 / 玩家实力 ---------- */
   const FEATURED_ORDER = { 'A': 1, 'S': 2, 'V': 3 };
 
-  /* 排序：精选 V>S>A>无 优先，同级按上传时间新→旧 */
-  function communitySort(levels) {
-    return (levels || []).slice().sort((a, b) => {
-      const fa = FEATURED_ORDER[a.featured] || 0;
-      const fb = FEATURED_ORDER[b.featured] || 0;
-      if (fa !== fb) return fb - fa;
-      return (b.createdAt || 0) - (a.createdAt || 0);
-    });
+  /* 排序：默认（精选 V>S>A>无 优先，同级按时间新→旧）或按难度/时间/游玩/点赞 */
+  function communitySort(levels, mode) {
+    const arr = (levels || []).slice();
+    const fa = x => FEATURED_ORDER[x.featured] || 0;
+    switch (mode) {
+      case 'difficulty': return arr.sort((a, b) => (Number(b.rating) || Number(b.difficulty) || 0) - (Number(a.rating) || Number(a.difficulty) || 0));
+      case 'time': return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      case 'plays': return arr.sort((a, b) => (Number(b.plays) || 0) - (Number(a.plays) || 0));
+      case 'likes': return arr.sort((a, b) => ((b.likes || []).length) - ((a.likes || []).length));
+      default:
+        return arr.sort((a, b) => {
+          const d = fa(b) - fa(a);
+          return d !== 0 ? d : (b.createdAt || 0) - (a.createdAt || 0);
+        });
+    }
+  }
+
+  /* 我点赞过的关卡 */
+  function myLikedIds(levels) {
+    const myKey = ownerKey();
+    return new Set((levels || []).filter(lv => (lv.likes || []).includes(myKey)).map(lv => lv.id));
   }
 
   /* 当前正在游玩的社区关卡（用于通关后记录） */
@@ -2944,25 +3012,70 @@ const Library = (function () {
     currentCommunity = id ? { id } : null;
   }
 
-  /* 通关回调：把完成记录写入社区（只记第一次；作者本人记录也会写入，
+  /* 作答进度草稿（按社区关卡 id 保存，退出试玩时用） */
+  function draftKey() {
+    return currentCommunity ? ('path-game:player-draft:' + currentCommunity.id) : '';
+  }
+  function saveDraft(pathArr, viewed) {
+    const k = draftKey();
+    if (!k || !Array.isArray(pathArr)) return;
+    localStorage.setItem(k, JSON.stringify({ path: pathArr.map(p => [p[0], p[1]]), viewed: !!viewed, at: Date.now() }));
+  }
+  function getDraft() {
+    const k = draftKey();
+    if (!k) return null;
+    try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; }
+  }
+  function clearDraft() {
+    const k = draftKey();
+    if (k) localStorage.removeItem(k);
+  }
+
+  /* 通关回调：查看过答案的不记录；记录只写第一次（作者本人记录也会写入，
    * 但展示排行榜时不计入自己关卡的榜） */
   async function recordCompletion(levelId, playerName) {
-    if (!levelId || (storeMode() !== 'repo' && storeMode() !== 'gist')) return;
+    if (!levelId) return;
     const myKey = ownerKey();
-    const data = await (storeMode() === 'repo' ? repoReadData() : gistReadData());
+    const data = await repoReadData();
     const lv = (data.levels || []).find(x => x.id === levelId);
     if (!lv) return;
     lv.completions = lv.completions || [];
     if (lv.completions.some(c => c.key === myKey)) return;   // 重复通关不重复记录
     lv.completions.push({ key: myKey, name: String(playerName || '匿名').slice(0, 20), at: Date.now() });
-    if (storeMode() === 'repo') await repoWriteData(data);
-    else await gistWriteData(data);
+    await repoWriteData(data);
   }
-  function onWin() {
+  function onWin(viewedAnswer) {
     if (!currentCommunity) return;
+    if (viewedAnswer) { App.toast('👁 查看过答案，本次通关不计入排行榜'); return; }
     recordCompletion(currentCommunity.id, authorName())
       .then(() => App.toast('🏆 已记录完成，看看这关的排行榜！'))
-      .catch(() => { /* 无 Token 或网络失败时静默 */ });
+      .catch(() => { /* 静默 */ });
+  }
+
+  /* 点赞（所有玩家可点） */
+  async function toggleLike(levelId) {
+    if (!levelId) return false;
+    const myKey = ownerKey();
+    const data = await repoReadData();
+    const lv = (data.levels || []).find(x => x.id === levelId);
+    if (!lv) return false;
+    lv.likes = lv.likes || [];
+    const i = lv.likes.indexOf(myKey);
+    if (i >= 0) lv.likes.splice(i, 1); else lv.likes.push(myKey);
+    await repoWriteData(data);
+    return i < 0;
+  }
+
+  /* 游玩次数 +1（载入社区关卡时） */
+  async function bumpPlays(levelId) {
+    if (!levelId) return;
+    try {
+      const data = await repoReadData();
+      const lv = (data.levels || []).find(x => x.id === levelId);
+      if (!lv) return;
+      lv.plays = (Number(lv.plays) || 0) + 1;
+      await repoWriteData(data);
+    } catch (e) { /* 静默 */ }
   }
 
   /* 排行榜：按完成时间排名；作者本人（上传该关卡的设备）不计入自己关卡的榜 */
@@ -3005,7 +3118,7 @@ const Library = (function () {
     return lv;
   }
 
-  function isAdminUser() { return !!(repoToken() || gistToken()); }
+  function isAdminUser() { return !!devKey(); }
 
   async function repoWriteData(data) {
     const info = repoInfo();
@@ -3214,6 +3327,8 @@ const Library = (function () {
     const lv = Editor.getLevel();
     setCurrentCommunity(opts.communityId || null);   // ★ 记录当前社区关卡（通关后上榜）
     if (opts.hideSol) Editor.setHideSol(true);   // 社区关卡默认隐藏答案
+    /* ★ 载入社区关卡计一次游玩 */
+    if (opts.communityId) bumpPlays(opts.communityId);
     if (lv.solutionValid()) {
       App.switchMode('player');
       App.toast('已载入：「' + lv.name + '」，直接试玩（返回编辑可继续改）');
@@ -3345,7 +3460,7 @@ const Library = (function () {
   }
 
   /* 社区关卡行：名称+徽章+按钮+排行榜+管理员栏 */
-  function communityRow(it, admin) {
+  function communityRow(it, admin, liked) {
     const row = el('div', 'lib-item');
     const main = el('div', 'lib-item-main');
     const title = el('div', 'lib-item-title');
@@ -3355,7 +3470,9 @@ const Library = (function () {
     const sub = el('div', 'lib-item-sub');
     sub.textContent = it.rows + '×' + it.cols + (it.author ? ' · ' + it.author : '') + ' · ' + fmtTime(it.createdAt || it.savedAt);
     const compCount = ((it.completions || []).filter(c => c && c.key && String(c.key) !== String(it.ownerKey))).length;
-    if (compCount > 0) sub.textContent += ' · 🏆 ' + compCount + ' 人完成';
+    if (compCount > 0) sub.textContent += ' · 🏆 ' + compCount + ' 完成';
+    if (Number(it.plays) > 0) sub.textContent += ' · ▶ ' + it.plays + ' 玩';
+    if ((it.likes || []).length > 0) sub.textContent += ' · 👍 ' + it.likes.length;
     main.appendChild(title);
     main.appendChild(sub);
     row.appendChild(main);
@@ -3377,6 +3494,13 @@ const Library = (function () {
       const hidden = boardPanel.classList.contains('hidden');
       boardPanel.classList.toggle('hidden', !hidden);
       if (hidden && boardPanel._refresh) boardPanel._refresh();
+    });
+    mkBtn(liked ? '👍 已赞' : '👍 点赞', liked ? 'liked' : '', async () => {
+      try {
+        const nowLiked = await toggleLike(it.id);
+        App.toast(nowLiked ? '已点赞 👍' : '已取消点赞');
+        renderCommunityList();
+      } catch (e) { App.toast('❌ ' + e.message); }
     });
     if (it.ownerKey && String(it.ownerKey) === ownerKey()) {
       mkBtn('删除', 'danger', async () => {
@@ -3402,13 +3526,22 @@ const Library = (function () {
       const all = res.levels || [];
       const q = communityQuery.q.trim().toLowerCase();
       const minR = Number(communityQuery.minRating) || 0;
-      const list = communitySort(all).filter(it => {
+      const myKey = ownerKey();
+      const likedIds = myLikedIds(all);
+      const list = communitySort(all, communityQuery.sort).filter(it => {
         if (q && !String(it.name || '').toLowerCase().includes(q)) return false;
         if (communityQuery.featured && it.featured !== communityQuery.featured) return false;
         if (minR > 0 && !(Number(it.rating) >= minR)) return false;
+        const myDone = (it.completions || []).some(c => c.key === myKey);
+        switch (communityQuery.status) {
+          case 'done': if (!myDone) return false; break;
+          case 'undone': if (myDone) return false; break;
+          case 'mylevel': if (String(it.ownerKey) !== myKey) return false; break;
+          case 'mylikes': if (!(it.likes || []).includes(myKey)) return false; break;
+        }
         return true;
       });
-      /* 玩家实力（需完整数据：仅 GitHub 存储模式） */
+      /* 玩家实力（需完整数据） */
       const skill = mySkill(all);
       const skillEl = $('lib-skill');
       if (skillEl) {
@@ -3423,7 +3556,7 @@ const Library = (function () {
         return;
       }
       const admin = isAdminUser();
-      list.forEach(it => box.appendChild(communityRow(it, admin)));
+      list.forEach(it => box.appendChild(communityRow(it, admin, likedIds.has(it.id))));
     } catch (e) {
       box.innerHTML = '';
       box.appendChild(el('div', 'lib-empty', '⚠ ' + netHint('获取列表失败', e)));
@@ -3438,16 +3571,10 @@ const Library = (function () {
   }
 
   function init() {
-    /* 打开弹窗时同步各输入框 */
+    /* 打开弹窗：同步昵称 + 本地列表（社区配置已内置，无需填写） */
     const openModal = () => {
-      $('lib-server').value = serverUrl();
-      $('lib-gist').value = gistUrl();
-      $('lib-gist-token').value = gistToken();
-      $('lib-repo').value = repoUrl();
-      $('lib-repo-token').value = repoToken();
       $('lib-author').value = authorName();
-      $('lib-store-mode').value = storeMode();
-      syncStoreFields();
+      $('lib-dev').textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
       renderLocalList();
       App.openModal('modal-library');
     };
@@ -3456,46 +3583,23 @@ const Library = (function () {
     $('lib-tab-local').addEventListener('click', () => switchTab('local'));
     $('lib-tab-community').addEventListener('click', () => { switchTab('community'); renderCommunityList(); });
 
-    /* 存储方式切换 + 仓库状态行（配置好后隐藏地址与 Token） */
-    function syncRepoUi() {
-      const info = repoInfo();
-      const has = !!info;
-      $('lib-repo-status').textContent = has
-        ? ('✅ 已连接：' + info.owner + '/' + info.repo + (repoToken() ? ' · Token 已保存' : ' · 未填 Token（仅可读）'))
-        : '未配置仓库（第一次使用请点「修改」填写）';
-      $('lib-repo-edit').classList.toggle('hidden', !has);
-      const editing = has && !$('lib-repo-inputs').classList.contains('hidden');
-      $('lib-repo-inputs').classList.toggle('hidden', has && !editing);
-    }
-    function syncStoreFields() {
-      const m = storeMode();
-      $('lib-server-fields').classList.toggle('hidden', m !== 'server');
-      $('lib-gist-fields').classList.toggle('hidden', m !== 'gist');
-      $('lib-repo-fields').classList.toggle('hidden', m !== 'repo');
-      if (m === 'repo') syncRepoUi();
-    }
-    $('lib-store-mode').addEventListener('change', e => {
-      setStoreMode(e.target.value);
-      syncStoreFields();
-      const names = { server: '自建服务器', gist: 'GitHub Gist', repo: 'GitHub 仓库（Pages）' };
-      App.toast('已切换到' + (names[e.target.value] || e.target.value));
+    /* 开发者解锁：密码 = Token 内容 */
+    $('lib-dev').addEventListener('click', () => {
+      if (devKey()) {
+        const out = window.confirm('当前已进入开发者模式，退出开发者模式吗？');
+        if (out) { lockDev(); App.toast('已退出开发者模式'); }
+      } else {
+        const pw = window.prompt('输入开发者密码（管理员提供）后，可给关卡设置精选/难度评级：');
+        if (pw === null) return;
+        if (unlockDev(pw)) {
+          App.toast('✅ 开发者模式已解锁');
+          renderCommunityList();
+        } else {
+          App.toast('❌ 密码错误');
+        }
+      }
+      $('lib-dev').textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
     });
-    $('lib-repo-edit').addEventListener('click', () => {
-      $('lib-repo-inputs').classList.toggle('hidden');
-      syncRepoUi();
-    });
-    /* Token 显示/隐藏（方便粘贴后核对） */
-    const eye = (inputId, eyeId) => {
-      const eyeBtn = $(eyeId);
-      if (eyeBtn) eyeBtn.addEventListener('click', () => {
-        const inp = $(inputId);
-        const show = inp.type === 'password';
-        inp.type = show ? 'text' : 'password';
-        eyeBtn.textContent = show ? '🙈' : '👁';
-      });
-    };
-    eye('lib-repo-token', 'lib-repo-eye');
-    eye('lib-gist-token', 'lib-gist-eye');
 
     $('lib-save').addEventListener('click', () => {
       const lv = Editor.getLevel();
@@ -3512,22 +3616,10 @@ const Library = (function () {
       App.toast('已保存草稿（半成品）到本地');
     });
 
-    $('lib-server-save').addEventListener('click', () => {
-      setServerUrl($('lib-server').value);
-      App.toast(serverUrl() ? '服务器地址已保存' : '已清除服务器地址');
-    });
-    $('lib-gist-save').addEventListener('click', () => {
-      setGist($('lib-gist').value, $('lib-gist-token').value);
-      App.toast(gistUrl() ? 'Gist 地址与 Token 已保存' : '已清除 Gist 设置');
-    });
-    $('lib-repo-save').addEventListener('click', () => {
-      setRepo($('lib-repo').value, $('lib-repo-token').value);
-      $('lib-repo-inputs').classList.add('hidden');
-      syncRepoUi();
-      App.toast(repoUrl() ? '仓库与 Token 已保存（隐藏显示）' : '已清除仓库设置');
-    });
-    /* 搜索 + 筛选 */
+    /* 搜索 + 排序 + 筛选 */
     $('lib-search').addEventListener('input', e => setQuery({ q: e.target.value }));
+    $('lib-sort').addEventListener('change', e => setQuery({ sort: e.target.value }));
+    $('lib-filter-status').addEventListener('change', e => setQuery({ status: e.target.value }));
     $('lib-filter-featured').addEventListener('change', e => setQuery({ featured: e.target.value }));
     $('lib-filter-rating').addEventListener('change', e => setQuery({ minRating: Number(e.target.value) || 0 }));
     $('lib-refresh').addEventListener('click', renderCommunityList);
@@ -3543,42 +3635,15 @@ const Library = (function () {
         App.toast('❌ ' + netHint('上传失败', e));
       }
     });
-    $('lib-test').addEventListener('click', async () => {
-      const btn = $('lib-test');
-      btn.disabled = true;
-      btn.textContent = '测试中…';
-      try {
-        if (storeMode() === 'gist') {
-          const data = await gistReadData();
-          App.toast('✅ Gist 连接正常！社区现有 ' + ((data.levels || []).length) + ' 个关卡');
-        } else if (storeMode() === 'repo') {
-          const info = await repoCheck();
-          const data = await repoReadData();
-          App.toast('✅ 仓库连接正常（账号 ' + (info.user || '?') + '，权限：' + (info.scopes.join(', ') || 'Contents') + '）！社区现有 ' + ((data.levels || []).length) + ' 个关卡');
-        } else {
-          const url = serverUrl();
-          if (!url) throw new Error('请先填写并保存服务器地址');
-          const res = await apiFetch(url + '/api/levels');
-          const data = await res.json().catch(() => null);
-          const n = data && data.levels ? data.levels.length : '?';
-          App.toast('✅ 连接正常！社区现有 ' + n + ' 个关卡');
-        }
-      } catch (e) {
-        const modeName = { server: '连接失败', gist: 'Gist 连接失败', repo: '仓库连接失败' }[storeMode()] || '连接失败';
-        App.toast('❌ ' + netHint(modeName, e));
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '🧪 测试连接';
-      }
-    });
   }
-
   return {
     init, localSave, localRemove, localGet, localAll,
     serverUrl, setServerUrl, authorName, setAuthorName, ownerKey,
     storeMode, setStoreMode,
     gistUrl, setGist, parseGistId, gistRawUrl, gistReadData, gistWriteData,
-    repoUrl, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData, repoCheck,
+    repoUrl, repoToken, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData, repoCheck,
+    devKey, unlockDev, lockDev, toggleLike, bumpPlays, myLikedIds,
+    saveDraft, getDraft, clearDraft,
     setCurrentCommunity, recordCompletion, onWin,
     levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
