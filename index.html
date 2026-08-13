@@ -575,13 +575,19 @@ button.danger:hover { background: #fbe3e1; }
           <label class="field">存储方式
             <select id="lib-store-mode">
               <option value="server">自建服务器</option>
-              <option value="gist">GitHub Gist（免服务器）</option>
+              <option value="repo">GitHub 仓库（推荐·大陆可用）</option>
+              <option value="gist">GitHub Gist（海外可用）</option>
             </select>
           </label>
         </div>
         <div id="lib-server-fields" class="lib-actions">
           <input id="lib-server" type="text" placeholder="服务器地址，如 http://192.168.1.5:8080" spellcheck="false">
           <button id="lib-server-save" class="act">保存地址</button>
+        </div>
+        <div id="lib-repo-fields" class="lib-actions hidden">
+          <input id="lib-repo" type="text" placeholder="仓库地址，如 https://github.com/hlxii63/hlxii63.github.io" spellcheck="false">
+          <input id="lib-repo-token" type="password" placeholder="GitHub Token（repo 或 Contents 写权限）" autocomplete="off">
+          <button id="lib-repo-save" class="act">保存</button>
         </div>
         <div id="lib-gist-fields" class="lib-actions hidden">
           <input id="lib-gist" type="text" placeholder="Gist 地址，如 https://gist.github.com/用户名/一串id" spellcheck="false">
@@ -596,7 +602,7 @@ button.danger:hover { background: #fbe3e1; }
             <input id="lib-author" type="text" maxlength="20" placeholder="匿名">
           </label>
         </div>
-        <p class="modal-tip" id="lib-community-tip">Gist 模式：在 GitHub 新建一个 Gist，内容为 levels.json（{"levels":[]}），把 Gist 地址和 Token 填到上面；读取免 Token，所有设备可共享。可删除自己上传的关卡。</p>
+        <p class="modal-tip" id="lib-community-tip">「GitHub 仓库」：直接读写你仓库里的 levels.json（通过 https://用户名.github.io/levels.json 读取，大陆可访问）。首次上传会自动创建该文件；上传/删除需要 GitHub Token。Gist 模式同理但海外才可访问。</p>
         <div id="lib-community-list" class="lib-list"></div>
       </div>
 
@@ -2713,8 +2719,13 @@ const Library = (function () {
   const GIST_KEY = 'path-game:gist-url';
   const GIST_TOKEN_KEY = 'path-game:gist-token';
 
-  function storeMode() { return localStorage.getItem(STORE_KEY) === 'gist' ? 'gist' : 'server'; }
-  function setStoreMode(m) { localStorage.setItem(STORE_KEY, m === 'gist' ? 'gist' : 'server'); }
+  function storeMode() {
+    const m = localStorage.getItem(STORE_KEY);
+    return (m === 'gist' || m === 'repo') ? m : 'server';
+  }
+  function setStoreMode(m) {
+    localStorage.setItem(STORE_KEY, (m === 'gist' || m === 'repo') ? m : 'server');
+  }
   function gistUrl() { return localStorage.getItem(GIST_KEY) || ''; }
   function gistToken() { return localStorage.getItem(GIST_TOKEN_KEY) || ''; }
   function setGist(url, token) {
@@ -2768,6 +2779,78 @@ const Library = (function () {
     return res.json();
   }
 
+  /* ---------- GitHub 仓库（GitHub Pages）存储：大陆可访问 ---------- */
+  const REPO_KEY = 'path-game:repo-url';
+  const REPO_TOKEN_KEY = 'path-game:repo-token';
+  const REPO_FILE = 'levels.json';
+
+  function repoUrl() { return localStorage.getItem(REPO_KEY) || ''; }
+  function repoToken() { return localStorage.getItem(REPO_TOKEN_KEY) || ''; }
+  function setRepo(url, token) {
+    const u = String(url || '').trim().replace(/\/+$/, '').replace(/\.git$/, '');
+    const t = String(token || '').trim();
+    if (u) localStorage.setItem(REPO_KEY, u); else localStorage.removeItem(REPO_KEY);
+    if (t) localStorage.setItem(REPO_TOKEN_KEY, t); else localStorage.removeItem(REPO_TOKEN_KEY);
+  }
+  /* 解析仓库地址 → { owner, repo } */
+  function repoInfo() {
+    const s = repoUrl();
+    const m = s.match(/github\.com\/([^/]+)\/([^/]+)/);
+    if (m) return { owner: m[1], repo: m[2] };
+    const m2 = s.match(/^([^/]+)\/([^/]+)$/);
+    return m2 ? { owner: m2[1], repo: m2[2] } : null;
+  }
+  /* 读取地址：https://用户名.github.io/levels.json（Pages 站点，大陆可访问） */
+  function repoReadUrl() {
+    const info = repoInfo();
+    return info ? 'https://' + info.owner + '.github.io/' + REPO_FILE : '';
+  }
+  async function repoReadData() {
+    const readUrl = repoReadUrl();
+    if (!readUrl) throw new Error('请先填写仓库地址（https://github.com/用户名/仓库名）');
+    const res = await apiFetch(readUrl, { cache: 'no-store' });
+    if (res.status === 404) return { levels: [] };   // 还没有 levels.json → 视为空
+    if (!res.ok) throw new Error('读取失败（HTTP ' + res.status + '），请确认仓库已开启 GitHub Pages');
+    let data;
+    try { data = await res.json(); }
+    catch (e) { throw new Error('levels.json 不是有效 JSON'); }
+    if (!data || typeof data !== 'object' || !Array.isArray(data.levels)) {
+      throw new Error('levels.json 结构不对（应为 {"levels":[...]}）');
+    }
+    return data;
+  }
+  /* 写入：通过 GitHub API 提交/更新仓库里的 levels.json */
+  async function repoWriteData(data) {
+    const info = repoInfo();
+    const token = repoToken();
+    if (!info) throw new Error('请先填写仓库地址');
+    if (!token) {
+      throw new Error('上传/删除需要 GitHub Token（repo 或 Contents 写权限）：https://github.com/settings/tokens 新建（勾选 repo）→ 粘贴到上面');
+    }
+    const base = 'https://api.github.com/repos/' + info.owner + '/' + info.repo + '/contents/' + REPO_FILE;
+    /* 更新已有文件需要 sha */
+    let sha = null;
+    const getRes = await apiFetch(base, { headers: { 'Authorization': 'token ' + token } });
+    if (getRes.ok) { const meta = await getRes.json(); sha = meta.sha; }
+    /* base64（浏览器环境：先用 utf8Encode 转字节再 btoa） */
+    let bin = '';
+    const bytes = utf8Encode(JSON.stringify(data));
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const body = { message: 'Update levels.json', content: btoa(bin) };
+    if (sha) body.sha = sha;
+    const res = await apiFetch(base, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + token },
+      body: JSON.stringify(body)
+    }, 15000);
+    if (!res.ok) {
+      if (res.status === 401) throw new Error('Token 无效（需要 repo 或 Contents 写权限）');
+      if (res.status === 404) throw new Error('仓库不存在或 Token 无权访问，请确认仓库地址正确');
+      throw new Error('写入失败（HTTP ' + res.status + '）');
+    }
+    return res.json();
+  }
+
   /* ---------- 本地存档 ---------- */
   function localAll() {
     try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
@@ -2814,6 +2897,25 @@ const Library = (function () {
       '。请检查：① 服务器已启动（node server/community-server.js）② 手机与服务器同一网络 ③ 地址正确 ④ 若在 App 内使用 http 明文被拦截，请改用 https 或在构建工具中开启明文流量';
   }
   async function communityUpload(level) {
+    /* GitHub 仓库模式：读 → 追加 → 提交 */
+    if (storeMode() === 'repo') {
+      const data = await repoReadData();
+      const item = {
+        id: uid(),
+        name: level.name,
+        difficulty: level.difficulty,
+        rows: level.rows, cols: level.cols,
+        author: authorName(),
+        ownerKey: ownerKey(),
+        isDraft: false,
+        createdAt: Date.now(),
+        data: level.toJSON()
+      };
+      data.levels = data.levels || [];
+      data.levels.unshift(item);
+      await repoWriteData(data);
+      return { ok: true, id: item.id };
+    }
     /* Gist 模式：读 → 追加 → 写回 */
     if (storeMode() === 'gist') {
       const data = await gistReadData();
@@ -2851,6 +2953,11 @@ const Library = (function () {
     return res.json();
   }
   async function communityList() {
+    if (storeMode() === 'repo') {
+      const data = await repoReadData();
+      const levels = (data.levels || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return { ok: true, levels };
+    }
     if (storeMode() === 'gist') {
       const data = await gistReadData();
       const levels = (data.levels || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -2863,6 +2970,12 @@ const Library = (function () {
     return res.json();
   }
   async function communityGet(id) {
+    if (storeMode() === 'repo') {
+      const data = await repoReadData();
+      const it = (data.levels || []).find(x => x.id === id);
+      if (!it) throw new Error('关卡不存在');
+      return { ok: true, level: it };
+    }
     if (storeMode() === 'gist') {
       const data = await gistReadData();
       const it = (data.levels || []).find(x => x.id === id);
@@ -2875,6 +2988,15 @@ const Library = (function () {
     return res.json();
   }
   async function communityDelete(id) {
+    if (storeMode() === 'repo') {
+      const data = await repoReadData();
+      const it = (data.levels || []).find(x => x.id === id);
+      if (!it) throw new Error('关卡不存在');
+      if (String(it.ownerKey) !== ownerKey()) throw new Error('无权删除该关卡');
+      data.levels = data.levels.filter(x => x.id !== id);
+      await repoWriteData(data);
+      return { ok: true };
+    }
     if (storeMode() === 'gist') {
       const data = await gistReadData();
       const it = (data.levels || []).find(x => x.id === id);
@@ -3018,6 +3140,8 @@ const Library = (function () {
       $('lib-server').value = serverUrl();
       $('lib-gist').value = gistUrl();
       $('lib-gist-token').value = gistToken();
+      $('lib-repo').value = repoUrl();
+      $('lib-repo-token').value = repoToken();
       $('lib-author').value = authorName();
       $('lib-store-mode').value = storeMode();
       syncStoreFields();
@@ -3031,14 +3155,16 @@ const Library = (function () {
 
     /* 存储方式切换 */
     function syncStoreFields() {
-      const gist = storeMode() === 'gist';
-      $('lib-server-fields').classList.toggle('hidden', gist);
-      $('lib-gist-fields').classList.toggle('hidden', !gist);
+      const m = storeMode();
+      $('lib-server-fields').classList.toggle('hidden', m !== 'server');
+      $('lib-gist-fields').classList.toggle('hidden', m !== 'gist');
+      $('lib-repo-fields').classList.toggle('hidden', m !== 'repo');
     }
     $('lib-store-mode').addEventListener('change', e => {
       setStoreMode(e.target.value);
       syncStoreFields();
-      App.toast(storeMode() === 'gist' ? '已切换到 GitHub Gist 存储（免服务器）' : '已切换到自建服务器存储');
+      const names = { server: '自建服务器', gist: 'GitHub Gist', repo: 'GitHub 仓库（Pages）' };
+      App.toast('已切换到' + (names[e.target.value] || e.target.value));
     });
 
     $('lib-save').addEventListener('click', () => {
@@ -3064,6 +3190,10 @@ const Library = (function () {
       setGist($('lib-gist').value, $('lib-gist-token').value);
       App.toast(gistUrl() ? 'Gist 地址与 Token 已保存' : '已清除 Gist 设置');
     });
+    $('lib-repo-save').addEventListener('click', () => {
+      setRepo($('lib-repo').value, $('lib-repo-token').value);
+      App.toast(repoUrl() ? '仓库地址与 Token 已保存' : '已清除仓库设置');
+    });
     $('lib-refresh').addEventListener('click', renderCommunityList);
     $('lib-author').addEventListener('change', e => setAuthorName(e.target.value));
     $('lib-upload').addEventListener('click', async () => {
@@ -3085,6 +3215,9 @@ const Library = (function () {
         if (storeMode() === 'gist') {
           const data = await gistReadData();
           App.toast('✅ Gist 连接正常！社区现有 ' + ((data.levels || []).length) + ' 个关卡');
+        } else if (storeMode() === 'repo') {
+          const data = await repoReadData();
+          App.toast('✅ 仓库连接正常！社区现有 ' + ((data.levels || []).length) + ' 个关卡');
         } else {
           const url = serverUrl();
           if (!url) throw new Error('请先填写并保存服务器地址');
@@ -3094,7 +3227,8 @@ const Library = (function () {
           App.toast('✅ 连接正常！社区现有 ' + n + ' 个关卡');
         }
       } catch (e) {
-        App.toast('❌ ' + netHint(storeMode() === 'gist' ? 'Gist 连接失败' : '连接失败', e));
+        const modeName = { server: '连接失败', gist: 'Gist 连接失败', repo: '仓库连接失败' }[storeMode()] || '连接失败';
+        App.toast('❌ ' + netHint(modeName, e));
       } finally {
         btn.disabled = false;
         btn.textContent = '🧪 测试连接';
@@ -3105,7 +3239,9 @@ const Library = (function () {
   return {
     init, localSave, localRemove, localGet, localAll,
     serverUrl, setServerUrl, authorName, setAuthorName,
-    storeMode, setStoreMode, gistUrl, setGist, parseGistId, gistRawUrl, gistReadData, gistWriteData,
+    storeMode, setStoreMode,
+    gistUrl, setGist, parseGistId, gistRawUrl, gistReadData, gistWriteData,
+    repoUrl, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
