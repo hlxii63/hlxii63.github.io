@@ -572,18 +572,31 @@ button.danger:hover { background: #fbe3e1; }
       <!-- 社区 -->
       <div id="lib-community-pane" class="lib-pane hidden">
         <div class="lib-actions">
+          <label class="field">存储方式
+            <select id="lib-store-mode">
+              <option value="server">自建服务器</option>
+              <option value="gist">GitHub Gist（免服务器）</option>
+            </select>
+          </label>
+        </div>
+        <div id="lib-server-fields" class="lib-actions">
           <input id="lib-server" type="text" placeholder="服务器地址，如 http://192.168.1.5:8080" spellcheck="false">
           <button id="lib-server-save" class="act">保存地址</button>
+        </div>
+        <div id="lib-gist-fields" class="lib-actions hidden">
+          <input id="lib-gist" type="text" placeholder="Gist 地址，如 https://gist.github.com/用户名/一串id" spellcheck="false">
+          <input id="lib-gist-token" type="password" placeholder="GitHub Token（仅上传/删除需要）" autocomplete="off">
+          <button id="lib-gist-save" class="act">保存</button>
+        </div>
+        <div class="lib-actions">
           <button id="lib-test" class="act">🧪 测试连接</button>
           <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
           <button id="lib-refresh" class="act">🔄 刷新</button>
-        </div>
-        <div class="lib-actions">
           <label class="field">昵称
             <input id="lib-author" type="text" maxlength="20" placeholder="匿名">
           </label>
         </div>
-        <p class="modal-tip">社区关卡由所有设备共享（需要运行社区服务器 server/community-server.js）。可删除自己上传的关卡。</p>
+        <p class="modal-tip" id="lib-community-tip">Gist 模式：在 GitHub 新建一个 Gist，内容为 levels.json（{"levels":[]}），把 Gist 地址和 Token 填到上面；读取免 Token，所有设备可共享。可删除自己上传的关卡。</p>
         <div id="lib-community-list" class="lib-list"></div>
       </div>
 
@@ -614,7 +627,7 @@ button.danger:hover { background: #fbe3e1; }
         <p><b>操作</b>：编辑器里选好工具后点击格子；红/绿边先点一格再点相邻格（含斜向）；数字格先在「数字」输入框填步数再点格子（输入框留空点击可移除数字）；答案路径从 S 开始点或拖动画线（与试玩规则相同），可用「撤销一步答案」逐步回退；试玩时从 S 开始点或拖动画线，可撤销一步/十步、可显示序号。</p>
         <p><b>隐藏答案</b>：编辑器默认「隐藏答案路径」（勾选状态），载入示例/导入关卡时不会显示灰色虚线官方解，防止偷看；取消勾选即可查看；绘制答案时会自动临时显示。</p>
         <p><b>难度</b>：编辑器「难度」框可填难度等级（默认 0，可填小数如 1.5、15.2），导出后随关卡保存；内置示例难度从 1.5（新手教学）到 15.2（进阶挑战）不等。</p>
-        <p><b>关卡库</b>：「🗂️ 关卡库」可把当前关卡保存到本机（成品或半成品草稿，下次继续编辑），也可上传到社区服务器（运行 server/community-server.js）让所有设备浏览下载。</p>
+        <p><b>关卡库</b>：「🗂️ 关卡库」可把当前关卡保存到本机（成品或半成品草稿，下次继续编辑），也可上传到社区共享。社区有两种方式：**自建服务器**（server/community-server.js 或 CloudBase 云函数）或 **GitHub Gist 免服务器方案**（在 GitHub 新建一个含 levels.json 的 Gist，读取免 Token，上传/删除需要 GitHub Token）。</p>
         <p><b>进阶挑战</b>：示例里内置 8×8「进阶挑战」超级难题（难度 15.2），含斜向枢纽、红绿边与数字格约束，试试看你能不能通关。</p>
         <p><b>答案加密</b>：导出 JSON 时答案以加密形式存储（solutionEnc），不会出现明文；导入时自动解密。</p>
         <p><b>密码</b>：「🔒 密码」可为关卡设置密码；导入关卡默认进入试玩，进入编辑器需输入密码（密码以加盐哈希加密存储，不保存明文）。</p>
@@ -2660,8 +2673,10 @@ const Player = (function () {
  * 路径谜题 · 关卡库（本地存档 + 社区）
  *  - 本地：把当前关卡（成品）或半成品草稿保存到 localStorage，
  *    随时载入继续编辑/游玩，完全离线可用
- *  - 社区：上传关卡到自建服务器（server/community-server.js），
- *    所有设备都能浏览、下载游玩；可删除自己上传的关卡
+ *  - 社区（两种存储方式，任选其一）：
+ *      A. 自建服务器（server/community-server.js 或 CloudBase 云函数）
+ *      B. GitHub Gist（免服务器）：游戏直接读写一个 Gist 里的
+ *         levels.json，读取免 Token，上传/删除需要 GitHub Token
  * ========================================================= */
 
 const Library = (function () {
@@ -2691,6 +2706,66 @@ const Library = (function () {
   function setServerUrl(u) {
     u = String(u || '').trim().replace(/\/+$/, '');
     if (u) localStorage.setItem(SRV_KEY, u); else localStorage.removeItem(SRV_KEY);
+  }
+
+  /* ---------- 存储方式：自建服务器 或 GitHub Gist（免服务器） ---------- */
+  const STORE_KEY = 'path-game:store-mode';
+  const GIST_KEY = 'path-game:gist-url';
+  const GIST_TOKEN_KEY = 'path-game:gist-token';
+
+  function storeMode() { return localStorage.getItem(STORE_KEY) === 'gist' ? 'gist' : 'server'; }
+  function setStoreMode(m) { localStorage.setItem(STORE_KEY, m === 'gist' ? 'gist' : 'server'); }
+  function gistUrl() { return localStorage.getItem(GIST_KEY) || ''; }
+  function gistToken() { return localStorage.getItem(GIST_TOKEN_KEY) || ''; }
+  function setGist(url, token) {
+    const u = String(url || '').trim();
+    const t = String(token || '').trim();
+    if (u) localStorage.setItem(GIST_KEY, u); else localStorage.removeItem(GIST_KEY);
+    if (t) localStorage.setItem(GIST_TOKEN_KEY, t); else localStorage.removeItem(GIST_TOKEN_KEY);
+  }
+  /* 从 Gist 地址或裸 ID 提取 gist id */
+  function parseGistId(url) {
+    const s = String(url || '').trim();
+    const m = s.match(/gist\.github\.com\/[^/]+\/([0-9a-f]{7,40})/i);
+    if (m) return m[1];
+    return /^[0-9a-f]{7,40}$/i.test(s) ? s : '';
+  }
+  /* 免 Token 的读取地址（raw，无速率限制） */
+  function gistRawUrl() {
+    const m = String(gistUrl() || '').match(/gist\.github\.com\/([^/]+)\/([0-9a-f]{7,40})/i);
+    return m ? 'https://gist.githubusercontent.com/' + m[1] + '/' + m[2] + '/raw/levels.json' : '';
+  }
+  async function gistReadData() {
+    const raw = gistRawUrl();
+    if (!raw) throw new Error('请先填写 Gist 地址（https://gist.github.com/用户名/一串id）');
+    const res = await apiFetch(raw, { cache: 'no-store' });
+    if (!res.ok) throw new Error('读取 Gist 失败（HTTP ' + res.status + '），请确认 Gist 里有 levels.json 文件');
+    let data;
+    try { data = await res.json(); }
+    catch (e) { throw new Error('Gist 里的 levels.json 不是有效 JSON'); }
+    if (!data || typeof data !== 'object' || !Array.isArray(data.levels)) {
+      throw new Error('Gist 里 levels.json 结构不对（应为 {"levels":[...]}）');
+    }
+    return data;
+  }
+  async function gistWriteData(data) {
+    const id = parseGistId(gistUrl());
+    const token = gistToken();
+    if (!id) throw new Error('请先填写 Gist 地址');
+    if (!token) {
+      throw new Error('上传/删除需要 GitHub Token：GitHub → 头像 → Settings → Developer settings → Personal access tokens → 新建（勾选 gist）→ 粘贴到上面');
+    }
+    const res = await apiFetch('https://api.github.com/gists/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + token },
+      body: JSON.stringify({ files: { 'levels.json': { content: JSON.stringify(data) } } })
+    }, 15000);
+    if (!res.ok) {
+      if (res.status === 401) throw new Error('Token 无效或已过期，请重新生成（勾选 gist 权限）');
+      if (res.status === 404) throw new Error('Gist 不存在，或 Token 无权访问');
+      throw new Error('写入 Gist 失败（HTTP ' + res.status + '）');
+    }
+    return res.json();
   }
 
   /* ---------- 本地存档 ---------- */
@@ -2739,6 +2814,25 @@ const Library = (function () {
       '。请检查：① 服务器已启动（node server/community-server.js）② 手机与服务器同一网络 ③ 地址正确 ④ 若在 App 内使用 http 明文被拦截，请改用 https 或在构建工具中开启明文流量';
   }
   async function communityUpload(level) {
+    /* Gist 模式：读 → 追加 → 写回 */
+    if (storeMode() === 'gist') {
+      const data = await gistReadData();
+      const item = {
+        id: uid(),
+        name: level.name,
+        difficulty: level.difficulty,
+        rows: level.rows, cols: level.cols,
+        author: authorName(),
+        ownerKey: ownerKey(),
+        isDraft: false,
+        createdAt: Date.now(),
+        data: level.toJSON()
+      };
+      data.levels = data.levels || [];
+      data.levels.unshift(item);
+      await gistWriteData(data);
+      return { ok: true, id: item.id };
+    }
     const url = serverUrl();
     if (!url) throw new Error('请先填写并保存服务器地址');
     const res = await apiFetch(url + '/api/levels', {
@@ -2757,6 +2851,11 @@ const Library = (function () {
     return res.json();
   }
   async function communityList() {
+    if (storeMode() === 'gist') {
+      const data = await gistReadData();
+      const levels = (data.levels || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return { ok: true, levels };
+    }
     const url = serverUrl();
     if (!url) throw new Error('请先填写并保存服务器地址');
     const res = await apiFetch(url + '/api/levels');
@@ -2764,12 +2863,27 @@ const Library = (function () {
     return res.json();
   }
   async function communityGet(id) {
+    if (storeMode() === 'gist') {
+      const data = await gistReadData();
+      const it = (data.levels || []).find(x => x.id === id);
+      if (!it) throw new Error('关卡不存在');
+      return { ok: true, level: it };
+    }
     const url = serverUrl();
     const res = await apiFetch(url + '/api/levels/' + encodeURIComponent(id));
     if (!res.ok) throw new Error('获取关卡失败（HTTP ' + res.status + '）');
     return res.json();
   }
   async function communityDelete(id) {
+    if (storeMode() === 'gist') {
+      const data = await gistReadData();
+      const it = (data.levels || []).find(x => x.id === id);
+      if (!it) throw new Error('关卡不存在');
+      if (String(it.ownerKey) !== ownerKey()) throw new Error('无权删除该关卡');
+      data.levels = data.levels.filter(x => x.id !== id);
+      await gistWriteData(data);
+      return { ok: true };
+    }
     const url = serverUrl();
     const res = await apiFetch(url + '/api/levels/' + encodeURIComponent(id) +
       '?ownerKey=' + encodeURIComponent(ownerKey()), { method: 'DELETE' });
@@ -2899,16 +3013,33 @@ const Library = (function () {
   }
 
   function init() {
-    $('btn-library').addEventListener('click', () => {
+    /* 打开弹窗时同步各输入框 */
+    const openModal = () => {
       $('lib-server').value = serverUrl();
+      $('lib-gist').value = gistUrl();
+      $('lib-gist-token').value = gistToken();
       $('lib-author').value = authorName();
+      $('lib-store-mode').value = storeMode();
+      syncStoreFields();
       renderLocalList();
-      switchTab('local');
       App.openModal('modal-library');
-    });
+    };
+    $('btn-library').addEventListener('click', openModal);
     $('lib-close').addEventListener('click', () => App.closeModal('modal-library'));
     $('lib-tab-local').addEventListener('click', () => switchTab('local'));
     $('lib-tab-community').addEventListener('click', () => switchTab('community'));
+
+    /* 存储方式切换 */
+    function syncStoreFields() {
+      const gist = storeMode() === 'gist';
+      $('lib-server-fields').classList.toggle('hidden', gist);
+      $('lib-gist-fields').classList.toggle('hidden', !gist);
+    }
+    $('lib-store-mode').addEventListener('change', e => {
+      setStoreMode(e.target.value);
+      syncStoreFields();
+      App.toast(storeMode() === 'gist' ? '已切换到 GitHub Gist 存储（免服务器）' : '已切换到自建服务器存储');
+    });
 
     $('lib-save').addEventListener('click', () => {
       const lv = Editor.getLevel();
@@ -2929,6 +3060,10 @@ const Library = (function () {
       setServerUrl($('lib-server').value);
       App.toast(serverUrl() ? '服务器地址已保存' : '已清除服务器地址');
     });
+    $('lib-gist-save').addEventListener('click', () => {
+      setGist($('lib-gist').value, $('lib-gist-token').value);
+      App.toast(gistUrl() ? 'Gist 地址与 Token 已保存' : '已清除 Gist 设置');
+    });
     $('lib-refresh').addEventListener('click', renderCommunityList);
     $('lib-author').addEventListener('change', e => setAuthorName(e.target.value));
     $('lib-upload').addEventListener('click', async () => {
@@ -2943,18 +3078,23 @@ const Library = (function () {
       }
     });
     $('lib-test').addEventListener('click', async () => {
-      const url = serverUrl();
-      if (!url) { App.toast('请先填写并保存服务器地址'); return; }
       const btn = $('lib-test');
       btn.disabled = true;
       btn.textContent = '测试中…';
       try {
-        const res = await apiFetch(url + '/api/levels');
-        const data = await res.json().catch(() => null);
-        const n = data && data.levels ? data.levels.length : '?';
-        App.toast('✅ 连接正常！社区现有 ' + n + ' 个关卡');
+        if (storeMode() === 'gist') {
+          const data = await gistReadData();
+          App.toast('✅ Gist 连接正常！社区现有 ' + ((data.levels || []).length) + ' 个关卡');
+        } else {
+          const url = serverUrl();
+          if (!url) throw new Error('请先填写并保存服务器地址');
+          const res = await apiFetch(url + '/api/levels');
+          const data = await res.json().catch(() => null);
+          const n = data && data.levels ? data.levels.length : '?';
+          App.toast('✅ 连接正常！社区现有 ' + n + ' 个关卡');
+        }
       } catch (e) {
-        App.toast('❌ ' + netHint('连接失败', e));
+        App.toast('❌ ' + netHint(storeMode() === 'gist' ? 'Gist 连接失败' : '连接失败', e));
       } finally {
         btn.disabled = false;
         btn.textContent = '🧪 测试连接';
@@ -2965,6 +3105,7 @@ const Library = (function () {
   return {
     init, localSave, localRemove, localGet, localAll,
     serverUrl, setServerUrl, authorName, setAuthorName,
+    storeMode, setStoreMode, gistUrl, setGist, parseGistId, gistRawUrl, gistReadData, gistWriteData,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
