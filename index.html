@@ -644,6 +644,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
           <div class="lib-login-row">
             <button id="lib-login-btn" class="act primary">登录</button>
             <button id="lib-register-btn" class="act">注册</button>
+            <button id="lib-diag" class="act" title="检测网络与 Token，定位注册失败原因">🔧 网络诊断</button>
           </div>
         </div>
 
@@ -3828,6 +3829,43 @@ const Library = (function () {
       logoutUser();
       syncLoginUI();
       App.toast('已退出登录');
+    });
+
+    /* 🔧 网络诊断：从用户浏览器逐环节测试，定位 401 原因 */
+    $('lib-diag').addEventListener('click', async () => {
+      const tok = repoToken();
+      const lines = ['【网络诊断】' + new Date().toLocaleString(),
+        'Token: ' + tok.slice(0, 8) + '…' + tok.slice(-4)];
+      try {
+        const u = await apiWrite('https://api.github.com/user', { headers: { 'Authorization': 'token ' + tok } });
+        const uj = await u.json().catch(() => ({}));
+        lines.push('① 校验Token → HTTP ' + u.status + (uj.login ? ' 账号:' + uj.login : (uj.message ? ' ' + uj.message : '')));
+      } catch (e) { lines.push('① 校验Token → 请求失败: ' + e.message); }
+      try {
+        const g = await apiWrite('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/users.json', { headers: { 'Authorization': 'token ' + tok } });
+        lines.push('② 读users.json → HTTP ' + g.status);
+      } catch (e) { lines.push('② 读users.json → 请求失败: ' + e.message); }
+      try {
+        const tmp = 'diag_' + Date.now().toString(36) + '.txt';
+        const put = await apiWrite('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/' + tmp, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + tok },
+          body: JSON.stringify({ message: 'diag test', content: btoa('ok') })
+        });
+        const pj = await put.json().catch(() => ({}));
+        lines.push('③ 写测试文件 → HTTP ' + put.status + (put.ok ? '（随后自动删除）' : (pj.message ? ' ' + pj.message : '')));
+        if (put.ok) {
+          try {
+            await fetch('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/' + tmp, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + tok },
+              body: JSON.stringify({ message: 'diag cleanup', sha: pj.content.sha })
+            });
+          } catch (e) { /* 忽略清理失败 */ }
+        }
+      } catch (e) { lines.push('③ 写测试文件 → 请求失败: ' + e.message); }
+      lines.push('——若①②③都正常，可直接注册；若①就 401，请切换网络（WiFi/4G）后重试');
+      window.alert(lines.join('\n'));
     });
 
     $('lib-save').addEventListener('click', () => {
