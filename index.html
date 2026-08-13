@@ -653,8 +653,16 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
           <div class="lib-actions" id="lib-userbar">
             <span id="lib-user-name" class="lib-status"></span>
             <button id="lib-logout" class="act">退出登录</button>
-            <span class="lib-status">🌐 共享社区（hlxii63.github.io）</span>
+            <button id="lib-changepw-btn" class="act">🔑 修改密码</button>
+            <span class="lib-status">🌐 共享社区（码云）</span>
             <button id="lib-dev" class="act">🔒 开发者</button>
+          </div>
+          <div id="lib-changepw" class="lib-login hidden">
+            <div class="lib-login-row">
+              <input id="lib-changepw-old" type="password" maxlength="60" placeholder="当前密码（初始密码）" autocomplete="off">
+              <input id="lib-changepw-new" type="password" maxlength="60" placeholder="新密码（至少 4 位）" autocomplete="off">
+              <button id="lib-changepw-ok" class="act primary">确认修改</button>
+            </div>
           </div>
           <div class="lib-actions">
             <input id="lib-search" type="search" placeholder="🔍 搜索关卡名称…" spellcheck="false">
@@ -671,6 +679,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
               <option value="undone">未完成</option>
               <option value="mylevel">我的关卡</option>
               <option value="mylikes">我的点赞</option>
+              <option value="viewed">已看答案</option>
             </select>
             <select id="lib-filter-featured">
               <option value="">精选：全部</option>
@@ -687,10 +696,12 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
           </div>
           <div class="lib-actions">
             <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
+            <button id="lib-rank" class="act">💪 实力排行</button>
             <button id="lib-refresh" class="act">🔄 刷新</button>
             <span id="lib-skill" class="lib-skill"></span>
           </div>
-          <p class="modal-tip" id="lib-community-tip">共享社区（码云 Gitee 存储，大陆可访问）。通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；开发者输入密码后可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
+          <p class="modal-tip" id="lib-community-tip">共享社区（码云 Gitee 存储，大陆可访问）。通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；第一个注册的账号自动成为开发者，可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
+          <div id="lib-rank-box" class="lib-list hidden"></div>
           <div id="lib-community-list" class="lib-list"></div>
         </div>
       </div>
@@ -2792,20 +2803,28 @@ const Player = (function () {
     }
     showAnswer = true;
     viewedAnswer = true;
+    if (typeof Library !== 'undefined' && Library.markViewed) {
+      try {
+        const cid = Library.getCurrentCommunity && Library.getCurrentCommunity();
+        Library.markViewed(cid && cid.id);
+      } catch (e) { /* 忽略 */ }
+    }
     render();
     App.toast('👁 已显示答案，本次通关不计入排行榜和实力');
   }
 
-  /* ★ 退出并保存作答进度（社区关卡），回到选关界面；编辑器内容清空 */
+  /* ★ 退出并保存作答进度（社区关卡），回到导入前的编辑器界面 */
   function exitSave() {
     if (typeof Library !== 'undefined' && Library.saveDraft) {
       Library.saveDraft(path, viewedAnswer);
     }
-    if (typeof Library !== 'undefined' && Library.openCommunityTab) {
+    if (typeof Library !== 'undefined') {
       App.switchMode('editor');                 // 停止游玩并清理玩家状态
-      if (typeof Editor !== 'undefined') Editor.newLevel();   // 清空编辑器内容
-      Library.openCommunityTab();               // 回到选关界面（社区列表）
-      App.toast('⏏ 进度已保存，可随时回来继续');
+      if (typeof Editor !== 'undefined' && Library.restoreEditorAfterExit) {
+        Library.restoreEditorAfterExit();       // ★ 还原进入关卡前的编辑器内容
+      }
+      if (typeof App !== 'undefined' && App.closeModal) App.closeModal('modal-library');   // 确保弹窗关闭
+      App.toast('⏏ 进度已保存，已回到编辑器');
     } else {
       App.switchMode('editor');
       App.toast('⏏ 进度已保存');
@@ -3037,7 +3056,18 @@ const Library = (function () {
   function setCurrentCommunity(id) {
     currentCommunity = id ? { id } : null;
   }
+  function getCurrentCommunity() { return currentCommunity; }
 
+  /* ★ 已看答案记录（本机持久化，用于「已看答案」筛选） */
+  const VIEWED_KEY = 'path-game:viewed';
+  function viewedMap() {
+    try { return JSON.parse(localStorage.getItem(VIEWED_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function markViewed(levelId) {
+    if (!levelId) return;
+    const m = viewedMap();
+    if (!m[levelId]) { m[levelId] = Date.now(); localStorage.setItem(VIEWED_KEY, JSON.stringify(m)); }
+  }
   /* 作答进度草稿（按社区关卡 id 保存，退出试玩时用） */
   function draftKey() {
     return currentCommunity ? ('path-game:player-draft:' + currentCommunity.id) : '';
@@ -3127,8 +3157,47 @@ const Library = (function () {
     return { avg: +(top5.reduce((s, x) => s + x, 0) / top5.length).toFixed(1), count: top5.length };
   }
 
+  /* ★ 玩家实力排行：每个玩家 = 完成过的、被评级的最难 5 关平均难度（自己关卡不计） */
+  function skillRanking(levels) {
+    const list = [];
+    const byName = {};
+    (levels || []).forEach(lv => {
+      if (lv.rating == null) return;
+      ((lv.completions || [])).forEach(c => {
+        if (!c || !c.key) return;
+        if (String(c.key) === String(lv.ownerKey)) return;   // 作者不计自己关卡
+        const name = String(c.name || '匿名');
+        const k = String(c.key);
+        const p = byName[k] || (byName[k] = { key: k, name, ratings: [] });
+        p.ratings.push(Number(lv.rating) || 0);
+      });
+    });
+    Object.keys(byName).forEach(k => {
+      const p = byName[k];
+      const top = p.ratings.sort((a, b) => b - a).slice(0, 5);
+      list.push({ name: p.name, avg: +(top.reduce((s, x) => s + x, 0) / top.length).toFixed(1), count: top.length });
+    });
+    list.sort((a, b) => b.avg - a.avg || b.count - a.count);
+    return list;
+  }
+
+  /* ★ 社区关卡载入前快照编辑器，退出后还原（回到导入前界面） */
+  let editorSnapshot = null;
+  function snapshotEditorOnLoad() {
+    if (typeof Editor !== 'undefined' && Editor.getLevel) {
+      try { editorSnapshot = Editor.getLevel().toJSON(); } catch (e) { editorSnapshot = null; }
+    }
+  }
+  function restoreEditorAfterExit() {
+    if (editorSnapshot && typeof Editor !== 'undefined' && Editor.loadLevelData) {
+      try { Editor.loadLevelData(editorSnapshot, { unlocked: true }); } catch (e) { /* 忽略 */ }
+    }
+    editorSnapshot = null;
+  }
+
   /* 管理员（有 Token 者）：设置精选评级 / 难度评级 */
   async function adminSetLevel(id, patch) {
+    if (!isAdminUser()) throw new Error('仅开发者可设置精选/评级');
     if (isGitee() === false && storeMode() !== 'repo') throw new Error('当前存储不支持评级');
     const data = await readData();
     const lv = (data.levels || []).find(x => x.id === id);
@@ -3143,7 +3212,17 @@ const Library = (function () {
     return lv;
   }
 
-  function isAdminUser() { return !!devKey(); }
+  function isAdminUser() { return !!devKey(); }   // 本地开发者开关（由账号绑定后置位）
+  /* ★ 开发者绑定账号：当前登录用户是否在 users.json 的 devs 列表 */
+  async function isDevUser() {
+    const me = currentUser();
+    if (!me) return false;
+    try {
+      const data = await usersRead();
+      return (data.devs || []).includes(me.name);
+    } catch (e) { return false; }
+  }
+  function setDevMode(on) { if (on) localStorage.setItem(DEV_KEY, '1'); else localStorage.removeItem(DEV_KEY); }
 
   async function repoWriteData(data) {
     const info = repoInfo();
@@ -3186,10 +3265,19 @@ const Library = (function () {
   function currentUser() {
     try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch (e) { return null; }
   }
+  /* 账号数据规范化：保证 users/devs 字段存在；从未设置过开发者时，第一个注册的账号自动成为开发者 */
+  function normalizeUsers(data) {
+    data = data || { users: [] };
+    if (!Array.isArray(data.users)) data.users = [];
+    if (!Array.isArray(data.devs) || !data.devs.length) {
+      data.devs = data.users.length ? [data.users[0].name] : [];
+    }
+    return data;
+  }
   async function usersRead() {
     if (isGitee()) {
       const data = await giteeReadFile(USERS_FILE);
-      return data === null ? { users: [] } : data;
+      return normalizeUsers(data === null ? { users: [] } : data);
     }
     const info = repoInfo();
     if (!info) throw new Error('社区未配置');
@@ -3198,21 +3286,21 @@ const Library = (function () {
     try {
       const base = 'https://api.github.com/repos/' + info.owner + '/' + info.repo + '/contents/' + USERS_FILE;
       const res = await apiWrite(base, { headers: { 'Authorization': 'token ' + token } });
-      if (res.status === 404) return { users: [] };
+      if (res.status === 404) return normalizeUsers({ users: [] });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const meta = await res.json();
       const data = JSON.parse(b64ToUtf8(meta.content));
       if (!data || !Array.isArray(data.users)) throw new Error('users.json 结构不对');
-      return data;
+      return normalizeUsers(data);
     } catch (e) {
       /* 回退：经 GitHub Pages 读（可能有约 1 分钟重建延迟） */
       const url = 'https://' + info.owner + '.github.io/' + USERS_FILE;
       const res2 = await apiFetch(url, { cache: 'no-store' });
-      if (res2.status === 404) return { users: [] };
+      if (res2.status === 404) return normalizeUsers({ users: [] });
       if (!res2.ok) throw new Error('读取账号数据失败（HTTP ' + res2.status + '）');
       const data = await res2.json().catch(() => null);
       if (!data || !Array.isArray(data.users)) throw new Error('users.json 结构不对');
-      return data;
+      return normalizeUsers(data);
     }
   }
   async function usersWrite(data) {
@@ -3251,9 +3339,25 @@ const Library = (function () {
     const salt = randomHex(8);
     const user = { name, salt, hash: hashPassword(pw, salt), key: uid(), at: Date.now() };
     data.users.push(user);
+    if (!data.devs || !data.devs.length) data.devs = [user.name];   // ★ 第一个注册的账号 = 开发者
     await usersWrite(data);
     localStorage.setItem(USER_KEY, JSON.stringify({ name: user.name, key: user.key }));
     return user;
+  }
+  /* ★ 修改密码：需初始密码验证，成功后更新加盐哈希 */
+  async function changePassword(oldPw, newPw) {
+    const me = currentUser();
+    if (!me) throw new Error('请先登录');
+    if (String(newPw || '').length < 4) throw new Error('新密码至少 4 位');
+    const data = await usersRead();
+    const u = (data.users || []).find(x => x.name === me.name);
+    if (!u) throw new Error('账号不存在');
+    if (hashPassword(String(oldPw || ''), u.salt) !== u.hash) throw new Error('初始密码不正确');
+    const salt = randomHex(8);
+    u.salt = salt;
+    u.hash = hashPassword(newPw, salt);
+    await usersWrite(data);
+    return true;
   }
   async function loginUser(name, pw) {
     name = String(name || '').trim();
@@ -3417,17 +3521,34 @@ const Library = (function () {
     const path = '/repos/' + info.owner + '/' + info.repo + '/contents/' + file;
     let sha = null;
     const getRes = await giteeApi(path);
-    if (getRes.ok) { const meta = await getRes.json(); sha = meta.sha; }
+    if (getRes.ok) {
+      const meta = await getRes.json();
+      if (!Array.isArray(meta)) sha = meta.sha;   // 文件存在 → 拿 sha（缺失=200+[] 不加 sha）
+    }
+    /* ★ 码云规矩：无 sha 用 POST 创建；有 sha 必须用 PUT 更新（POST 更新一律 400） */
     const body = { content: b64of(JSON.stringify(data)), message: 'Update ' + file };
     if (sha) body.sha = sha;
-    const res = await giteeApi(path, { method: 'POST', body: JSON.stringify(body) });
-    if (!res.ok) {
-      const msg = (await res.json().catch(() => ({}))).message || '';
-      if (res.status === 401) throw new Error('码云令牌无效（请确认私人令牌有效且勾选 projects 权限）');
-      if (res.status === 404) throw new Error('码云仓库不存在（请确认 GITEE_REPO 的用户名/仓库名正确）');
-      throw new Error('写入码云失败（HTTP ' + res.status + '）' + (msg ? '：' + msg : ''));
-    }
-    return res.json();
+    const doPut = (b, retried) => giteeApi(path, { method: b.sha ? 'PUT' : 'POST', body: JSON.stringify(b) })
+      .then(async res => {
+        if (!res.ok && res.status === 400 && b.sha && !retried) {
+          /* 并发冲突（sha 过期）→ 重取 sha 再试一次 */
+          const g2 = await giteeApi(path);
+          if (g2.ok) {
+            const m2 = await g2.json();
+            if (!Array.isArray(m2) && m2.sha && m2.sha !== b.sha) {
+              return doPut(Object.assign({}, b, { sha: m2.sha }), true);
+            }
+          }
+        }
+        if (!res.ok) {
+          const msg = (await res.json().catch(() => ({}))).message || '';
+          if (res.status === 401) throw new Error('码云令牌无效（请确认私人令牌有效且勾选 projects 权限）');
+          if (res.status === 404) throw new Error('码云仓库不存在（请确认 GITEE_REPO 的用户名/仓库名正确）');
+          throw new Error('写入码云失败（HTTP ' + res.status + '）' + (msg ? '：' + msg : ''));
+        }
+        return res.json();
+      });
+    return doPut(body, false);
   }
   async function giteeReadData() {
     const data = await giteeReadFile(REPO_FILE);
@@ -3563,6 +3684,7 @@ const Library = (function () {
   /* ---------- 载入到编辑器（本地=自己关卡直接解锁；社区=与导入同规则） ---------- */
   function loadIntoEditor(levelData, opts) {
     opts = opts || {};
+    snapshotEditorOnLoad();   // ★ 记住进入前的编辑器内容，退出后还原
     /* ★ 社区关卡：开发者评级优先显示为难度 */
     if (opts.communityRating != null && levelData && typeof levelData === 'object') {
       levelData = JSON.parse(JSON.stringify(levelData));
@@ -3862,22 +3984,24 @@ const Library = (function () {
     $('lib-tab-local').addEventListener('click', () => switchTab('local'));
     $('lib-tab-community').addEventListener('click', () => { switchTab('community'); renderCommunityList(); });
 
-    /* 开发者解锁：密码 = Token 内容 */
-    $('lib-dev').addEventListener('click', () => {
-      if (devKey()) {
+    /* ★ 开发者解锁：绑定账号（users.json 的 devs 列表；第一个注册的账号自动成为开发者） */
+    $('lib-dev').addEventListener('click', async () => {
+      const me = currentUser();
+      if (!me) { App.toast('请先登录后再进入开发者模式'); return; }
+      if (isAdminUser()) {
         const out = window.confirm('当前已进入开发者模式，退出开发者模式吗？');
-        if (out) { lockDev(); App.toast('已退出开发者模式'); }
+        if (out) { setDevMode(false); App.toast('已退出开发者模式'); }
       } else {
-        const pw = window.prompt('输入开发者密码（管理员提供）后，可给关卡设置精选/难度评级：');
-        if (pw === null) return;
-        if (unlockDev(pw)) {
-          App.toast('✅ 开发者模式已解锁');
+        const dev = await isDevUser();
+        if (dev) {
+          setDevMode(true);
+          App.toast('✅ 开发者模式已开启（账号：' + me.name + '）');
           renderCommunityList();
         } else {
-          App.toast('❌ 密码错误');
+          App.toast('❌ 当前账号不是开发者（第一个注册的账号自动成为开发者）');
         }
       }
-      $('lib-dev').textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
+      $('lib-dev').textContent = isAdminUser() ? '👑 开发者模式' : '🔒 开发者';
     });
 
     /* 账号：注册 / 登录 / 退出 */
@@ -3904,6 +4028,7 @@ const Library = (function () {
     $('lib-login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth('login'); });
     $('lib-logout').addEventListener('click', () => {
       logoutUser();
+      setDevMode(false);
       syncLoginUI();
       App.toast('已退出登录');
     });
@@ -4001,7 +4126,32 @@ const Library = (function () {
     $('lib-filter-status').addEventListener('change', e => setQuery({ status: e.target.value }));
     $('lib-filter-featured').addEventListener('change', e => setQuery({ featured: e.target.value }));
     $('lib-filter-rating').addEventListener('change', e => setQuery({ minRating: Number(e.target.value) || 0 }));
-    $('lib-refresh').addEventListener('click', renderCommunityList);
+    $('lib-refresh').addEventListener('click', () => { backToList(); renderCommunityList(); });
+    const rankBtn = $('lib-rank');
+    if (rankBtn) rankBtn.addEventListener('click', () => {
+      if ($('lib-rank-box') && !$('lib-rank-box').classList.contains('hidden')) { backToList(); return; }
+      renderRanking();
+    });
+
+    /* ★ 修改密码 */
+    const chpwBtn = $('lib-changepw-btn');
+    if (chpwBtn) chpwBtn.addEventListener('click', () => {
+      const panel = $('lib-changepw');
+      if (panel) panel.classList.toggle('hidden');
+    });
+    const chpwOk = $('lib-changepw-ok');
+    if (chpwOk) chpwOk.addEventListener('click', async () => {
+      const oldPw = $('lib-changepw-old').value;
+      const newPw = $('lib-changepw-new').value;
+      try {
+        await changePassword(oldPw, newPw);
+        $('lib-changepw-old').value = '';
+        $('lib-changepw-new').value = '';
+        App.toast('✅ 密码已修改');
+      } catch (e) {
+        App.toast('❌ ' + e.message);
+      }
+    });
     $('lib-upload').addEventListener('click', async () => {
       const lv = Editor.getLevel();
       lv.name = $('in-name').value.trim() || lv.name;
@@ -4023,9 +4173,10 @@ const Library = (function () {
     giteeInfo, giteeToken, giteeReadData, giteeWriteData, isGitee, setGitee,
     devKey, unlockDev, lockDev, toggleLike, bumpPlays, myLikedIds,
     saveDraft, getDraft, clearDraft,
-    setCurrentCommunity, recordCompletion, onWin, openCommunityTab,
+    setCurrentCommunity, getCurrentCommunity, recordCompletion, onWin, openCommunityTab,
     currentUser, registerUser, loginUser, logoutUser,
-    levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser,
+    levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser, isDevUser, setDevMode,
+    changePassword, markViewed, viewedMap, skillRanking, snapshotEditorOnLoad, restoreEditorAfterExit,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
