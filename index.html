@@ -312,6 +312,11 @@ select {
 .tab-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 600; }
 .lib-pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .lib-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lib-actions input[type="number"], .lib-rating-range input[type="number"] {
+  width: 64px; padding: 6px 8px; border: 1px solid #cfd8dc; border-radius: 8px;
+  font-size: 13px; font-family: inherit;
+}
+.lib-rating-range { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: #546e7a; }
 .lib-actions input[type="text"] {
   flex: 1 1 220px;
   min-width: 160px;
@@ -654,6 +659,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
             <span id="lib-user-name" class="lib-status"></span>
             <button id="lib-logout" class="act">退出登录</button>
             <button id="lib-changepw-btn" class="act">🔑 修改密码</button>
+            <button id="lib-delete-account" class="act" style="color:#c62828">🗑 注销账号</button>
             <span class="lib-status">🌐 共享社区（码云）</span>
             <button id="lib-dev" class="act">🔒 开发者</button>
           </div>
@@ -687,12 +693,11 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
               <option value="S">精选 S</option>
               <option value="A">精选 A</option>
             </select>
-            <select id="lib-filter-rating">
-              <option value="0">难度：全部</option>
-              <option value="5">难度 ≥ 5</option>
-              <option value="10">难度 ≥ 10</option>
-              <option value="15">难度 ≥ 15</option>
-            </select>
+            <span class="lib-rating-range">难度
+              <input id="lib-filter-rating-min" type="number" min="0" max="999" step="0.1" placeholder="最低" title="最低难度（留空不限）">
+              ~
+              <input id="lib-filter-rating-max" type="number" min="0" max="999" step="0.1" placeholder="最高" title="最高难度（留空不限）">
+            </span>
           </div>
           <div class="lib-actions">
             <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
@@ -2619,6 +2624,13 @@ const Player = (function () {
       if (draft && Array.isArray(draft.path) && draft.path.length >= 1) {
         path = draft.path.map(p => [p[0], p[1]]);
         viewedAnswer = !!draft.viewed;
+        /* ★ 持久防作弊：本机记录过看过答案（即使草稿路径为空/被清）也视为看过 */
+        if (!viewedAnswer && typeof Library !== 'undefined' && Library.viewedMap && Library.getCurrentCommunity) {
+          try {
+            const cc = Library.getCurrentCommunity();
+            if (cc && cc.id && Library.viewedMap()[cc.id]) viewedAnswer = true;
+          } catch (e) { /* 忽略 */ }
+        }
         showAnswer = viewedAnswer;
         won = false;
         analysis = analyzePath(level, path);
@@ -2801,6 +2813,8 @@ const Player = (function () {
       App.toast('这关还没有官方答案');
       return;
     }
+    /* ★ 二次确认：防止解题中途误触剧透 */
+    if (!window.confirm('👁 查看答案后将不能记录本关成绩（排行榜/实力不计入）。确定查看吗？')) return;
     showAnswer = true;
     viewedAnswer = true;
     if (typeof Library !== 'undefined' && Library.markViewed) {
@@ -3068,6 +3082,16 @@ const Library = (function () {
     const m = viewedMap();
     if (!m[levelId]) { m[levelId] = Date.now(); localStorage.setItem(VIEWED_KEY, JSON.stringify(m)); }
   }
+  /* ★ 进过编辑器标记（本机持久化：进过编辑器/看过答案 → 通关不计成绩） */
+  const EDITED_KEY = 'path-game:edited';
+  function editedMap() {
+    try { return JSON.parse(localStorage.getItem(EDITED_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function markEdited(levelId) {
+    if (!levelId) return;
+    const m = editedMap();
+    if (!m[levelId]) { m[levelId] = Date.now(); localStorage.setItem(EDITED_KEY, JSON.stringify(m)); }
+  }
   /* 作答进度草稿（按社区关卡 id 保存，退出试玩时用） */
   function draftKey() {
     return currentCommunity ? ('path-game:player-draft:' + currentCommunity.id) : '';
@@ -3102,8 +3126,13 @@ const Library = (function () {
   }
   function onWin(viewedAnswer) {
     if (!currentCommunity) return;
-    if (viewedAnswer) { App.toast('👁 查看过答案，本次通关不计入排行榜'); return; }
-    recordCompletion(currentCommunity.id, authorName())
+    const cid = currentCommunity.id;
+    /* ★ 看过答案 / 进过编辑器 / 本局看过 → 一律不计成绩（持久标记防重进绕过） */
+    if (viewedAnswer || viewedMap()[cid] || editedMap()[cid]) {
+      App.toast('👁 查看过答案或进入过编辑器，本次通关不计入排行榜');
+      return;
+    }
+    recordCompletion(cid, authorName())
       .then(() => App.toast('🏆 已记录完成，看看这关的排行榜！'))
       .catch(() => { /* 静默 */ });
   }
@@ -3122,15 +3151,20 @@ const Library = (function () {
     return i < 0;
   }
 
-  /* 游玩次数 +1（载入社区关卡时） */
+  /* 游玩次数：每个账号只记一次（playedBy 记录账号 key，plays=去重人数） */
   async function bumpPlays(levelId) {
     if (!levelId) return;
     try {
       const data = await readData();
       const lv = (data.levels || []).find(x => x.id === levelId);
       if (!lv) return;
-      lv.plays = (Number(lv.plays) || 0) + 1;
-      await writeData(data);
+      const myKey = ownerKey();
+      lv.playedBy = lv.playedBy || [];
+      if (!lv.playedBy.includes(myKey)) {   // ★ 重复游玩不重复计数
+        lv.playedBy.push(myKey);
+        lv.plays = lv.playedBy.length;
+        await writeData(data);
+      }
     } catch (e) { /* 静默 */ }
   }
 
@@ -3154,7 +3188,8 @@ const Library = (function () {
     if (!ratings.length) return null;
     ratings.sort((a, b) => b - a);
     const top5 = ratings.slice(0, 5);
-    return { avg: +(top5.reduce((s, x) => s + x, 0) / top5.length).toFixed(1), count: top5.length };
+    /* ★ 最难 5 关平均：缺的按 0 记（如只完成 1 关 15.7 → 15.7/5=3.1） */
+    return { avg: +(top5.reduce((s, x) => s + x, 0) / 5).toFixed(1), count: top5.length };
   }
 
   /* ★ 玩家实力排行：每个玩家 = 完成过的、被评级的最难 5 关平均难度（自己关卡不计） */
@@ -3175,7 +3210,7 @@ const Library = (function () {
     Object.keys(byName).forEach(k => {
       const p = byName[k];
       const top = p.ratings.sort((a, b) => b - a).slice(0, 5);
-      list.push({ name: p.name, avg: +(top.reduce((s, x) => s + x, 0) / top.length).toFixed(1), count: top.length });
+      list.push({ name: p.name, avg: +(top.reduce((s, x) => s + x, 0) / 5).toFixed(1), count: top.length });
     });
     list.sort((a, b) => b.avg - a.avg || b.count - a.count);
     return list;
@@ -3357,6 +3392,19 @@ const Library = (function () {
     u.salt = salt;
     u.hash = hashPassword(newPw, salt);
     await usersWrite(data);
+    return true;
+  }
+  /* ★ 注销账号：删除账号（含开发者身份），保留社区关卡内容 */
+  async function deleteAccount() {
+    const me = currentUser();
+    if (!me) throw new Error('请先登录');
+    const data = await usersRead();
+    data.users = (data.users || []).filter(u => u.name !== me.name);
+    data.devs = (data.devs || []).filter(n => n !== me.name);
+    await usersWrite(data);
+    logoutUser();
+    setDevMode(false);
+    localStorage.removeItem(USER_KEY);
     return true;
   }
   async function loginUser(name, pw) {
@@ -3705,9 +3753,11 @@ const Library = (function () {
       App.switchMode('player');
       App.toast('已载入：「' + lv.name + '」，直接试玩（返回编辑可继续改）');
     } else if (lv.hasPassword()) {
+      if (opts.communityId) markEdited(opts.communityId);   // ★ 进过编辑器 → 不计成绩
       App.toast('该关卡没有有效答案路径且设有密码，请输入密码进入编辑器补画');
       App.openModal('modal-pass');
     } else {
+      if (opts.communityId) markEdited(opts.communityId);   // ★ 进过编辑器 → 不计成绩
       App.switchMode('editor');
       App.toast('已载入草稿：「' + lv.name + '」（无有效答案，可在编辑器补画）');
     }
@@ -3770,7 +3820,7 @@ const Library = (function () {
   }
 
   /* 搜索/筛选条件 */
-  let communityQuery = { q: '', featured: '', minRating: 0 };
+  let communityQuery = { q: '', featured: '', minRating: 0, maxRating: 0 };
   let searchTimer = null;
   function setQuery(partial) {
     communityQuery = Object.assign(communityQuery, partial);
@@ -3914,6 +3964,7 @@ const Library = (function () {
     if (currentUser()) renderCommunityList();
   }
 
+  let lastLevels = [];   // ★ 最近一次拉取的完整关卡数据（供实力排行用）
   async function renderCommunityList() {
     const box = $('lib-community-list');
     if (!currentUser()) {
@@ -3925,14 +3976,18 @@ const Library = (function () {
     try {
       const res = await communityList();
       const all = res.levels || [];
+      lastLevels = all;   // ★ 供实力排行使用
       const q = communityQuery.q.trim().toLowerCase();
       const minR = Number(communityQuery.minRating) || 0;
+      const maxR = Number(communityQuery.maxRating) || 0;
       const myKey = ownerKey();
       const likedIds = myLikedIds(all);
       const list = communitySort(all, communityQuery.sort).filter(it => {
         if (q && !String(it.name || '').toLowerCase().includes(q)) return false;
         if (communityQuery.featured && it.featured !== communityQuery.featured) return false;
-        if (minR > 0 && !(Number(it.rating) >= minR)) return false;
+        const lvR = Number(it.rating) || 0;
+        if (minR > 0 && !(lvR >= minR)) return false;
+        if (maxR > 0 && !(lvR <= maxR)) return false;
         const myDone = (it.completions || []).some(c => c.key === myKey);
         switch (communityQuery.status) {
           case 'done': if (!myDone) return false; break;
@@ -3962,6 +4017,41 @@ const Library = (function () {
       box.innerHTML = '';
       box.appendChild(el('div', 'lib-empty', '⚠ ' + netHint('获取列表失败', e)));
     }
+  }
+
+  /* ★ 玩家实力排行视图 */
+  function renderRanking() {
+    const box = $('lib-rank-box');
+    if (!box) return;
+    const listBox = $('lib-community-list');
+    if (listBox) listBox.classList.add('hidden');
+    box.classList.remove('hidden');
+    box.innerHTML = '';
+    const rank = skillRanking(lastLevels);
+    if (!rank.length) {
+      box.appendChild(el('div', 'lib-empty', '还没有实力数据：需要有玩家完成被开发者评级（难度）的关卡。'));
+      return;
+    }
+    const head = el('div', 'rank-row rank-head', '');
+    head.appendChild(el('span', 'rank-no', '名次'));
+    head.appendChild(el('span', 'rank-name', '玩家'));
+    head.appendChild(el('span', 'rank-avg', '实力'));
+    box.appendChild(head);
+    rank.forEach((p, i) => {
+      const row = el('div', 'rank-row' + (i < 3 ? ' rank-top' + (i + 1) : ''), '');
+      row.appendChild(el('span', 'rank-no', i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : String(i + 1)))));
+      const nm = el('span', 'rank-name', p.name);
+      if (currentUser() && p.name === currentUser().name) nm.className += ' rank-me';
+      row.appendChild(nm);
+      row.appendChild(el('span', 'rank-avg', '💪 ' + p.avg + '（' + p.count + '关）'));
+      box.appendChild(row);
+    });
+  }
+  function backToList() {
+    const box = $('lib-rank-box');
+    if (box) box.classList.add('hidden');
+    const listBox = $('lib-community-list');
+    if (listBox) listBox.classList.remove('hidden');
   }
 
   function switchTab(tab) {
@@ -4125,7 +4215,8 @@ const Library = (function () {
     $('lib-sort').addEventListener('change', e => setQuery({ sort: e.target.value }));
     $('lib-filter-status').addEventListener('change', e => setQuery({ status: e.target.value }));
     $('lib-filter-featured').addEventListener('change', e => setQuery({ featured: e.target.value }));
-    $('lib-filter-rating').addEventListener('change', e => setQuery({ minRating: Number(e.target.value) || 0 }));
+    $('lib-filter-rating-min').addEventListener('input', e => setQuery({ minRating: Number(e.target.value) || 0 }));
+    $('lib-filter-rating-max').addEventListener('input', e => setQuery({ maxRating: Number(e.target.value) || 0 }));
     $('lib-refresh').addEventListener('click', () => { backToList(); renderCommunityList(); });
     const rankBtn = $('lib-rank');
     if (rankBtn) rankBtn.addEventListener('click', () => {
@@ -4152,6 +4243,21 @@ const Library = (function () {
         App.toast('❌ ' + e.message);
       }
     });
+    /* ★ 注销账号 */
+    const delBtn = $('lib-delete-account');
+    if (delBtn) delBtn.addEventListener('click', async () => {
+      const me = currentUser();
+      if (!me) return;
+      if (!window.confirm('确定注销账号「' + me.name + '」吗？此操作不可恢复，该账号的社区记录（点赞/完成/游玩）将一并消失（已上传的关卡内容保留）。')) return;
+      try {
+        await deleteAccount();
+        App.toast('🗑 账号已注销');
+        syncLoginUI();
+        renderLocalList();
+      } catch (e) {
+        App.toast('❌ ' + e.message);
+      }
+    });
     $('lib-upload').addEventListener('click', async () => {
       const lv = Editor.getLevel();
       lv.name = $('in-name').value.trim() || lv.name;
@@ -4166,7 +4272,7 @@ const Library = (function () {
   }
   return {
     init, localSave, localRemove, localGet, localAll,
-    serverUrl, setServerUrl, authorName, setAuthorName, ownerKey,
+    serverUrl, setServerUrl, authorName, setAuthorName, ownerKey, renderCommunityList,
     storeMode, setStoreMode,
     gistUrl, setGist, parseGistId, gistRawUrl, gistReadData, gistWriteData,
     repoUrl, repoToken, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData, repoCheck,
@@ -4176,7 +4282,8 @@ const Library = (function () {
     setCurrentCommunity, getCurrentCommunity, recordCompletion, onWin, openCommunityTab,
     currentUser, registerUser, loginUser, logoutUser,
     levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser, isDevUser, setDevMode,
-    changePassword, markViewed, viewedMap, skillRanking, snapshotEditorOnLoad, restoreEditorAfterExit,
+    changePassword, deleteAccount, markViewed, viewedMap, markEdited, editedMap, skillRanking,
+    snapshotEditorOnLoad, restoreEditorAfterExit,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
@@ -4255,6 +4362,11 @@ const App = (function () {
       openModal('modal-pass');
       setTimeout(() => { try { $('pass-input').focus(); } catch (err) { /* 忽略 */ } }, 60);
       return;
+    }
+    if (m === 'editor' && typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity()) {
+      /* ★ 二次确认：社区关卡进入编辑器 = 可偷看答案，通关将不计成绩 */
+      if (!window.confirm('进入编辑器后将不能记录本关成绩（排行榜/实力不计入）。确定进入吗？')) return;
+      if (Library.markEdited) Library.markEdited(Library.getCurrentCommunity().id);
     }
     if (m === 'player') {
       const problem = levelPlayable(Editor.getLevel());
