@@ -2820,6 +2820,33 @@ const Library = (function () {
     return data;
   }
   /* 写入：通过 GitHub API 提交/更新仓库里的 levels.json */
+  /* 诊断：检查仓库模式配置（测试连接用） */
+  async function repoCheck() {
+    const info = repoInfo();
+    const token = repoToken();
+    if (!info) throw new Error('请先填写仓库地址');
+    if (!token) throw new Error('请先填写 GitHub Token');
+    /* 1. Token 本身是否有效 */
+    const u = await apiFetch('https://api.github.com/user', { headers: { 'Authorization': 'token ' + token } });
+    if (u.status === 401) throw new Error('Token 无效或已过期，请到 https://github.com/settings/tokens 重新生成');
+    if (!u.ok) throw new Error('Token 校验失败（HTTP ' + u.status + '）');
+    const scopes = (u.headers.get('x-oauth-scopes') || '').split(',').map(s => s.trim()).filter(Boolean);
+    const user = await u.json().catch(() => null);
+    /* 2. 是否能访问仓库 */
+    const r = await apiFetch('https://api.github.com/repos/' + info.owner + '/' + info.repo,
+      { headers: { 'Authorization': 'token ' + token } });
+    if (r.status === 404) {
+      throw new Error('仓库不存在或 Token 无权访问该仓库。你的 Token 是经典版吗？经典版需勾选 repo；若建的是 Fine-grained，需要在权限里给该仓库 Contents 读写。当前 scopes：' + (scopes.join(', ') || '无（可能是 Fine-grained Token）'));
+    }
+    if (!r.ok) throw new Error('仓库校验失败（HTTP ' + r.status + '）');
+    const repo = await r.json().catch(() => null);
+    const perm = (repo && repo.permissions) || {};
+    if (!perm.push) {
+      throw new Error('Token 对该仓库只有只读权限，需要写入权限（repo 或 Contents 读写）');
+    }
+    return { user: user ? user.login : '', scopes, repo: repo ? repo.full_name : '' };
+  }
+
   async function repoWriteData(data) {
     const info = repoInfo();
     const token = repoToken();
@@ -2845,7 +2872,9 @@ const Library = (function () {
     }, 15000);
     if (!res.ok) {
       if (res.status === 401) throw new Error('Token 无效（需要 repo 或 Contents 写权限）');
-      if (res.status === 404) throw new Error('仓库不存在或 Token 无权访问，请确认仓库地址正确');
+      if (res.status === 404) {
+        throw new Error('仓库不存在或 Token 无权访问。请确认：① 地址是 https://github.com/用户名/仓库名 ② Token 是经典版且勾选了 repo（Fine-grained 需给该仓库 Contents 读写）。可用「🧪 测试连接」诊断');
+      }
       throw new Error('写入失败（HTTP ' + res.status + '）');
     }
     return res.json();
@@ -3216,8 +3245,9 @@ const Library = (function () {
           const data = await gistReadData();
           App.toast('✅ Gist 连接正常！社区现有 ' + ((data.levels || []).length) + ' 个关卡');
         } else if (storeMode() === 'repo') {
+          const info = await repoCheck();
           const data = await repoReadData();
-          App.toast('✅ 仓库连接正常！社区现有 ' + ((data.levels || []).length) + ' 个关卡');
+          App.toast('✅ 仓库连接正常（账号 ' + (info.user || '?') + '，权限：' + (info.scopes.join(', ') || 'Contents') + '）！社区现有 ' + ((data.levels || []).length) + ' 个关卡');
         } else {
           const url = serverUrl();
           if (!url) throw new Error('请先填写并保存服务器地址');
@@ -3241,7 +3271,7 @@ const Library = (function () {
     serverUrl, setServerUrl, authorName, setAuthorName,
     storeMode, setStoreMode,
     gistUrl, setGist, parseGistId, gistRawUrl, gistReadData, gistWriteData,
-    repoUrl, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData,
+    repoUrl, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData, repoCheck,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
