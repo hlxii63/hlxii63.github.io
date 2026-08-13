@@ -349,7 +349,18 @@ button.danger:hover { background: #fbe3e1; }
 button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 .lib-empty { padding: 18px 12px; text-align: center; color: #90a4ae; font-size: 13px; }
 
-/* ---------- 社区：徽章 / 排行榜 / 管理 / 搜索 ---------- */
+/* ---------- 社区：登录注册 / 徽章 / 排行榜 / 管理 / 搜索 ---------- */
+.lib-login { display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
+.lib-login-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lib-login-row input[type="text"], .lib-login-row input[type="password"] {
+  flex: 1 1 150px;
+  min-width: 120px;
+  padding: 8px 10px;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
 .lib-status { font-size: 13px; color: #1e88e5; font-weight: 600; }
 .lib-skill { font-size: 12.5px; color: #e65100; font-weight: 600; }
 .lib-search-row { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -623,49 +634,64 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 
       <!-- 社区 -->
       <div id="lib-community-pane" class="lib-pane hidden">
-        <div class="lib-actions">
-          <span class="lib-status">🌐 已连接共享社区（hlxii63.github.io）</span>
-          <button id="lib-dev" class="act">🔒 开发者</button>
+        <!-- 未登录：注册/登录 -->
+        <div id="lib-login" class="lib-login">
+          <p class="modal-tip">使用社区（上传/点赞/排行榜/精选）需要账号：只需用户名和密码，密码以加盐哈希加密存储（不存明文）。</p>
+          <div class="lib-login-row">
+            <input id="lib-login-name" type="text" maxlength="20" placeholder="用户名（中文/字母/数字/下划线）" autocomplete="off">
+            <input id="lib-login-pw" type="password" maxlength="60" placeholder="密码（至少 4 位）" autocomplete="off">
+          </div>
+          <div class="lib-login-row">
+            <button id="lib-login-btn" class="act primary">登录</button>
+            <button id="lib-register-btn" class="act">注册</button>
+          </div>
         </div>
-        <div class="lib-actions">
-          <input id="lib-search" type="search" placeholder="🔍 搜索关卡名称…" spellcheck="false">
-          <select id="lib-sort">
-            <option value="">排序：精选优先</option>
-            <option value="difficulty">排序：难度高→低</option>
-            <option value="time">排序：最新上传</option>
-            <option value="plays">排序：游玩最多</option>
-            <option value="likes">排序：点赞最多</option>
-          </select>
-          <select id="lib-filter-status">
-            <option value="">全部关卡</option>
-            <option value="done">已完成</option>
-            <option value="undone">未完成</option>
-            <option value="mylevel">我的关卡</option>
-            <option value="mylikes">我的点赞</option>
-          </select>
-          <select id="lib-filter-featured">
-            <option value="">精选：全部</option>
-            <option value="V">精选 V</option>
-            <option value="S">精选 S</option>
-            <option value="A">精选 A</option>
-          </select>
-          <select id="lib-filter-rating">
-            <option value="0">难度：全部</option>
-            <option value="5">难度 ≥ 5</option>
-            <option value="10">难度 ≥ 10</option>
-            <option value="15">难度 ≥ 15</option>
-          </select>
+
+        <!-- 已登录：社区主体 -->
+        <div id="lib-community-body" class="hidden">
+          <div class="lib-actions" id="lib-userbar">
+            <span id="lib-user-name" class="lib-status"></span>
+            <button id="lib-logout" class="act">退出登录</button>
+            <span class="lib-status">🌐 共享社区（hlxii63.github.io）</span>
+            <button id="lib-dev" class="act">🔒 开发者</button>
+          </div>
+          <div class="lib-actions">
+            <input id="lib-search" type="search" placeholder="🔍 搜索关卡名称…" spellcheck="false">
+            <select id="lib-sort">
+              <option value="">排序：精选优先</option>
+              <option value="difficulty">排序：难度高→低</option>
+              <option value="time">排序：最新上传</option>
+              <option value="plays">排序：游玩最多</option>
+              <option value="likes">排序：点赞最多</option>
+            </select>
+            <select id="lib-filter-status">
+              <option value="">全部关卡</option>
+              <option value="done">已完成</option>
+              <option value="undone">未完成</option>
+              <option value="mylevel">我的关卡</option>
+              <option value="mylikes">我的点赞</option>
+            </select>
+            <select id="lib-filter-featured">
+              <option value="">精选：全部</option>
+              <option value="V">精选 V</option>
+              <option value="S">精选 S</option>
+              <option value="A">精选 A</option>
+            </select>
+            <select id="lib-filter-rating">
+              <option value="0">难度：全部</option>
+              <option value="5">难度 ≥ 5</option>
+              <option value="10">难度 ≥ 10</option>
+              <option value="15">难度 ≥ 15</option>
+            </select>
+          </div>
+          <div class="lib-actions">
+            <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
+            <button id="lib-refresh" class="act">🔄 刷新</button>
+            <span id="lib-skill" class="lib-skill"></span>
+          </div>
+          <p class="modal-tip" id="lib-community-tip">通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；开发者输入密码后可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
+          <div id="lib-community-list" class="lib-list"></div>
         </div>
-        <div class="lib-actions">
-          <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
-          <button id="lib-refresh" class="act">🔄 刷新</button>
-          <label class="field">昵称
-            <input id="lib-author" type="text" maxlength="20" placeholder="匿名">
-          </label>
-          <span id="lib-skill" class="lib-skill"></span>
-        </div>
-        <p class="modal-tip" id="lib-community-tip">所有玩家共用同一个社区（hlxii63.github.io）。通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；开发者输入密码后可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
-        <div id="lib-community-list" class="lib-list"></div>
       </div>
 
       <div class="modal-btns">
@@ -2769,13 +2795,20 @@ const Player = (function () {
     App.toast('👁 已显示答案，本次通关不计入排行榜和实力');
   }
 
-  /* ★ 退出并保存作答进度（社区关卡），下次载入自动恢复 */
+  /* ★ 退出并保存作答进度（社区关卡），回到选关界面；编辑器内容清空 */
   function exitSave() {
     if (typeof Library !== 'undefined' && Library.saveDraft) {
       Library.saveDraft(path, viewedAnswer);
-      App.toast('⏏ 作答进度已保存，随时回来继续');
     }
-    App.switchMode('editor');
+    if (typeof Library !== 'undefined' && Library.openCommunityTab) {
+      App.switchMode('editor');                 // 停止游玩并清理玩家状态
+      if (typeof Editor !== 'undefined') Editor.newLevel();   // 清空编辑器内容
+      Library.openCommunityTab();               // 回到选关界面（社区列表）
+      App.toast('⏏ 进度已保存，可随时回来继续');
+    } else {
+      App.switchMode('editor');
+      App.toast('⏏ 进度已保存');
+    }
   }
 
   /* ★ 新增：离开试玩时清理状态（清空玩家路径、隐藏通关浮层）。
@@ -2817,14 +2850,6 @@ const Library = (function () {
   function $(id) { return document.getElementById(id); }
   function uid() {
     return 'lv_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
-  }
-  function ownerKey() {
-    let k = localStorage.getItem(OWNER_KEY);
-    if (!k) { k = uid() + uid(); localStorage.setItem(OWNER_KEY, k); }
-    return k;
-  }
-  function authorName() {
-    return (localStorage.getItem(AUTHOR_KEY) || '匿名').slice(0, 20);
   }
   function setAuthorName(n) {
     localStorage.setItem(AUTHOR_KEY, String(n || '匿名').slice(0, 20));
@@ -3153,6 +3178,83 @@ const Library = (function () {
     return res.json();
   }
 
+  /* ---------- 账号系统：用户名+密码（密码加盐 SHA-256 哈希存储于 users.json） ---------- */
+  const USER_KEY = 'path-game:user';
+  const USERS_FILE = 'users.json';
+
+  function currentUser() {
+    try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch (e) { return null; }
+  }
+  async function usersRead() {
+    const info = repoInfo();
+    if (!info) throw new Error('社区未配置');
+    const url = 'https://' + info.owner + '.github.io/' + USERS_FILE;
+    const res = await apiFetch(url, { cache: 'no-store' });
+    if (res.status === 404) return { users: [] };
+    if (!res.ok) throw new Error('读取账号数据失败（HTTP ' + res.status + '）');
+    const data = await res.json().catch(() => null);
+    if (!data || !Array.isArray(data.users)) throw new Error('users.json 结构不对');
+    return data;
+  }
+  async function usersWrite(data) {
+    const info = repoInfo();
+    const token = repoToken();
+    const base = 'https://api.github.com/repos/' + info.owner + '/' + info.repo + '/contents/' + USERS_FILE;
+    let sha = null;
+    const getRes = await apiFetch(base, { headers: { 'Authorization': 'token ' + token } });
+    if (getRes.ok) { const meta = await getRes.json(); sha = meta.sha; }
+    let bin = '';
+    const bytes = utf8Encode(JSON.stringify(data));
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const body = { message: 'Update users.json', content: btoa(bin) };
+    if (sha) body.sha = sha;
+    const res = await apiFetch(base, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + token },
+      body: JSON.stringify(body)
+    }, 15000);
+    if (!res.ok) throw new Error('写入账号数据失败（HTTP ' + res.status + '）');
+    return res.json();
+  }
+  async function registerUser(name, pw) {
+    name = String(name || '').trim();
+    pw = String(pw || '');
+    if (!name) throw new Error('请输入用户名');
+    if (!/^[\u4e00-\u9fa5A-Za-z0-9_]{1,20}$/.test(name)) throw new Error('用户名限 20 个中文/字母/数字/下划线');
+    if (pw.length < 4) throw new Error('密码至少 4 位');
+    const data = await usersRead();
+    if (data.users.some(u => u.name === name)) throw new Error('该用户名已被注册');
+    const salt = randomHex(8);
+    const user = { name, salt, hash: hashPassword(pw, salt), key: uid(), at: Date.now() };
+    data.users.push(user);
+    await usersWrite(data);
+    localStorage.setItem(USER_KEY, JSON.stringify({ name: user.name, key: user.key }));
+    return user;
+  }
+  async function loginUser(name, pw) {
+    name = String(name || '').trim();
+    const data = await usersRead();
+    const u = data.users.find(x => x.name === name);
+    if (!u) throw new Error('用户名不存在');
+    if (hashPassword(String(pw || ''), u.salt) !== u.hash) throw new Error('密码错误');
+    localStorage.setItem(USER_KEY, JSON.stringify({ name: u.name, key: u.key }));
+    return u;
+  }
+  function logoutUser() { localStorage.removeItem(USER_KEY); }
+
+  function ownerKey() {
+    const u = currentUser();
+    if (u && u.key) return u.key;   // 登录后以账号身份参与社区
+    let k = localStorage.getItem(OWNER_KEY);
+    if (!k) { k = uid() + uid(); localStorage.setItem(OWNER_KEY, k); }
+    return k;
+  }
+  function authorName() {
+    const u = currentUser();
+    if (u && u.name) return u.name;
+    return (localStorage.getItem(AUTHOR_KEY) || '匿名').slice(0, 20);
+  }
+
   /* ---------- 本地存档 ---------- */
   function localAll() {
     try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
@@ -3318,6 +3420,11 @@ const Library = (function () {
   /* ---------- 载入到编辑器（本地=自己关卡直接解锁；社区=与导入同规则） ---------- */
   function loadIntoEditor(levelData, opts) {
     opts = opts || {};
+    /* ★ 社区关卡：开发者评级优先显示为难度 */
+    if (opts.communityRating != null && levelData && typeof levelData === 'object') {
+      levelData = JSON.parse(JSON.stringify(levelData));
+      levelData.difficulty = Math.min(999, Math.max(0, Math.round(Number(opts.communityRating) * 10) / 10));
+    }
     const r = Editor.loadLevelData(levelData, { unlocked: opts.unlocked });
     if (!r.ok) {
       App.toast('载入失败：' + (r.errors.slice(0, 2).join('；') || '数据无效'));
@@ -3486,7 +3593,7 @@ const Library = (function () {
     mkBtn('载入', 'primary', async () => {
       try {
         const full = await communityGet(it.id);
-        loadIntoEditor(full.level.data, { hideSol: true, communityId: it.id });
+        loadIntoEditor(full.level.data, { hideSol: true, communityId: it.id, communityRating: it.rating });
       } catch (e) { App.toast(e.message); }
     });
     const boardPanel = leaderboardPanel(it);
@@ -3517,8 +3624,37 @@ const Library = (function () {
     return row;
   }
 
+  /* 登录状态 UI */
+  function syncLoginUI() {
+    const u = currentUser();
+    const logged = !!u;
+    $('lib-login').classList.toggle('hidden', logged);
+    $('lib-community-body').classList.toggle('hidden', !logged);
+    const userBar = $('lib-userbar');
+    if (userBar) {
+      userBar.classList.toggle('hidden', !logged);
+      if (logged) $('lib-user-name').textContent = '👤 ' + u.name;
+    }
+    if (logged) {
+      const dev = $('lib-dev');
+      if (dev) dev.textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
+    }
+  }
+
+  /* ★ 从试玩「退出」回到选关界面（社区列表） */
+  function openCommunityTab() {
+    switchTab('community');
+    syncLoginUI();
+    App.openModal('modal-library');
+    if (currentUser()) renderCommunityList();
+  }
+
   async function renderCommunityList() {
     const box = $('lib-community-list');
+    if (!currentUser()) {
+      syncLoginUI();
+      return;
+    }
     box.innerHTML = '';
     box.appendChild(el('div', 'lib-empty', '正在获取社区关卡…'));
     try {
@@ -3573,9 +3709,9 @@ const Library = (function () {
   function init() {
     /* 打开弹窗：同步昵称 + 本地列表（社区配置已内置，无需填写） */
     const openModal = () => {
-      $('lib-author').value = authorName();
       $('lib-dev').textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
       renderLocalList();
+      syncLoginUI();
       App.openModal('modal-library');
     };
     $('btn-library').addEventListener('click', openModal);
@@ -3601,6 +3737,34 @@ const Library = (function () {
       $('lib-dev').textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
     });
 
+    /* 账号：注册 / 登录 / 退出 */
+    const doAuth = async (mode) => {
+      const name = $('lib-login-name').value.trim();
+      const pw = $('lib-login-pw').value;
+      try {
+        if (mode === 'register') {
+          await registerUser(name, pw);
+          App.toast('✅ 注册成功，已自动登录：' + name);
+        } else {
+          await loginUser(name, pw);
+          App.toast('✅ 登录成功：' + name);
+        }
+        $('lib-login-pw').value = '';
+        syncLoginUI();
+        renderCommunityList();
+      } catch (e) {
+        App.toast('❌ ' + e.message);
+      }
+    };
+    $('lib-login-btn').addEventListener('click', () => doAuth('login'));
+    $('lib-register-btn').addEventListener('click', () => doAuth('register'));
+    $('lib-login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth('login'); });
+    $('lib-logout').addEventListener('click', () => {
+      logoutUser();
+      syncLoginUI();
+      App.toast('已退出登录');
+    });
+
     $('lib-save').addEventListener('click', () => {
       const lv = Editor.getLevel();
       lv.name = $('in-name').value.trim() || lv.name;
@@ -3623,7 +3787,6 @@ const Library = (function () {
     $('lib-filter-featured').addEventListener('change', e => setQuery({ featured: e.target.value }));
     $('lib-filter-rating').addEventListener('change', e => setQuery({ minRating: Number(e.target.value) || 0 }));
     $('lib-refresh').addEventListener('click', renderCommunityList);
-    $('lib-author').addEventListener('change', e => setAuthorName(e.target.value));
     $('lib-upload').addEventListener('click', async () => {
       const lv = Editor.getLevel();
       lv.name = $('in-name').value.trim() || lv.name;
@@ -3644,7 +3807,8 @@ const Library = (function () {
     repoUrl, repoToken, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData, repoCheck,
     devKey, unlockDev, lockDev, toggleLike, bumpPlays, myLikedIds,
     saveDraft, getDraft, clearDraft,
-    setCurrentCommunity, recordCompletion, onWin,
+    setCurrentCommunity, recordCompletion, onWin, openCommunityTab,
+    currentUser, registerUser, loginUser, logoutUser,
     levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
