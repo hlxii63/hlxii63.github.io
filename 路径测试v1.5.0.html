@@ -1,0 +1,3961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1f2d3d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>路径谜题 · 关卡编辑器与游玩</title>
+  <style>
+/* =========================================================
+ * 路径谜题 · 样式
+ * ========================================================= */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  height: 100dvh; /* 移动端浏览器工具栏伸缩时动态视口高度，保证底部状态栏可见 */
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  background: #eef1f5;
+  color: #263238;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- 顶栏 ---------- */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #1f2d3d, #263a4f);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  z-index: 10;
+}
+
+.brand { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
+.brand .sub { font-size: 12px; font-weight: 400; opacity: .7; margin-left: 6px; }
+
+.tabs { display: flex; gap: 6px; }
+.tab {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 20px;
+  background: rgba(255,255,255,.12);
+  color: #cfd8dc;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.tab.active { background: #4fc3f7; color: #10222e; font-weight: 700; }
+.tab:active { transform: scale(.96); }
+
+/* ---------- 面板 ---------- */
+.panel { flex: 0 0 auto; }
+.hidden { display: none !important; }
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  border-bottom: 1px solid #dde3ea;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  /* ★ 修复：小屏/横屏下第三排工具栏被挤出屏幕。
+   * 限制工具栏高度、内部可滚动，保证下方状态栏（当前工具）始终可见 */
+  max-height: 42vh;
+  max-height: 42dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+button {
+  font-family: inherit;
+  font-size: 13px;
+  border: 1px solid #cfd8dc;
+  background: #f7fafc;
+  color: #263238;
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  min-height: 36px;
+  transition: background .12s, border-color .12s, transform .05s;
+  touch-action: manipulation;
+}
+button:hover { background: #eef3f7; }
+button:active { transform: scale(.96); }
+
+button.primary {
+  background: #1a73e8;
+  border-color: #1a73e8;
+  color: #fff;
+  font-weight: 600;
+}
+button.primary:hover { background: #1765c9; }
+
+.tool.active {
+  background: #1a73e8;
+  border-color: #1a73e8;
+  color: #fff;
+  font-weight: 600;
+}
+.tool[data-tool="redEdge"].active { background: #e53935; border-color: #e53935; }
+.tool[data-tool="greenEdge"].active { background: #2e7d32; border-color: #2e7d32; }
+.tool[data-tool="solution"].active { background: #546e7a; border-color: #546e7a; }
+
+.modal-box input[type="password"] {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: #263238;
+}
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #546e7a;
+}
+.field input[type="text"], .field input[type="number"] {
+  width: 76px;
+  padding: 6px 8px;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #263238;
+}
+.field input[type="text"] { width: 120px; }
+.field.check { cursor: pointer; }
+.field.check input { width: auto; accent-color: #1a73e8; }
+
+select {
+  padding: 6px 8px;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #263238;
+}
+
+.levelname { font-size: 13px; color: #455a64; font-weight: 600; }
+
+/* ---------- 画布 ---------- */
+#canvas-wrap {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+/* ---------- 状态栏 ---------- */
+#status {
+  flex: 0 0 auto;
+  padding: 5px 12px calc(5px + env(safe-area-inset-bottom));
+  font-size: 12.5px;
+  line-height: 1.45;
+  background: #263a4f;
+  color: #e3ecf3;
+  /* ★ 修复：去掉 2 行截断（-webkit-line-clamp），第三行及以上都能显示；
+   * 过长时状态栏内部滚动，不挤压画布 */
+  max-height: 5.2em;
+  overflow-y: auto;
+  word-break: break-all;
+}
+
+/* ---------- 通关浮层 ---------- */
+#win-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 25, 38, .55);
+  z-index: 20;
+  backdrop-filter: blur(2px);
+}
+#win-overlay.show { display: flex; }
+
+.win-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 26px 34px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+  max-width: 90vw;
+  animation: pop .25s ease;
+}
+@keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.win-title { font-size: 26px; font-weight: 800; color: #1a73e8; margin-bottom: 8px; }
+.win-stats { font-size: 14px; color: #546e7a; margin-bottom: 18px; }
+.win-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* ---------- 弹窗 ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 25, 38, .5);
+  z-index: 30;
+  padding: 16px;
+}
+.modal.show { display: flex; }
+
+.modal-box {
+  background: #fff;
+  border-radius: 14px;
+  width: min(560px, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  box-shadow: 0 10px 36px rgba(0,0,0,.3);
+}
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+.modal-tip { font-size: 13px; color: #607d8b; margin-bottom: 10px; }
+.modal-box textarea {
+  flex: 1 1 auto;
+  min-height: 220px;
+  max-height: 46vh;
+  resize: vertical;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: "Consolas", "Menlo", monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  background: #fbfdff;
+  color: #263238;
+  white-space: pre;
+}
+.modal-box input[type="file"] { margin-bottom: 10px; font-size: 13px; }
+.modal-btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+.help-body { font-size: 13.5px; line-height: 1.7; color: #37474f; overflow-y: auto; }
+.help-body p { margin-bottom: 8px; }
+.legend { width: 100%; border-collapse: collapse; margin: 10px 0; }
+.legend td { padding: 5px 8px; border-bottom: 1px solid #eceff1; font-size: 13px; }
+.legend td:first-child { width: 64px; text-align: center; }
+
+.sym {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+}
+.sym-s { background: #1e88e5; }
+.sym-e { background: #8e24aa; }
+.sym-ob { background: #45525e; }
+.sym-hub { background: #f9a825; color: #4e342e; }
+.sym-diag { background: #00897b; }
+.sym-hd { background: linear-gradient(135deg, #f9a825 50%, #00897b 50%); color: #fff; font-size: 11px; }
+.sym-red { background: #e53935; }
+.sym-green { background: #2e7d32; }
+.sym-sol { background: #546e7a; color: #fff; font-weight: 700; }
+.sym-num { background: #1a73e8; color: #fff; font-weight: 700; }
+
+/* ---------- 关卡库（本地存档 + 社区） ---------- */
+.lib-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.tab-btn {
+  padding: 7px 16px;
+  border: 1px solid #cfd8dc;
+  background: #f7fafc;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.tab-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 600; }
+.lib-pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.lib-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lib-actions input[type="text"] {
+  flex: 1 1 220px;
+  min-width: 160px;
+  padding: 7px 9px;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.lib-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  max-height: 34vh;
+  border: 1px solid #eceff1;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+.lib-item {
+  display: flex;
+  flex-wrap: wrap;   /* ★ 修复：排行面板/管理栏换行占满整行，不再挤乱简介 */
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  border-bottom: 1px solid #eceff1;
+}
+.lib-item:last-child { border-bottom: none; }
+.lib-item-main { min-width: 0; }
+.lib-item-title { font-size: 13.5px; font-weight: 600; color: #263238; }
+.lib-item-sub { font-size: 12px; color: #78909c; margin-top: 2px; }
+.lib-item-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.lib-item-btns button { padding: 5px 10px; min-height: 30px; font-size: 12.5px; }
+button.danger { background: #fdecea; border-color: #ef9a9a; color: #c62828; }
+button.danger:hover { background: #fbe3e1; }
+button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
+.lib-empty { padding: 18px 12px; text-align: center; color: #90a4ae; font-size: 13px; }
+
+/* ---------- 社区：登录注册 / 徽章 / 排行榜 / 管理 / 搜索 ---------- */
+.lib-login { display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
+.lib-login-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lib-login-row input[type="text"], .lib-login-row input[type="password"] {
+  flex: 1 1 150px;
+  min-width: 120px;
+  padding: 8px 10px;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.lib-status { font-size: 13px; color: #1e88e5; font-weight: 600; }
+.lib-skill { font-size: 12.5px; color: #e65100; font-weight: 600; }
+.lib-search-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.lib-search-row input[type="search"] { flex: 1 1 140px; min-width: 120px; }
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  vertical-align: 2px;
+}
+.badge-v { background: linear-gradient(135deg, #7b1fa2, #d500f9); }
+.badge-s { background: linear-gradient(135deg, #e65100, #ff9800); }
+.badge-a { background: #1e88e5; }
+.badge-rating { background: #37474f; }
+.lib-panel {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #f1f6fb;
+  border: 1px solid #dbe6f1;
+  border-radius: 8px;
+  width: 100%;
+}
+.lib-panel-title { font-size: 12.5px; font-weight: 700; color: #37474f; margin-bottom: 6px; }
+.lib-rank { font-size: 12.5px; padding: 3px 6px; border-radius: 5px; color: #455a64; }
+.lib-rank.top1 { background: #fff3cd; color: #8a6d00; font-weight: 700; }
+.lib-rank.top2 { background: #e8e8e8; color: #555; font-weight: 600; }
+.lib-rank.top3 { background: #fde8d9; color: #8c4a1a; font-weight: 600; }
+.lib-admin {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 7px 8px;
+  background: #fff8e1;
+  border: 1px dashed #f0c674;
+  border-radius: 8px;
+  width: 100%;
+}
+.lib-admin-label { font-size: 12px; color: #8d6e2a; font-weight: 600; }
+.lib-admin select { padding: 5px 6px; font-size: 12.5px; }
+.lib-admin input[type="number"] { width: 90px; padding: 5px 6px; font-size: 12.5px; }
+
+/* ---------- Toast ---------- */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 54px;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(31, 45, 61, .94);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  max-width: 86vw;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  z-index: 40;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- 窄屏适配 ---------- */
+@media (max-width: 480px) {
+  .brand .sub { display: none; }
+  .tab { padding: 6px 12px; font-size: 13px; }
+  button { font-size: 12.5px; padding: 6px 9px; min-height: 34px; }
+  .field input[type="text"] { width: 96px; }
+  #status { font-size: 11.5px; }
+}
+
+/* ---------- 矮屏适配：压缩工具栏让三排+状态栏全部可见 ---------- */
+@media (max-height: 640px) {
+  header { padding: 5px 10px; }
+  .brand { font-size: 16px; }
+  .tab { padding: 5px 11px; font-size: 12.5px; }
+  .toolbar { gap: 4px; padding: 6px 8px; max-height: 38vh; max-height: 38dvh; }
+  .tool-row { gap: 4px; }
+  button { font-size: 12px; padding: 5px 8px; min-height: 31px; border-radius: 7px; }
+  .field { font-size: 12px; }
+  .field input[type="text"], .field input[type="number"] { padding: 4px 6px; font-size: 12px; }
+  #status { font-size: 11px; padding-top: 4px; }
+}
+
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">🧩 路径谜题 <span class="sub">关卡编辑器 / 游玩</span></div>
+    <nav class="tabs">
+      <button id="tab-editor" class="tab active">🛠️ 编辑器</button>
+      <button id="tab-player" class="tab">🎮 试玩</button>
+    </nav>
+  </header>
+
+  <!-- ================= 编辑器面板 ================= -->
+  <main id="editor-panel" class="panel">
+    <section class="toolbar">
+      <div class="tool-row">
+        <button class="tool" data-tool="start" title="起点">🟦 S</button>
+        <button class="tool" data-tool="end" title="终点">🟪 E</button>
+        <button class="tool" data-tool="obstacle" title="障碍格">⬛ 障碍</button>
+        <button class="tool" data-tool="hub" title="枢纽（可多次经过）">⭕ 枢纽</button>
+        <button class="tool" data-tool="diagonal" title="斜向连线格（可斜向进出）">╳ 斜向</button>
+        <button class="tool" data-tool="number" title="数字格：要求第x步到达（可与终点/斜向重合，不可与枢纽重合）">🔢 数字</button>
+        <button class="tool" data-tool="solution" title="答案路径（官方解，试玩时隐藏）">🛤️ 答案路径</button>
+        <button class="tool" data-tool="erase" title="擦除格子标记及相连红/绿边">🧽 擦除</button>
+        <button class="tool" data-tool="redEdge" title="红边：禁止通过">🟥 红边</button>
+        <button class="tool" data-tool="greenEdge" title="绿边：必须通过">🟩 绿边</button>
+      </div>
+      <div class="tool-row">
+        <button id="btn-undo" class="act" title="Ctrl+Z">↩ 撤销</button>
+        <button id="btn-redo" class="act" title="Ctrl+Y">↪ 重做</button>
+        <button id="btn-sol-clear" class="act">🗑️ 清空答案</button>
+        <button id="btn-sol-undo" class="act" title="撤销答案路径最后一步（不含格子编辑）">↩ 撤销一步答案</button>
+        <label class="field check">
+          <input id="in-sol-numbers" type="checkbox" checked> 答案序号
+        </label>
+        <label class="field check">
+          <input id="in-hide-sol" type="checkbox" title="不显示灰色虚线答案路径（防止偷看答案；绘制答案时自动显示）"> 隐藏答案路径
+        </label>
+        <label class="field">数字
+          <input id="in-number" type="number" min="1" max="999" placeholder="步数" value="1">
+        </label>
+        <button id="btn-password" class="act">🔒 密码</button>
+        <button id="btn-clear" class="act">🧹 清空</button>
+        <label class="field">名称
+          <input id="in-name" type="text" maxlength="40" placeholder="关卡名称">
+        </label>
+        <label class="field">难度
+          <input id="in-difficulty" type="number" min="0" max="999" step="0.1" value="0" title="难度等级（默认 0，可填小数如 15.2）">
+        </label>
+        <label class="field">行
+          <input id="in-rows" type="number" min="2" max="30" value="6">
+        </label>
+        <label class="field">列
+          <input id="in-cols" type="number" min="2" max="30" value="6">
+        </label>
+        <button id="btn-new" class="act">🆕 新建</button>
+      </div>
+      <div class="tool-row">
+        <label class="field">示例
+          <select id="in-sample">
+            <option value="">— 载入示例 —</option>
+          </select>
+        </label>
+        <button id="btn-library" class="act" title="本地存档 / 社区关卡">🗂️ 关卡库</button>
+        <button id="btn-export" class="act">📤 导出关卡</button>
+        <button id="btn-import" class="act">📥 导入关卡</button>
+        <button id="btn-play" class="act primary">▶ 试玩当前关卡</button>
+        <button id="btn-help" class="act">❓ 图例说明</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= 游玩面板 ================= -->
+  <main id="player-panel" class="panel hidden">
+    <section class="toolbar">
+      <div class="tool-row">
+        <button id="p-undo" class="act">↩ 撤销一步</button>
+        <button id="p-undo10" class="act" title="一次撤销最近 10 步">↩↩ 撤销十步</button>
+        <button id="p-clear" class="act">🧹 清空路径</button>
+        <label class="field check">
+          <input id="p-numbers" type="checkbox" checked> 显示序号
+        </label>
+        <button id="p-answer" class="act" title="查看官方答案（看完不计入排行榜和实力）">👁 查看答案</button>
+        <button id="p-exit" class="act" title="退出并保存当前作答进度">⏏ 退出</button>
+        <button id="p-back" class="act">✏️ 返回编辑</button>
+        <span id="p-levelname" class="levelname"></span>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= 画布 ================= -->
+  <div id="canvas-wrap">
+    <canvas id="game"></canvas>
+
+    <div id="win-overlay">
+      <div class="win-card">
+        <div class="win-title">🎉 通关成功！</div>
+        <div id="win-stats" class="win-stats"></div>
+        <div class="win-btns">
+          <button id="win-restart">🔄 再来一局</button>
+          <button id="win-back">✏️ 返回编辑</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer id="status">准备就绪</footer>
+
+  <!-- ================= 设置密码弹窗 ================= -->
+  <div id="modal-pass-set" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">🔒 设置关卡密码</div>
+      <p id="pass-set-hint" class="modal-tip"></p>
+      <input id="pass-new" type="password" maxlength="40" placeholder="输入新密码（可为中文）" autocomplete="off">
+      <div class="modal-btns">
+        <button id="pass-set-ok" class="act primary">设置</button>
+        <button id="pass-set-clear" class="act">清除密码</button>
+        <button id="pass-set-close" class="act">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 密码验证弹窗（进入编辑器） ================= -->
+  <div id="modal-pass" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">🔒 需要密码</div>
+      <p id="pass-hint" class="modal-tip"></p>
+      <input id="pass-input" type="password" maxlength="40" placeholder="输入关卡密码" autocomplete="off">
+      <div class="modal-btns">
+        <button id="pass-ok" class="act primary">解锁编辑器</button>
+        <button id="pass-cancel" class="act">取消（留在试玩）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 导出弹窗 ================= -->
+  <div id="modal-export" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">📤 导出关卡（JSON）</div>
+      <textarea id="export-text" readonly spellcheck="false"></textarea>
+      <div class="modal-btns">
+        <button id="export-copy" class="act">📋 复制</button>
+        <button id="export-download" class="act primary">⬇ 下载文件</button>
+        <button id="export-close" class="act">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 导入弹窗 ================= -->
+  <div id="modal-import" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">📥 导入关卡</div>
+      <p class="modal-tip">选择关卡文件，或把 JSON 粘贴到下方文本框后点「导入」。</p>
+      <input id="import-file" type="file" accept=".json,.txt,application/json,text/plain">
+      <textarea id="import-text" placeholder='{"version":1,"rows":6,...}' spellcheck="false"></textarea>
+      <div class="modal-btns">
+        <button id="import-apply" class="act primary">导入</button>
+        <button id="import-close" class="act">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 关卡库弹窗（本地存档 + 社区） ================= -->
+  <div id="modal-library" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">🗂️ 关卡库</div>
+      <div class="lib-tabs">
+        <button id="lib-tab-local" class="tab-btn active">💾 本地存档</button>
+        <button id="lib-tab-community" class="tab-btn">🌐 社区</button>
+      </div>
+
+      <!-- 本地 -->
+      <div id="lib-local-pane" class="lib-pane">
+        <div class="lib-actions">
+          <button id="lib-save" class="act primary">💾 保存当前关卡</button>
+          <button id="lib-save-draft" class="act">📝 保存草稿（半成品）</button>
+        </div>
+        <p class="modal-tip">草稿 = 还没画好答案路径的半成品；保存后下次可继续编辑。数据只保存在本机浏览器/应用里。</p>
+        <div id="lib-local-list" class="lib-list"></div>
+      </div>
+
+      <!-- 社区 -->
+      <div id="lib-community-pane" class="lib-pane hidden">
+        <!-- 未登录：注册/登录 -->
+        <div id="lib-login" class="lib-login">
+          <p class="modal-tip">使用社区（上传/点赞/排行榜/精选）需要账号：只需用户名和密码，密码以加盐哈希加密存储（不存明文）。</p>
+          <div class="lib-login-row">
+            <input id="lib-login-name" type="text" maxlength="20" placeholder="用户名（中文/字母/数字/下划线）" autocomplete="off">
+            <input id="lib-login-pw" type="password" maxlength="60" placeholder="密码（至少 4 位）" autocomplete="off">
+          </div>
+          <div class="lib-login-row">
+            <button id="lib-login-btn" class="act primary">登录</button>
+            <button id="lib-register-btn" class="act">注册</button>
+          </div>
+        </div>
+
+        <!-- 已登录：社区主体 -->
+        <div id="lib-community-body" class="hidden">
+          <div class="lib-actions" id="lib-userbar">
+            <span id="lib-user-name" class="lib-status"></span>
+            <button id="lib-logout" class="act">退出登录</button>
+            <span class="lib-status">🌐 共享社区（hlxii63.github.io）</span>
+            <button id="lib-dev" class="act">🔒 开发者</button>
+          </div>
+          <div class="lib-actions">
+            <input id="lib-search" type="search" placeholder="🔍 搜索关卡名称…" spellcheck="false">
+            <select id="lib-sort">
+              <option value="">排序：精选优先</option>
+              <option value="difficulty">排序：难度高→低</option>
+              <option value="time">排序：最新上传</option>
+              <option value="plays">排序：游玩最多</option>
+              <option value="likes">排序：点赞最多</option>
+            </select>
+            <select id="lib-filter-status">
+              <option value="">全部关卡</option>
+              <option value="done">已完成</option>
+              <option value="undone">未完成</option>
+              <option value="mylevel">我的关卡</option>
+              <option value="mylikes">我的点赞</option>
+            </select>
+            <select id="lib-filter-featured">
+              <option value="">精选：全部</option>
+              <option value="V">精选 V</option>
+              <option value="S">精选 S</option>
+              <option value="A">精选 A</option>
+            </select>
+            <select id="lib-filter-rating">
+              <option value="0">难度：全部</option>
+              <option value="5">难度 ≥ 5</option>
+              <option value="10">难度 ≥ 10</option>
+              <option value="15">难度 ≥ 15</option>
+            </select>
+          </div>
+          <div class="lib-actions">
+            <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
+            <button id="lib-refresh" class="act">🔄 刷新</button>
+            <span id="lib-skill" class="lib-skill"></span>
+          </div>
+          <p class="modal-tip" id="lib-community-tip">通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；开发者输入密码后可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
+          <div id="lib-community-list" class="lib-list"></div>
+        </div>
+      </div>
+
+      <div class="modal-btns">
+        <button id="lib-close" class="act">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 帮助弹窗 ================= -->
+  <div id="modal-help" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">❓ 规则与图例</div>
+      <div class="help-body">
+        <p><b>目标</b>：从 <b style="color:#1e88e5">起点 S</b> 出发画一条连续路径，经过<b>每个普通格恰好一次</b>，最后到达 <b style="color:#8e24aa">终点 E</b>。</p>
+        <table class="legend">
+          <tr><td><span class="sym sym-s">S</span></td><td>起点：路径的第一个格子</td></tr>
+          <tr><td><span class="sym sym-e">E</span></td><td>终点：路径的最后一个格子</td></tr>
+          <tr><td><span class="sym sym-ob">⬛</span></td><td>障碍格：不能进入</td></tr>
+          <tr><td><span class="sym sym-hub">◎</span></td><td>枢纽：至少经过一次，可多次经过</td></tr>
+          <tr><td><span class="sym sym-diag">╳</span></td><td>斜向连线格：可以斜向进入/离开</td></tr>
+          <tr><td><span class="sym sym-num">5</span></td><td>数字格：路径<b>第 5 个格子</b>必须是它（第 1 个 = 起点）。可与终点/斜向重合，不可与枢纽重合</td></tr>
+          <tr><td><span class="sym sym-hd">◎╳</span></td><td>斜向枢纽 = 枢纽 + 斜向格（可多次经过且可斜向）</td></tr>
+          <tr><td><span class="sym sym-red">—</span></td><td>红边：路径禁止跨越</td></tr>
+          <tr><td><span class="sym sym-green">—</span></td><td>绿边：路径必须跨越（至少一次）</td></tr>
+          <tr><td><span class="sym sym-sol">┅</span></td><td>答案路径（灰色虚线）：编辑器中用「答案路径」工具绘制，<b>试玩时隐藏</b>；关卡必须有有效答案才能游玩</td></tr>
+        </table>
+        <p><b>操作</b>：编辑器里选好工具后点击格子；红/绿边先点一格再点相邻格（含斜向）；数字格先在「数字」输入框填步数再点格子（输入框留空点击可移除数字）；答案路径从 S 开始点或拖动画线（与试玩规则相同），可用「撤销一步答案」逐步回退；试玩时从 S 开始点或拖动画线，可撤销一步/十步、可显示序号。</p>
+        <p><b>隐藏答案</b>：编辑器默认「隐藏答案路径」（勾选状态），载入示例/导入关卡时不会显示灰色虚线官方解，防止偷看；取消勾选即可查看；绘制答案时会自动临时显示。</p>
+        <p><b>难度</b>：编辑器「难度」框可填难度等级（默认 0，可填小数如 1.5、15.2），导出后随关卡保存；内置示例难度从 1.5（新手教学）到 15.2（进阶挑战）不等。</p>
+        <p><b>关卡库</b>：「🗂️ 关卡库」可把当前关卡保存到本机（成品或半成品草稿，下次继续编辑），也可上传到社区共享。社区有两种方式：**自建服务器**（server/community-server.js 或 CloudBase 云函数）或 **GitHub Gist 免服务器方案**（在 GitHub 新建一个含 levels.json 的 Gist，读取免 Token，上传/删除需要 GitHub Token）。</p>
+        <p><b>进阶挑战</b>：示例里内置 8×8「进阶挑战」超级难题（难度 15.2），含斜向枢纽、红绿边与数字格约束，试试看你能不能通关。</p>
+        <p><b>答案加密</b>：导出 JSON 时答案以加密形式存储（solutionEnc），不会出现明文；导入时自动解密。</p>
+        <p><b>密码</b>：「🔒 密码」可为关卡设置密码；导入关卡默认进入试玩，进入编辑器需输入密码（密码以加盐哈希加密存储，不保存明文）。</p>
+        <p><b>通关</b>：到达 E 且所有普通格恰好一次、枢纽 ≥1 次、所有绿边均被跨越。</p>
+        <p><b>禁止折返</b>：不能从枢纽的某个方向出去后，又从同一方向立刻回来（X→枢纽→X→枢纽 不允许，含斜向）；从不同方向绕回枢纽是允许的。</p>
+      </div>
+      <div class="modal-btns">
+        <button id="help-close" class="act">知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+'use strict';
+/* =========================================================
+ * 路径谜题 · 规则引擎（纯逻辑，无 DOM 依赖）
+ *
+ * 规则：
+ *  - 普通格：恰好经过一次（整条路径为哈密顿路径）
+ *  - 起点 S / 终点 E：各恰好一次（S 为首格、E 为末格，不可重复进入）
+ *  - 障碍格：完全不可进入
+ *  - 枢纽：至少经过一次，可多次经过
+ *  - 斜向连线格：允许斜向进入/离开（斜向移动段需至少一端为斜向格）
+ *  - 红边：禁止跨越；绿边：必须跨越（至少一次）
+ *  - 红/绿边可位于上下左右或斜向相邻格之间
+ *  - 答案路径（solution）：编辑器中绘制的官方解，试玩时隐藏；
+ *    关卡必须有有效答案路径才能游玩
+ *  - 关卡密码：加盐 SHA-256 哈希存储，不保存明文
+ * ========================================================= */
+
+const KEY = (r, c) => r + ',' + c;
+
+function clampInt(v, min, max, def) {
+  v = Number(v);
+  if (!Number.isFinite(v)) return def;
+  return Math.max(min, Math.min(max, Math.round(v)));
+}
+
+/* ---------- 密码工具：加盐 SHA-256 ---------- */
+function utf8Encode(str) {
+  const out = [];
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+    if (code < 0x80) out.push(code);
+    else if (code < 0x800) out.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+    else if (code >= 0xd800 && code <= 0xdbff) {
+      const lo = str.charCodeAt(i + 1);
+      if (lo >= 0xdc00 && lo <= 0xdfff) {
+        i++;
+        code = 0x10000 + ((code - 0xd800) << 10) + (lo - 0xdc00);
+        out.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+      } else out.push(0xef, 0xbf, 0xbd);
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      out.push(0xef, 0xbf, 0xbd);
+    } else {
+      out.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+    }
+  }
+  return out;
+}
+
+function sha256(str) {
+  const bytes = utf8Encode(String(str));
+  const h = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+  const k = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const l = bytes.length;
+  const bitLen = l * 8;
+  const padded = bytes.slice();
+  padded.push(0x80);
+  while (padded.length % 64 !== 56) padded.push(0);
+  const hi = Math.floor(bitLen / 0x100000000), lo = bitLen >>> 0;
+  padded.push((hi >>> 24) & 0xff, (hi >>> 16) & 0xff, (hi >>> 8) & 0xff, hi & 0xff,
+              (lo >>> 24) & 0xff, (lo >>> 16) & 0xff, (lo >>> 8) & 0xff, lo & 0xff);
+  const w = new Array(64);
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let i = 0; i < padded.length; i += 64) {
+    for (let j = 0; j < 16; j++) {
+      w[j] = ((padded[i + j * 4] << 24) | (padded[i + j * 4 + 1] << 16) |
+              (padded[i + j * 4 + 2] << 8) | padded[i + j * 4 + 3]) >>> 0;
+    }
+    for (let j = 16; j < 64; j++) {
+      const s0 = rotr(w[j - 15], 7) ^ rotr(w[j - 15], 18) ^ (w[j - 15] >>> 3);
+      const s1 = rotr(w[j - 2], 17) ^ rotr(w[j - 2], 19) ^ (w[j - 2] >>> 10);
+      w[j] = (w[j - 16] + s0 + w[j - 7] + s1) >>> 0;
+    }
+    let a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+    for (let j = 0; j < 64; j++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (hh + S1 + ch + k[j] + w[j]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    h[0] = (h[0] + a) >>> 0; h[1] = (h[1] + b) >>> 0; h[2] = (h[2] + c) >>> 0; h[3] = (h[3] + d) >>> 0;
+    h[4] = (h[4] + e) >>> 0; h[5] = (h[5] + f) >>> 0; h[6] = (h[6] + g) >>> 0; h[7] = (h[7] + hh) >>> 0;
+  }
+  let out = '';
+  for (let i = 0; i < 8; i++) out += ('00000000' + h[i].toString(16)).slice(-8);
+  return out;
+}
+
+function randomHex(nBytes) {
+  const arr = new Uint8Array(nBytes);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(arr);
+  else for (let i = 0; i < nBytes; i++) arr[i] = Math.floor(Math.random() * 256);
+  let s = '';
+  for (let i = 0; i < nBytes; i++) s += ('00' + arr[i].toString(16)).slice(-2);
+  return s;
+}
+
+function hashPassword(pw, salt) { return sha256(salt + '::' + pw); }
+
+/* =========================================================
+ * 答案路径加密（SHA-256 计数器模式流加密 + Base64）
+ * 说明：纯客户端无法做到绝对安全，此加密用于防止普通玩家
+ * 直接阅读关卡文件中的答案；密钥内嵌于代码中。
+ * ========================================================= */
+const APP_SECRET = 'path-puzzle::solution-v2::k7x9q2m4';
+
+function utf8Decode(bytes) {
+  let out = '';
+  for (let i = 0; i < bytes.length;) {
+    const b0 = bytes[i];
+    if (b0 < 0x80) { out += String.fromCharCode(b0); i++; }
+    else if ((b0 & 0xe0) === 0xc0) {
+      out += String.fromCharCode(((b0 & 0x1f) << 6) | (bytes[i + 1] & 0x3f)); i += 2;
+    } else if ((b0 & 0xf0) === 0xe0) {
+      out += String.fromCharCode(((b0 & 0x0f) << 12) | ((bytes[i + 1] & 0x3f) << 6) | (bytes[i + 2] & 0x3f)); i += 3;
+    } else if ((b0 & 0xf8) === 0xf0) {
+      let cp = ((b0 & 0x07) << 18) | ((bytes[i + 1] & 0x3f) << 12) | ((bytes[i + 2] & 0x3f) << 6) | (bytes[i + 3] & 0x3f);
+      cp -= 0x10000;
+      out += String.fromCharCode(0xd800 + (cp >> 10), 0xdc00 + (cp & 0x3ff)); i += 4;
+    } else { i++; }
+  }
+  return out;
+}
+
+function generateKeystream(secret, nonce, length) {
+  const out = [];
+  let counter = 0;
+  while (out.length < length) {
+    const hex = sha256(secret + '::' + nonce + '::' + counter++);
+    for (let i = 0; i < 32 && out.length < length; i++) {
+      out.push(parseInt(hex.substr(i * 2, 2), 16));
+    }
+  }
+  return out;
+}
+
+function encryptSolution(solution) {
+  if (!solution || !solution.length) return null;
+  const nonce = randomHex(8);
+  const plain = JSON.stringify(solution);
+  const bytes = utf8Encode(plain);
+  const key = generateKeystream(APP_SECRET, nonce, bytes.length);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode((bytes[i] ^ key[i]) & 0xff);
+  return { nonce, data: btoa(bin) };
+}
+
+function decryptSolution(enc) {
+  try {
+    const bin = atob(enc.data);
+    const bytes = new Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 0xff;
+    const key = generateKeystream(APP_SECRET, enc.nonce, bytes.length);
+    const dec = new Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) dec[i] = (bytes[i] ^ key[i]) & 0xff;
+    return JSON.parse(utf8Decode(dec));
+  } catch (e) {
+    return null;
+  }
+}
+
+/* =========================================================
+ * 关卡模型
+ * ========================================================= */
+class Level {
+  constructor(rows, cols, name) {
+    this.rows = clampInt(rows, 2, 30, 6);
+    this.cols = clampInt(cols, 2, 30, 6);
+    this.name = (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 40) : '未命名关卡';
+    this.start = null;      // [r, c]
+    this.end = null;        // [r, c]
+    this.obstacles = new Set();   // "r,c"
+    this.hubs = new Set();        // "r,c"
+    this.diagonals = new Set();   // "r,c"
+    this.redEdges = new Set();    // "r1,c1|r2,c2"
+    this.greenEdges = new Set();  // "r1,c1|r2,c2"
+    this.solution = null;   // 答案路径 [[r,c],...] 或 null（内存中明文，导出时加密）
+    this.password = null;   // { salt, hash } 或 null
+    this.numbers = new Map(); // "r,c" -> x（数字格：要求第 x 步到达）
+    this.difficulty = 0;      // 难度等级（默认 0，可填小数如 1.5 / 15.2）
+  }
+
+  inBounds(r, c) { return r >= 0 && r < this.rows && c >= 0 && c < this.cols; }
+  isObstacle(r, c) { return this.obstacles.has(KEY(r, c)); }
+  isHub(r, c) { return this.hubs.has(KEY(r, c)); }
+  isDiagonal(r, c) { return this.diagonals.has(KEY(r, c)); }
+  isStart(r, c) { return !!this.start && this.start[0] === r && this.start[1] === c; }
+  isEnd(r, c) { return !!this.end && this.end[0] === r && this.end[1] === c; }
+  hasPassword() { return !!this.password; }
+
+  /* 数字格 */
+  getNumber(r, c) { return this.numbers.get(KEY(r, c)); }
+  setNumber(r, c, x) { this.numbers.set(KEY(r, c), x); }
+  removeNumber(r, c) { this.numbers.delete(KEY(r, c)); }
+
+  /* 归一化边键：小的在前 */
+  static edgeKey(a, b) {
+    const ka = a[0] * 1024 + a[1];
+    const kb = b[0] * 1024 + b[1];
+    return ka <= kb ? KEY(a[0], a[1]) + '|' + KEY(b[0], b[1])
+                    : KEY(b[0], b[1]) + '|' + KEY(a[0], a[1]);
+  }
+
+  isAdjacent(a, b) {
+    const dr = Math.abs(a[0] - b[0]), dc = Math.abs(a[1] - b[1]);
+    return (dr + dc === 1) || (dr === 1 && dc === 1);
+  }
+
+  isDiagMove(a, b) {
+    const dr = Math.abs(a[0] - b[0]), dc = Math.abs(a[1] - b[1]);
+    return dr === 1 && dc === 1;
+  }
+
+  canMove(a, b) {
+    if (!this.isAdjacent(a, b)) return false;
+    if (this.isDiagMove(a, b)) {
+      return this.isDiagonal(a[0], a[1]) || this.isDiagonal(b[0], b[1]);
+    }
+    return true;
+  }
+
+  hasEdge(color, a, b) {
+    const k = Level.edgeKey(a, b);
+    return color === 'red' ? this.redEdges.has(k) : this.greenEdges.has(k);
+  }
+
+  toggleEdge(color, a, b) {
+    const k = Level.edgeKey(a, b);
+    if (color === 'red') {
+      if (this.redEdges.has(k)) { this.redEdges.delete(k); return false; }
+      this.greenEdges.delete(k);
+      this.redEdges.add(k);
+    } else {
+      if (this.greenEdges.has(k)) { this.greenEdges.delete(k); return false; }
+      this.redEdges.delete(k);
+      this.greenEdges.add(k);
+    }
+    return true;
+  }
+
+  /* 答案路径有效性 */
+  solutionValid() {
+    if (!this.solution || !this.solution.length) return false;
+    return analyzePath(this, this.solution).complete;
+  }
+
+  /* 密码 */
+  setPassword(pw) {
+    if (!pw) { this.password = null; return; }
+    const salt = randomHex(8);
+    this.password = { salt, hash: hashPassword(pw, salt) };
+  }
+  checkPassword(pw) {
+    return !!this.password && hashPassword(String(pw), this.password.salt) === this.password.hash;
+  }
+
+  stats() {
+    return {
+      cells: this.rows * this.cols,
+      obstacles: this.obstacles.size,
+      hubs: this.hubs.size,
+      diagonals: this.diagonals.size,
+      redEdges: this.redEdges.size,
+      greenEdges: this.greenEdges.size,
+      hasStart: !!this.start,
+      hasEnd: !!this.end,
+      hasSolution: this.solutionValid()
+    };
+  }
+
+  toJSON() {
+    const cellArr = (s) => [...s].map(k => k.split(',').map(Number))
+      .sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+    const edgeArr = (s) => [...s].map(k => k.split('|').map(p => p.split(',').map(Number)));
+    const numbers = {};
+    for (const [k, x] of [...this.numbers].sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)) {
+      numbers[k] = x;
+    }
+    const solEnc = encryptSolution(this.solution);
+    return {
+      version: 2,
+      name: this.name,
+      rows: this.rows,
+      cols: this.cols,
+      start: this.start ? this.start.slice() : null,
+      end: this.end ? this.end.slice() : null,
+      obstacles: cellArr(this.obstacles),
+      hubs: cellArr(this.hubs),
+      diagonals: cellArr(this.diagonals),
+      redEdges: edgeArr(this.redEdges),
+      greenEdges: edgeArr(this.greenEdges),
+      numbers,
+      difficulty: this.difficulty,
+      solutionEnc: solEnc ? solEnc.data : null,
+      solutionNonce: solEnc ? solEnc.nonce : null,
+      password: this.password ? { salt: this.password.salt, hash: this.password.hash } : null
+    };
+  }
+
+  static fromJSON(obj) {
+    const errors = [], warnings = [];
+    const lv = new Level(2, 2, '');
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+      return { level: null, errors: ['无效的关卡数据'], warnings };
+    }
+    const rows = Number(obj.rows), cols = Number(obj.cols);
+    if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows < 2 || rows > 30 || cols < 2 || cols > 30) {
+      errors.push('rows/cols 必须是 2~30 的整数');
+    } else {
+      lv.rows = rows; lv.cols = cols;
+    }
+    lv.name = (typeof obj.name === 'string' && obj.name.trim()) ? obj.name.trim().slice(0, 40) : '未命名关卡';
+
+    /* 难度等级（默认 0，0~999，保留 1 位小数） */
+    if (obj.difficulty != null) {
+      const d = Number(obj.difficulty);
+      if (Number.isFinite(d) && d >= 0 && d <= 999) lv.difficulty = Math.round(d * 10) / 10;
+      else errors.push('难度必须是 0~999 的数字');
+    }
+
+    const okCell = (p) => Array.isArray(p) && p.length === 2 &&
+      Number.isInteger(p[0]) && Number.isInteger(p[1]) && lv.inBounds(p[0], p[1]);
+
+    if (obj.start != null) {
+      if (okCell(obj.start)) lv.start = [obj.start[0], obj.start[1]];
+      else errors.push('起点坐标无效');
+    }
+    if (obj.end != null) {
+      if (okCell(obj.end)) lv.end = [obj.end[0], obj.end[1]];
+      else errors.push('终点坐标无效');
+    }
+    if (lv.start && lv.end && lv.start[0] === lv.end[0] && lv.start[1] === lv.end[1]) {
+      errors.push('起点与终点不能是同一格');
+    }
+
+    const sets = { obstacles: lv.obstacles, hubs: lv.hubs, diagonals: lv.diagonals };
+    for (const name of ['obstacles', 'hubs', 'diagonals']) {
+      const arr = obj[name];
+      if (arr == null) continue;
+      if (!Array.isArray(arr)) { errors.push(name + ' 必须是数组'); continue; }
+      for (const p of arr) {
+        if (!okCell(p)) { errors.push(name + ' 含有无效坐标 [' + JSON.stringify(p) + ']'); continue; }
+        sets[name].add(KEY(p[0], p[1]));
+      }
+    }
+    for (const k of lv.obstacles) {
+      if (lv.hubs.has(k)) errors.push('障碍与枢纽重叠于 (' + k + ')');
+      if (lv.diagonals.has(k)) errors.push('障碍与斜向格重叠于 (' + k + ')');
+      if (lv.start && KEY(lv.start[0], lv.start[1]) === k) errors.push('障碍与起点重叠于 (' + k + ')');
+      if (lv.end && KEY(lv.end[0], lv.end[1]) === k) errors.push('障碍与终点重叠于 (' + k + ')');
+    }
+
+    const parseEdges = (arr, set, color) => {
+      if (arr == null) return;
+      if (!Array.isArray(arr)) { errors.push(color + 'Edges 必须是数组'); return; }
+      for (const e of arr) {
+        if (!Array.isArray(e) || e.length !== 2 || !okCell(e[0]) || !okCell(e[1])) {
+          errors.push(color + '边含有无效坐标 ' + JSON.stringify(e)); continue;
+        }
+        if (!lv.isAdjacent(e[0], e[1])) {
+          errors.push(color + '边两端不相邻: (' + e[0] + ')-(' + e[1] + ')'); continue;
+        }
+        set.add(Level.edgeKey(e[0], e[1]));
+      }
+    };
+    parseEdges(obj.redEdges, lv.redEdges, 'red');
+    parseEdges(obj.greenEdges, lv.greenEdges, 'green');
+    for (const k of lv.redEdges) {
+      if (lv.greenEdges.has(k)) errors.push('同一条边同时标为红与绿: ' + k);
+    }
+    const touchOb = (s) => {
+      for (const k of s) {
+        const [a, b] = k.split('|').map(p => p.split(',').map(Number));
+        if (lv.isObstacle(a[0], a[1]) || lv.isObstacle(b[0], b[1])) {
+          warnings.push('存在与障碍相连的边: ' + k);
+        }
+      }
+    };
+    touchOb(lv.redEdges); touchOb(lv.greenEdges);
+
+    /* 数字格 */
+    if (obj.numbers != null) {
+      if (obj.numbers && typeof obj.numbers === 'object' && !Array.isArray(obj.numbers)) {
+        for (const k of Object.keys(obj.numbers)) {
+          const mm = /^(\d+),(\d+)$/.exec(k);
+          const x = Number(obj.numbers[k]);
+          if (!mm || !lv.inBounds(+mm[1], +mm[2])) { errors.push('数字格坐标无效: ' + k); continue; }
+          if (!Number.isInteger(x) || x < 1 || x > 999) { errors.push('数字格步数无效: ' + k + ' = ' + obj.numbers[k]); continue; }
+          const nr = +mm[1], nc = +mm[2];
+          if (lv.isHub(nr, nc)) errors.push('数字格不能与枢纽重合: (' + k + ')');
+          if (lv.isObstacle(nr, nc)) errors.push('数字格不能与障碍重合: (' + k + ')');
+          lv.numbers.set(k, x);
+        }
+        const seenNum = new Map();
+        for (const [k, x] of lv.numbers) {
+          if (seenNum.has(x)) warnings.push('多个数字格要求同一第 ' + x + ' 步（不可同时满足）: ' + seenNum.get(x) + ' 与 ' + k);
+          else seenNum.set(x, k);
+        }
+      } else {
+        warnings.push('numbers 字段格式无效，已忽略');
+      }
+    }
+
+    /* 答案路径：优先解密 solutionEnc，兼容旧版明文 solution */
+    const parseSolution = (sol) => {
+      if (Array.isArray(sol) && sol.length && sol.every(okCell)) {
+        lv.solution = sol.map(p => [p[0], p[1]]);
+        if (!analyzePath(lv, lv.solution).complete) {
+          warnings.push('答案路径无效（不满足规则或未覆盖全部要求），可在编辑器中重新绘制');
+        }
+      } else {
+        warnings.push('答案路径为空或无效，关卡暂不可游玩');
+      }
+    };
+    if (obj.solutionEnc != null || obj.solutionNonce != null) {
+      if (typeof obj.solutionEnc === 'string' && typeof obj.solutionNonce === 'string' &&
+          /^[0-9a-f]+$/.test(obj.solutionNonce)) {
+        const sol = decryptSolution({ data: obj.solutionEnc, nonce: obj.solutionNonce });
+        if (sol) parseSolution(sol);
+        else warnings.push('答案路径解密失败（文件可能被篡改），已忽略');
+      } else {
+        warnings.push('答案路径字段格式无效，已忽略');
+      }
+    } else if (obj.solution != null) {
+      parseSolution(obj.solution);
+    }
+
+    /* 密码（加盐哈希，不接受明文） */
+    if (obj.password != null) {
+      const p = obj.password;
+      if (p && typeof p === 'object' &&
+          /^[0-9a-f]+$/.test(String(p.salt || '')) &&
+          /^[0-9a-f]{64}$/.test(String(p.hash || ''))) {
+        lv.password = { salt: String(p.salt), hash: String(p.hash) };
+      } else {
+        warnings.push('密码字段格式无效，已忽略（明文密码不会被接受）');
+      }
+    }
+
+    if (!lv.start || !lv.end) warnings.push('关卡缺少起点或终点（编辑器中可继续补全）');
+    return { level: lv, errors, warnings };
+  }
+}
+
+/* =========================================================
+ * 路径校验：分析当前绘制的路径
+ * ========================================================= */
+function analyzePath(level, path) {
+  const res = {
+    valid: true,
+    complete: false,
+    errors: [],
+    totalNormal: 0, visitedNormal: 0,
+    totalHubs: level.hubs.size, visitedHubs: 0,
+    totalGreen: level.greenEdges.size, crossedGreen: 0,
+    totalNumbers: level.numbers.size, okNumbers: 0,
+    missingCells: [], missingHubs: [], missingGreens: [],
+    redCells: [], dupCells: [],
+    lastCell: null
+  };
+  const normalKeys = new Set();
+  for (let r = 0; r < level.rows; r++) {
+    for (let c = 0; c < level.cols; c++) {
+      if (level.isObstacle(r, c) || level.isHub(r, c) || level.isStart(r, c) || level.isEnd(r, c)) continue;
+      normalKeys.add(KEY(r, c));
+    }
+  }
+  res.totalNormal = normalKeys.size;
+
+  if (!path || path.length === 0) {
+    res.valid = false;
+    res.errors.push('尚未开始画路径（请从起点 S 开始）');
+    return res;
+  }
+
+  const count = new Map();
+  for (const p of path) {
+    const k = KEY(p[0], p[1]);
+    count.set(k, (count.get(k) || 0) + 1);
+  }
+  const crossed = new Set();
+
+  const first = path[0];
+  if (!level.isStart(first[0], first[1])) res.errors.push('路径必须从起点 S 开始');
+  const last = path[path.length - 1];
+  res.lastCell = last;
+
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], b = path[i];
+    const ka = KEY(a[0], a[1]), kb = KEY(b[0], b[1]);
+    if (!level.isAdjacent(a, b)) {
+      res.errors.push('非法移动: (' + ka + ') → (' + kb + ')');
+    } else {
+      if (level.isDiagMove(a, b) &&
+          !(level.isDiagonal(a[0], a[1]) || level.isDiagonal(b[0], b[1]))) {
+        res.errors.push('斜向移动需要斜向连线格: (' + ka + ') → (' + kb + ')');
+      }
+      if (level.hasEdge('red', a, b)) {
+        res.errors.push('跨越红边: (' + ka + ')-(' + kb + ')');
+        res.redCells.push(ka, kb);
+      }
+      if (level.hasEdge('green', a, b)) crossed.add(Level.edgeKey(a, b));
+    }
+    if (level.isObstacle(b[0], b[1])) res.errors.push('进入障碍格: (' + kb + ')');
+    if (level.isStart(b[0], b[1])) res.errors.push('不能重复进入起点: (' + kb + ')');
+    if (level.isEnd(b[0], b[1]) && i < path.length - 1) res.errors.push('终点之后不能再移动');
+  }
+
+  /* ★ 禁止立即折返：从某一格（含枢纽）出去后，不允许从同一方向
+   * 立刻再进来（X→Y→X）。含斜向。文件答案与试玩画线统一适用。 */
+  for (let i = 0; i + 2 < path.length; i++) {
+    if (path[i][0] === path[i + 2][0] && path[i][1] === path[i + 2][1]) {
+      const a = KEY(path[i][0], path[i][1]);
+      const m = KEY(path[i + 1][0], path[i + 1][1]);
+      res.errors.push('不能立即折返: (' + a + ') → (' + m + ') → (' + a + ')，禁止从同一方向出去再进来');
+    }
+  }
+
+  for (const p of path) {
+    const k = KEY(p[0], p[1]);
+    const n = count.get(k) || 0;
+    if (level.isStart(p[0], p[1]) || level.isEnd(p[0], p[1])) {
+      if (n > 1) res.errors.push('起点/终点被重复经过: (' + k + ')');
+    } else if (level.isHub(p[0], p[1])) {
+      /* 枢纽可多次经过 */
+    } else if (level.isObstacle(p[0], p[1])) {
+      /* 已在步骤中提示 */
+    } else {
+      if (n > 1) { res.errors.push('普通格被重复经过: (' + k + ')'); res.dupCells.push(k); }
+    }
+  }
+
+  for (const k of normalKeys) {
+    if (!count.has(k)) res.missingCells.push(k);
+  }
+  for (const k of level.hubs) {
+    if (!count.has(k)) res.missingHubs.push(k);
+  }
+  for (const k of level.greenEdges) {
+    if (!crossed.has(k)) res.missingGreens.push(k);
+  }
+  res.visitedNormal = normalKeys.size - res.missingCells.length;
+  res.visitedHubs = level.hubs.size - res.missingHubs.length;
+  res.crossedGreen = crossed.size;
+
+  /* 数字格：第 x 步必须到达 */
+  for (const [k, x] of level.numbers) {
+    const [nr, nc] = k.split(',').map(Number);
+    let step = -1;
+    for (let i = 0; i < path.length; i++) {
+      if (path[i][0] === nr && path[i][1] === nc) { step = i + 1; break; }
+    }
+    if (step < 0) res.errors.push('数字格 (' + k + ') 要求第 ' + x + ' 步到达，但路径未经过该格');
+    else if (step !== x) res.errors.push('数字格 (' + k + ') 要求第 ' + x + ' 步到达，实际第 ' + step + ' 步');
+    else res.okNumbers++;
+  }
+
+  if (!level.isEnd(last[0], last[1])) {
+    res.valid = false;
+    res.errors.push('路径尚未到达终点 E');
+  }
+  res.valid = res.errors.length === 0;
+  res.complete = res.valid &&
+    res.missingCells.length === 0 &&
+    res.missingHubs.length === 0 &&
+    res.missingGreens.length === 0;
+  return res;
+}
+
+/* =========================================================
+ * 画线扩展校验（编辑器的答案绘制与试玩共用）
+ * 返回 { ok, reason, hypo, analysis }
+ * ========================================================= */
+function canExtendPath(level, path, cell) {
+  const r = cell[0], c = cell[1];
+  const result = { ok: false, reason: '', hypo: null, analysis: null };
+  if (!level.inBounds(r, c)) { result.reason = '坐标越界'; return result; }
+
+  if (!path || path.length === 0) {
+    if (!level.isStart(r, c)) { result.reason = '请从起点 S 开始画线'; return result; }
+    result.ok = true;
+    result.hypo = [[r, c]];
+    result.analysis = analyzePath(level, result.hypo);
+    return result;
+  }
+
+  const last = path[path.length - 1];
+  if (last[0] === r && last[1] === c) { result.reason = '已在当前格'; return result; }
+
+  /* 终点：只有整条路径完整时才允许进入 */
+  if (level.isEnd(r, c)) {
+    const hypo = path.concat([[r, c]]);
+    const an = analyzePath(level, hypo);
+    if (an.complete) {
+      result.ok = true; result.hypo = hypo; result.analysis = an;
+      return result;
+    }
+    if (an.missingCells.length || an.missingHubs.length || an.missingGreens.length) {
+      result.reason = '还不能到达终点：还需 ' + an.missingCells.length + ' 个普通格、' +
+        an.missingHubs.length + ' 个枢纽、' + an.missingGreens.length + ' 条绿边';
+    } else {
+      result.reason = '还不能到达终点：' + (an.errors[0] || '规则未满足');
+    }
+    return result;
+  }
+
+  if (!level.canMove(last, cell)) { result.reason = '无法移动到这里（斜向需斜向格）'; return result; }
+  if (level.hasEdge('red', last, cell)) { result.reason = '红边禁止通过'; return result; }
+  if (level.isObstacle(r, c)) { result.reason = '这里是障碍格'; return result; }
+  if (level.isStart(r, c)) { result.reason = '不能重复进入起点'; return result; }
+  /* ★ 禁止枢纽立即折返：枢纽出去后从同一方向立刻再进来（X→枢纽→X→枢纽，含斜向）。
+   * 普通格重复进入由下面的检查拦截，无需在此处理 */
+  if (path.length >= 2 && level.isHub(r, c)) {
+    const prev2 = path[path.length - 2];
+    if (prev2[0] === r && prev2[1] === c) {
+      result.reason = '不能立即折返：禁止从同一方向出去再进来';
+      return result;
+    }
+  }
+  if (!level.isHub(r, c)) {
+    for (const p of path) {
+      if (p[0] === r && p[1] === c) { result.reason = '普通格不能重复经过'; return result; }
+    }
+  }
+  const hypo = path.concat([[r, c]]);
+  result.ok = true;
+  result.hypo = hypo;
+  result.analysis = analyzePath(level, hypo);
+  return result;
+}
+
+/* =========================================================
+ * 智能画线插值（编辑器答案绘制与试玩共用）
+ *
+ * 旧实现：每步只能走「直接斜向一格」，一旦该格非法（已访问 /
+ * 障碍 / 非斜向格），整段拖动立即中断——这正是「从枢纽出去再
+ * 进来（含斜向）拖动不了」的根源。
+ * 新实现：直接斜向失败时，依次尝试主轴向、副轴向的正交走法，
+ * 只要目标仍可达就能继续画线，且每个落子都经过 canExtendPath
+ * 校验，绝不会产生非法路径。
+ * ========================================================= */
+function smartInterpolate(level, path, to, maxSteps) {
+  const limit = maxSteps || 512;
+  let p = path.slice();
+  for (let guard = 0; guard < limit; guard++) {
+    const last = p[p.length - 1];
+    if (!last || (last[0] === to[0] && last[1] === to[1])) break;
+    const dr = to[0] - last[0], dc = to[1] - last[1];
+    const sr = Math.sign(dr), sc = Math.sign(dc);
+    /* 候选下一步：直接斜向 → 主轴向正交 → 副轴向正交 */
+    const cands = [];
+    if (sr !== 0 && sc !== 0) cands.push([sr, sc]);
+    if (Math.abs(dr) >= Math.abs(dc)) {
+      if (sr !== 0) cands.push([sr, 0]);
+      if (sc !== 0) cands.push([0, sc]);
+    } else {
+      if (sc !== 0) cands.push([0, sc]);
+      if (sr !== 0) cands.push([sr, 0]);
+    }
+    let advanced = false;
+    for (const d of cands) {
+      const next = [last[0] + d[0], last[1] + d[1]];
+      const res = canExtendPath(level, p, next);
+      if (res.ok) { p = res.hypo; advanced = true; break; }
+    }
+    if (!advanced) break;
+  }
+  return p;
+}
+
+/* 难度显示：保留 1 位小数（6 → "6.0"） */
+function fmtDifficulty(d) {
+  const n = Number(d);
+  return Number.isFinite(n) ? n.toFixed(1) : '0.0';
+}
+
+/* =========================================================
+ * 内置示例关卡（均含已验证可解的答案路径）
+ * ========================================================= */
+const SAMPLE_LEVELS = [
+  {
+    id: 'sample1', name: '新手教学 · 4×4 蛇形', difficulty: 1.5,
+    rows: 4, cols: 4, start: [0, 0], end: [3, 0],
+    obstacles: [], hubs: [], diagonals: [], redEdges: [], greenEdges: [],
+    solution: [[0,0],[0,1],[0,2],[0,3],[1,3],[1,2],[1,1],[1,0],[2,0],[2,1],[2,2],[2,3],[3,3],[3,2],[3,1],[3,0]],
+    password: null
+  },
+  {
+    id: 'sample2', name: '障碍与枢纽 · 5×5', difficulty: 6.0,
+    rows: 5, cols: 5, start: [0, 0], end: [4, 0],
+    obstacles: [[1, 1], [3, 3]], hubs: [[2, 2]], diagonals: [[1, 2], [2, 1]],
+    redEdges: [], greenEdges: [],
+    solution: [[0,0],[0,1],[0,2],[0,3],[0,4],[1,4],[1,3],[1,2],[2,1],[1,0],[2,0],[3,0],[3,1],[3,2],[2,2],[2,3],[2,4],[3,4],[4,4],[4,3],[4,2],[4,1],[4,0]],
+    password: null
+  },
+  {
+    id: 'sample3', name: '红绿边 · 4×4', difficulty: 3.0,
+    rows: 4, cols: 4, start: [0, 0], end: [0, 3],
+    obstacles: [], hubs: [], diagonals: [],
+    redEdges: [[[1, 1], [1, 2]]],
+    greenEdges: [[[0, 1], [0, 2]], [[1, 2], [2, 2]]],
+    solution: [[0,0],[0,1],[0,2],[1,2],[2,2],[2,1],[1,1],[1,0],[2,0],[3,0],[3,1],[3,2],[3,3],[2,3],[1,3],[0,3]],
+    password: null
+  },
+  {
+    id: 'sample4', name: '斜向枢纽 · 5×5', difficulty: 2.0,
+    rows: 5, cols: 5, start: [0, 0], end: [4, 0],
+    obstacles: [], hubs: [[1, 1]],
+    diagonals: [[1, 1], [1, 3], [3, 1], [3, 3]],
+    redEdges: [], greenEdges: [],
+    /* ★ 新解：枢纽 (1,1) 经不同方向访问两次（禁止立即折返），含斜向移动 (1,1)→(2,2) */
+    solution: [[0,0],[1,0],[2,0],[3,0],[3,1],[2,1],[1,1],[0,1],[0,2],[1,2],[1,1],[2,2],[3,2],[3,3],[2,3],[1,3],[0,3],[0,4],[1,4],[2,4],[3,4],[4,4],[4,3],[4,2],[4,1],[4,0]],
+    password: null
+  },
+  {
+    id: 'sample5', name: '综合挑战 · 6×6', difficulty: 11.8,
+    rows: 6, cols: 6, start: [0, 0], end: [5, 5],
+    obstacles: [[1, 2], [4, 3]], hubs: [[2, 2]], diagonals: [[1, 1], [4, 4]],
+    redEdges: [[[2, 3], [3, 3]]],
+    greenEdges: [[[0, 4], [0, 5]], [[2, 2], [2, 3]]],
+    solution: [[0,0],[0,1],[0,2],[0,3],[0,4],[0,5],[1,5],[1,4],[1,3],[2,3],[2,2],[1,1],[1,0],[2,0],[2,1],[2,2],[3,2],[3,1],[3,0],[4,0],[5,0],[5,1],[4,1],[4,2],[5,2],[5,3],[5,4],[4,4],[3,3],[3,4],[2,4],[2,5],[3,5],[4,5],[5,5]],
+    numbers: { '2,3': 10 },
+    password: null
+  },
+  {
+    /* 用户自制超级难题：8×8，含斜向枢纽/红绿边/数字格，答案已加密、带密码 */
+    id: 'sample6', name: '进阶挑战 · 8×8', difficulty: 15.2,
+    rows: 8, cols: 8, start: [0, 0], end: [7, 7],
+    obstacles: [[4, 1]],
+    hubs: [[0, 2], [1, 3]],
+    diagonals: [[0, 2], [1, 3], [4, 4], [4, 5], [6, 1]],
+    redEdges: [
+      [[1, 1], [1, 2]], [[1, 2], [2, 2]], [[0, 4], [1, 4]], [[2, 2], [3, 2]],
+      [[5, 2], [5, 3]], [[4, 4], [4, 5]], [[5, 5], [5, 6]], [[6, 4], [7, 4]]
+    ],
+    greenEdges: [[[3, 2], [3, 3]], [[0, 5], [1, 5]]],
+    numbers: { '2,4': 9, '4,0': 22, '4,7': 60, '6,1': 29 },
+    solutionEnc: 'ysuvrXXocuE3xo7KrKgEB9NSRgqeijE8yUJ5Txu3X8CVJybTYwuduOkAADGR3pTpzKiKGxoBDK+1LCXUuzi0CG2nF2HI9YOiIs65Y5TIpUYDzrgg4NZVby+29JAAR3MROamUEaKiKN+dtkbDzidfOCHzjQL/mKPPXZJu0ITIwJpoXYJQ6IE/ljRzKWyZ8LY+2ZP9i16ZyXgU9BpW0i4qO+4ZeeGWLDsj4u+FdJk5/WMuEVCCc0cZCCdR8psI30X83X/1CQfNz8O4qUlJ7CBZJlyPOYzw/pWVk8QzMcpFjJfj2luQMFHede/PyDXZ4K4eM6VMypj/GRT/6FdszIMDu+pDaEgS4cvq1dQ0egbGHM+AUU1wSrdr8IIxd1twJgas3iHRZ5ZTeqXvd1x0rTmusujtuyAxjk9GBwSO/pSQruODljUHmq+0o+2Go7UPa0Un23fl548xgDSXayViYeZO1ru72FZnQx+GV3UrLjZjyic4OO3HH4o0361hkkoy/yau7R50etBLa6iJzwPLVjNylpxPcA==',
+    solutionNonce: 'cf893516e403557d',
+    password: null   /* ★ 用户要求：移除进阶挑战的密码 */
+  }
+];
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { Level, analyzePath, canExtendPath, smartInterpolate, fmtDifficulty, SAMPLE_LEVELS, KEY, clampInt, sha256, hashPassword, randomHex, encryptSolution, decryptSolution };
+}
+
+</script>
+  <script>
+'use strict';
+/* =========================================================
+ * 路径谜题 · Canvas 渲染模块
+ * ========================================================= */
+
+const Render = (function () {
+  const PAD = 14;
+
+  const C = {
+    bg: '#eef1f5',
+    checkerA: '#ffffff',
+    checkerB: '#f3f6fa',
+    grid: '#c3ccd6',
+    border: '#546e7a',
+    obstacle: '#45525e',
+    obstacleX: '#93a4b2',
+    startFill: '#1e88e5',
+    endFill: '#8e24aa',
+    label: '#ffffff',
+    hubStroke: '#f9a825',
+    hubFill: 'rgba(249,168,37,0.16)',
+    diag: '#00897b',
+    redEdge: '#e53935',
+    greenEdge: '#2e7d32',
+    pathMain: '#1a73e8',
+    pathCase: 'rgba(255,255,255,0.92)',
+    err: '#e53935',
+    sel: '#3949ab',
+    hover: '#64b5f6',
+    num: '#0d47a1'
+  };
+
+  function cellSize(level, w, h) {
+    const cw = (w - PAD * 2) / level.cols;
+    const ch = (h - PAD * 2) / level.rows;
+    return Math.max(8, Math.floor(Math.min(cw, ch)));
+  }
+
+  function metrics(level, w, h) {
+    const cs = cellSize(level, w, h);
+    return {
+      cs,
+      ox: (w - cs * level.cols) / 2,
+      oy: (h - cs * level.rows) / 2
+    };
+  }
+
+  function center(m, r, c) {
+    return [m.ox + c * m.cs + m.cs / 2, m.oy + r * m.cs + m.cs / 2];
+  }
+
+  function rr(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /* ---------- 主绘制入口 ----------
+   * opts: { path, showNumbers, solution:{path,showNumbers},
+   *         highlights:{hover, sel, errors:[keys]},
+   *         preview:{color, from, to} }
+   */
+  function draw(canvas, level, opts) {
+    opts = opts || {};
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    /* 极小尺寸保护：布局抖动（如触屏键盘/地址栏伸缩）时不清屏、不绘制 */
+    if (W < 40 || H < 40) return;
+    const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
+    if (canvas.width !== pw || canvas.height !== ph) {
+      canvas.width = pw;
+      canvas.height = ph;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const m = metrics(level, W, H);
+    const cs = m.cs;
+    if (cs < 6) return;
+
+    drawChecker(ctx, m, level);
+    drawFeatures(ctx, m, level);
+    drawEdges(ctx, m, level);
+    drawGrid(ctx, m, level);
+    if (opts.solution && opts.solution.path && opts.solution.path.length) {
+      drawSolution(ctx, m, level, opts.solution);
+    }
+    if (opts.path && opts.path.length) drawPath(ctx, m, level, opts);
+    drawHighlights(ctx, m, level, opts.highlights || {});
+    if (opts.preview && opts.preview.from && opts.preview.to) drawPreview(ctx, m, level, opts.preview);
+    drawBorder(ctx, m, level);
+  }
+
+  /* 编辑器中的答案路径（灰色虚线，试玩时隐藏） */
+  function drawSolution(ctx, m, level, sol) {
+    const cs = m.cs;
+    const pts = sol.path.map(p => center(m, p[0], p[1]));
+    if (pts.length >= 1) {
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(38,50,56,0.30)';
+      ctx.lineWidth = Math.max(2, cs * 0.14);
+      ctx.setLineDash([6, 5]);
+      tracePath(ctx, pts);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (sol.showNumbers && cs >= 24) {
+      ctx.font = 'bold ' + Math.max(8, cs * 0.26) + 'px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < sol.path.length; i++) {
+        const p = sol.path[i];
+        if (level.isObstacle(p[0], p[1]) || level.isStart(p[0], p[1]) || level.isEnd(p[0], p[1])) continue;
+        if (level.getNumber(p[0], p[1]) !== undefined) continue;
+        const [x, y] = center(m, p[0], p[1]);
+        const txt = String(i + 1);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(txt, x, y);
+        ctx.fillStyle = 'rgba(38,50,56,0.8)';
+        ctx.fillText(txt, x, y);
+      }
+    }
+  }
+
+  /* 棋盘底色 */
+  function drawChecker(ctx, m, level) {
+    for (let r = 0; r < level.rows; r++) {
+      for (let c = 0; c < level.cols; c++) {
+        const x = m.ox + c * m.cs, y = m.oy + r * m.cs;
+        ctx.fillStyle = ((r + c) % 2 === 0) ? C.checkerA : C.checkerB;
+        ctx.fillRect(x, y, m.cs, m.cs);
+      }
+    }
+  }
+
+  /* 格子特征：障碍 / 枢纽 / 斜向 / 数字格 / 起终点 */
+  function drawFeatures(ctx, m, level) {
+    const cs = m.cs;
+    for (let r = 0; r < level.rows; r++) {
+      for (let c = 0; c < level.cols; c++) {
+        const x = m.ox + c * cs, y = m.oy + r * cs;
+        const cx = x + cs / 2, cy = y + cs / 2;
+        if (level.isObstacle(r, c)) {
+          ctx.fillStyle = C.obstacle;
+          rr(ctx, x + 1, y + 1, cs - 2, cs - 2, cs * 0.12);
+          ctx.fill();
+          ctx.strokeStyle = C.obstacleX;
+          ctx.lineWidth = Math.max(1.5, cs * 0.08);
+          const d = cs * 0.22;
+          ctx.beginPath();
+          ctx.moveTo(cx - d, cy - d); ctx.lineTo(cx + d, cy + d);
+          ctx.moveTo(cx - d, cy + d); ctx.lineTo(cx + d, cy - d);
+          ctx.stroke();
+          continue;
+        }
+        const isHub = level.isHub(r, c);
+        const isDiag = level.isDiagonal(r, c);
+        const num = level.getNumber(r, c);
+        if (isDiag) {
+          ctx.strokeStyle = C.diag;
+          ctx.lineWidth = Math.max(1.5, cs * 0.09);
+          const d = cs * (num !== undefined ? 0.22 : 0.3);
+          ctx.beginPath();
+          ctx.moveTo(cx - d, cy - d); ctx.lineTo(cx + d, cy + d);
+          ctx.moveTo(cx - d, cy + d); ctx.lineTo(cx + d, cy - d);
+          ctx.stroke();
+        }
+        if (isHub) {
+          ctx.fillStyle = C.hubFill;
+          rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, cs * 0.14);
+          ctx.fill();
+          ctx.strokeStyle = C.hubStroke;
+          ctx.lineWidth = Math.max(2, cs * 0.1);
+          ctx.beginPath();
+          ctx.arc(cx, cy, cs * 0.28, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = C.hubStroke;
+          ctx.beginPath();
+          ctx.arc(cx, cy, Math.max(1.5, cs * 0.05), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        if (num !== undefined) {
+          /* 数字格徽章：要求第 x 步到达 */
+          ctx.fillStyle = 'rgba(26,115,232,0.10)';
+          rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, cs * 0.18);
+          ctx.fill();
+          ctx.strokeStyle = '#1a73e8';
+          ctx.lineWidth = Math.max(1.5, cs * 0.05);
+          rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, cs * 0.18);
+          ctx.stroke();
+          ctx.fillStyle = '#0d47a1';
+          ctx.font = 'bold ' + Math.max(9, cs * 0.38) + 'px "Segoe UI", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(num), cx, cy + 1);
+        }
+        if (level.isStart(r, c)) {
+          drawSE(ctx, cx, cy, cs, C.startFill, 'S', num !== undefined);
+        } else if (level.isEnd(r, c)) {
+          drawSE(ctx, cx, cy, cs, C.endFill, 'E', num !== undefined);
+        }
+      }
+    }
+  }
+
+  function drawSE(ctx, cx, cy, cs, color, ch, corner) {
+    if (!corner) {
+      const r = cs * 0.32;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = Math.max(1.5, cs * 0.05);
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.stroke();
+      const fs = Math.max(9, cs * 0.42);
+      ctx.fillStyle = C.label;
+      ctx.font = 'bold ' + fs + 'px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(ch, cx, cy + fs * 0.04);
+      return;
+    }
+    /* 与数字格重合：小圆角标（S 左上 / E 右上） */
+    const r = cs * 0.20;
+    const px = ch === 'S' ? cx - cs * 0.28 : cx + cs * 0.28;
+    const py = cy - cs * 0.28;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, cs * 0.04);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.stroke();
+    const fs = Math.max(7, cs * 0.26);
+    ctx.fillStyle = C.label;
+    ctx.font = 'bold ' + fs + 'px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ch, px, py + fs * 0.05);
+  }
+
+  /* 红/绿边 */
+  function drawEdges(ctx, m, level) {
+    const w = Math.max(3, Math.round(m.cs * 0.16));
+    drawEdgeSet(ctx, m, level.redEdges, C.redEdge, w);
+    drawEdgeSet(ctx, m, level.greenEdges, C.greenEdge, w);
+  }
+
+  function drawEdgeSet(ctx, m, set, color, w) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = w;
+    ctx.lineCap = 'butt';
+    for (const k of set) {
+      const [a, b] = k.split('|').map(p => p.split(',').map(Number));
+      if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) === 1) {
+        /* 正交：画在共享边上 */
+        if (a[0] === b[0]) {
+          const r = a[0], c = Math.max(a[1], b[1]);
+          const x = m.ox + c * m.cs, y1 = m.oy + r * m.cs, y2 = y1 + m.cs;
+          ctx.beginPath();
+          ctx.moveTo(x, y1); ctx.lineTo(x, y2);
+          ctx.stroke();
+        } else {
+          const c = a[1], r = Math.max(a[0], b[0]);
+          const y = m.oy + r * m.cs, x1 = m.ox + c * m.cs, x2 = x1 + m.cs;
+          ctx.beginPath();
+          ctx.moveTo(x1, y); ctx.lineTo(x2, y);
+          ctx.stroke();
+        }
+      } else {
+        /* 斜向：画在共享角点交叉的短线上 */
+        const dr = b[0] - a[0], dc = b[1] - a[1];
+        const cornerX = m.ox + (Math.max(a[1], b[1])) * m.cs;
+        const cornerY = m.oy + (Math.max(a[0], b[0])) * m.cs;
+        const d = m.cs * 0.24;
+        /* 方向向量 (dr, dc) 归一化 */
+        const dx = dr / (Math.abs(dr) || 1), dy = dc / (Math.abs(dc) || 1);
+        ctx.beginPath();
+        ctx.moveTo(cornerX - dx * d, cornerY - dy * d);
+        ctx.lineTo(cornerX + dx * d, cornerY + dy * d);
+        ctx.stroke();
+      }
+    }
+  }
+
+  /* 网格线 */
+  function drawGrid(ctx, m, level) {
+    ctx.strokeStyle = C.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let c = 1; c < level.cols; c++) {
+      const x = m.ox + c * m.cs;
+      ctx.moveTo(x, m.oy); ctx.lineTo(x, m.oy + level.rows * m.cs);
+    }
+    for (let r = 1; r < level.rows; r++) {
+      const y = m.oy + r * m.cs;
+      ctx.moveTo(m.ox, y); ctx.lineTo(m.ox + level.cols * m.cs, y);
+    }
+    ctx.stroke();
+  }
+
+  function drawBorder(ctx, m, level) {
+    ctx.strokeStyle = C.border;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(m.ox, m.oy, level.cols * m.cs, level.rows * m.cs);
+  }
+
+  /* 玩家路径 */
+  function drawPath(ctx, m, level, opts) {
+    const cs = m.cs;
+    const pts = opts.path.map(p => center(m, p[0], p[1]));
+    const mainW = Math.max(3, cs * 0.26);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    if (pts.length >= 1) {
+      ctx.strokeStyle = C.pathCase;
+      ctx.lineWidth = mainW + 5;
+      tracePath(ctx, pts);
+      ctx.stroke();
+      ctx.strokeStyle = C.pathMain;
+      ctx.lineWidth = mainW;
+      tracePath(ctx, pts);
+      ctx.stroke();
+    }
+    /* 起点小圆点（覆盖路径起始） */
+    const [sx, sy] = center(m, opts.path[0][0], opts.path[0][1]);
+    ctx.beginPath();
+    ctx.arc(sx, sy, mainW / 2 + 1, 0, Math.PI * 2);
+    ctx.fillStyle = C.startFill;
+    ctx.fill();
+    /* 序号 */
+    if (opts.showNumbers && cs >= 26) {
+      ctx.font = 'bold ' + Math.max(8, cs * 0.3) + 'px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < opts.path.length; i++) {
+        const p = opts.path[i];
+        if (level.isObstacle(p[0], p[1])) continue;
+        if (level.isStart(p[0], p[1]) || level.isEnd(p[0], p[1])) continue;
+        if (level.getNumber(p[0], p[1]) !== undefined) continue;
+        const [x, y] = center(m, p[0], p[1]);
+        const txt = String(i + 1);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(txt, x, y);
+        ctx.fillStyle = C.num;
+        ctx.fillText(txt, x, y);
+      }
+    }
+  }
+
+  function tracePath(ctx, pts) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  }
+
+  /* 高亮：hover / 已选 / 错误 / 警告 */
+  function drawHighlights(ctx, m, level, h) {
+    const cs = m.cs;
+    const stroke = (p, color, w, dash) => {
+      const x = m.ox + p[1] * cs, y = m.oy + p[0] * cs;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = w;
+      ctx.setLineDash(dash || []);
+      rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, cs * 0.15);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+    if (h.errors) {
+      const seen = new Set();
+      for (const k of h.errors) {
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const [r, c] = k.split(',').map(Number);
+        stroke([r, c], C.err, Math.max(2.5, cs * 0.12));
+      }
+    }
+    if (h.sel) stroke(h.sel, C.sel, Math.max(2.5, cs * 0.12), [4, 3]);
+    if (h.hover) stroke(h.hover, C.hover, Math.max(2, cs * 0.09));
+  }
+
+  /* 边工具预览线 */
+  function drawPreview(ctx, m, level, pv) {
+    const color = pv.color === 'red' ? C.redEdge : C.greenEdge;
+    const [x1, y1] = center(m, pv.from[0], pv.from[1]);
+    const [x2, y2] = center(m, pv.to[0], pv.to[1]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(2, m.cs * 0.08);
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /* 事件坐标 → 格子 */
+  function cellAt(canvas, level, clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const m = metrics(level, rect.width, rect.height);
+    const c = Math.floor((clientX - rect.left - m.ox) / m.cs);
+    const r = Math.floor((clientY - rect.top - m.oy) / m.cs);
+    return (r >= 0 && r < level.rows && c >= 0 && c < level.cols) ? [r, c] : null;
+  }
+
+  return { draw, cellAt, metrics, center, PAD, C };
+})();
+
+</script>
+  <script>
+'use strict';
+/* =========================================================
+ * 路径谜题 · 关卡编辑器
+ *  - 格子/边工具 + 答案路径工具（官方解，试玩时隐藏）
+ *  - 撤销/重做、导出/导入（导入默认进入试玩；带密码的关卡
+ *    进入编辑器需验证密码）
+ * ========================================================= */
+
+const Editor = (function () {
+  let canvas = null;
+  let level = new Level(6, 6, '新关卡');
+  let tool = 'start';
+  let edgeFrom = null;
+  let hover = null;
+  let solDrawing = false;   // 答案路径绘制中
+  let unlocked = true;      // 密码解锁状态（导入带密码关卡后为 false）
+  let solNumbers = true;    // 答案路径显示序号（★ 默认勾选）
+  let hideSol = false;      // ★ 隐藏答案路径（示例/导入载入时默认隐藏，防止偷看答案）
+
+  let history = [];
+  let idx = -1;
+
+  const TOOL_HINT = {
+    start: '点击格子放置起点 S（只能有一个）',
+    end: '点击格子放置终点 E（只能有一个）',
+    obstacle: '点击格子放置/移除障碍',
+    hub: '点击格子放置/移除枢纽（可多次经过）',
+    diagonal: '点击格子放置/移除斜向连线格（可斜向进出）',
+    number: '把工具栏的「数字」值标到格子上：要求路径第 x 步到达。可与终点/斜向重合，不可与枢纽重合；输入框留空时点击可移除数字',
+    solution: '从 S 开始画出官方答案路径（灰色虚线）。画完须满足全部规则，关卡才能游玩',
+    erase: '擦除格子上的标记以及与该格相连的红/绿边',
+    redEdge: '先点一格，再点相邻格（含斜向）放置红边（禁止通过）',
+    greenEdge: '先点一格，再点相邻格（含斜向）放置绿边（必须通过）'
+  };
+
+  function $(id) { return document.getElementById(id); }
+
+  function init() {
+    canvas = $('game');
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
+    canvas.addEventListener('pointerleave', onPointerLeave);
+
+    document.querySelectorAll('#editor-panel .tool').forEach(btn => {
+      btn.addEventListener('click', () => setTool(btn.dataset.tool));
+    });
+    $('btn-undo').addEventListener('click', undo);
+    $('btn-redo').addEventListener('click', redo);
+    $('btn-clear').addEventListener('click', clearLevel);
+    $('btn-new').addEventListener('click', newLevel);
+    $('btn-export').addEventListener('click', exportLevel);
+    $('btn-import').addEventListener('click', () => App.openModal('modal-import'));
+    $('btn-play').addEventListener('click', play);
+    $('btn-help').addEventListener('click', () => App.openModal('modal-help'));
+    $('btn-sol-clear').addEventListener('click', clearSolution);
+    $('btn-sol-undo').addEventListener('click', undoSolutionStep);
+    $('btn-password').addEventListener('click', openPasswordSet);
+    $('in-sol-numbers').addEventListener('change', e => {
+      solNumbers = e.target.checked;
+      render();
+    });
+    $('in-hide-sol').addEventListener('change', e => setHideSol(e.target.checked));
+    $('in-difficulty').addEventListener('change', onDifficultyChange);
+
+    $('import-file').addEventListener('change', onImportFile);
+    $('import-apply').addEventListener('click', onImportText);
+    $('export-close').addEventListener('click', () => App.closeModal('modal-export'));
+    $('export-copy').addEventListener('click', onExportCopy);
+    $('export-download').addEventListener('click', onExportDownload);
+    $('import-close').addEventListener('click', () => App.closeModal('modal-import'));
+    $('help-close').addEventListener('click', () => App.closeModal('modal-help'));
+
+    $('pass-set-ok').addEventListener('click', onPasswordSet);
+    $('pass-set-clear').addEventListener('click', onPasswordClear);
+    $('pass-set-close').addEventListener('click', () => App.closeModal('modal-pass-set'));
+    $('pass-new').addEventListener('keydown', e => { if (e.key === 'Enter') onPasswordSet(); });
+
+    const sel = $('in-sample');
+    SAMPLE_LEVELS.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.difficulty > 0 ? s.name + '（难度 ' + fmtDifficulty(s.difficulty) + '）' : s.name;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => {
+      if (sel.value) loadSample(sel.value);
+      sel.value = '';
+    });
+
+    snapshot();
+    setTool('start');
+  }
+
+  /* ---------- 工具 ---------- */
+  function setTool(t) {
+    tool = t;
+    edgeFrom = null;
+    solDrawing = false;
+    document.querySelectorAll('#editor-panel .tool').forEach(b => {
+      b.classList.toggle('active', b.dataset.tool === t);
+    });
+    /* ★ 选择「答案路径」工具即表示要绘制答案：若答案被隐藏则自动显示 */
+    if (t === 'solution' && hideSol) {
+      hideSol = false;
+      const cb = $('in-hide-sol');
+      if (cb) cb.checked = false;
+      App.toast('已自动显示答案路径（正在绘制答案）');
+    }
+    setStatus(statusHtml());
+    render();
+  }
+
+  /* ★ 隐藏/显示答案路径：示例载入时默认隐藏（不显示灰色虚线答案） */
+  function setHideSol(v) {
+    hideSol = !!v;
+    const cb = $('in-hide-sol');
+    if (cb) cb.checked = hideSol;
+    setStatus(statusHtml());
+    render();
+  }
+  function isHideSol() { return hideSol; }
+
+  /* ---------- 历史 ---------- */
+  function snapshot() {
+    history = history.slice(0, idx + 1);
+    history.push(JSON.stringify(level.toJSON()));
+    if (history.length > 150) history.shift();
+    idx = history.length - 1;
+  }
+
+  function applySnapshot(str) {
+    const r = Level.fromJSON(JSON.parse(str));
+    if (r.level) level = r.level;
+    edgeFrom = null;
+    solDrawing = false;
+    render();
+    refreshNameInput();
+  }
+
+  function undo() {
+    if (idx > 0) { idx--; applySnapshot(history[idx]); setStatus(statusHtml()); }
+    else App.toast('没有可撤销的操作');
+  }
+
+  function redo() {
+    if (idx < history.length - 1) { idx++; applySnapshot(history[idx]); setStatus(statusHtml()); }
+    else App.toast('没有可重做的操作');
+  }
+
+  /* ---------- 画布事件 ---------- */
+  function onPointerDown(e) {
+    if (App.getMode() !== 'editor') return;
+    e.preventDefault();
+    if (!unlocked) {
+      App.toast('该关卡已加密，请输入密码解锁编辑器');
+      App.openModal('modal-pass');
+      return;
+    }
+    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY);
+    if (!cell) return;
+    if (tool === 'solution') {
+      solDrawing = true;
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
+      /* ★ 修复：落点就是当前端点时不弹「已在当前格」提示（每次拖动开始都会触发） */
+      const last = level.solution && level.solution.length ? level.solution[level.solution.length - 1] : null;
+      const silent = !!last && last[0] === cell[0] && last[1] === cell[1];
+      extendSolution(cell, silent);
+      return;
+    }
+    applyTool(cell);
+  }
+
+  function onPointerMove(e) {
+    if (App.getMode() !== 'editor') return;
+    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY);
+    if (cell !== hover) { hover = cell; render(); }
+    if (tool === 'solution' && solDrawing && cell) {
+      const last = level.solution && level.solution.length ? level.solution[level.solution.length - 1] : null;
+      if (last && (last[0] !== cell[0] || last[1] !== cell[1])) interpolateSolution(cell);
+    }
+  }
+
+  function onPointerUp() {
+    solDrawing = false;
+  }
+
+  function onPointerLeave() {
+    /* ★ 修复：试玩模式下编辑器不得重绘画布（否则会抹掉玩家路径） */
+    if (App.getMode() !== 'editor') return;
+    hover = null;
+    render();
+  }
+
+  /* ---------- 格子/边工具 ---------- */
+  function applyTool(cell) {
+    const [r, c] = cell;
+    switch (tool) {
+      case 'start': {
+        if (level.isObstacle(r, c)) { App.toast('该格是障碍，请先擦除'); return; }
+        if (level.isEnd(r, c)) { App.toast('该格是终点'); return; }
+        level.start = [r, c];
+        level.hubs.delete(KEY(r, c));
+        level.diagonals.delete(KEY(r, c));
+        snapshot();
+        break;
+      }
+      case 'end': {
+        if (level.isObstacle(r, c)) { App.toast('该格是障碍，请先擦除'); return; }
+        if (level.isStart(r, c)) { App.toast('该格是起点'); return; }
+        level.end = [r, c];
+        level.hubs.delete(KEY(r, c));
+        level.diagonals.delete(KEY(r, c));
+        snapshot();
+        break;
+      }
+      case 'obstacle': {
+        if (level.isStart(r, c) || level.isEnd(r, c)) { App.toast('该格是起点/终点，请先用擦除工具移除'); return; }
+        const k = KEY(r, c);
+        if (level.obstacles.has(k)) level.obstacles.delete(k);
+        else { level.obstacles.add(k); level.hubs.delete(k); level.diagonals.delete(k); level.numbers.delete(k); }
+        snapshot();
+        break;
+      }
+      case 'hub': {
+        if (level.isStart(r, c) || level.isEnd(r, c)) { App.toast('该格是起点/终点，请先用擦除工具移除'); return; }
+        if (level.isObstacle(r, c)) { App.toast('该格是障碍，请先擦除'); return; }
+        if (level.getNumber(r, c) !== undefined) { App.toast('数字格不能与枢纽重合（请先移除数字）'); return; }
+        const k = KEY(r, c);
+        if (level.hubs.has(k)) level.hubs.delete(k); else level.hubs.add(k);
+        snapshot();
+        break;
+      }
+      case 'diagonal': {
+        if (level.isStart(r, c) || level.isEnd(r, c)) { App.toast('该格是起点/终点，请先用擦除工具移除'); return; }
+        if (level.isObstacle(r, c)) { App.toast('该格是障碍，请先擦除'); return; }
+        const k = KEY(r, c);
+        if (level.diagonals.has(k)) level.diagonals.delete(k); else level.diagonals.add(k);
+        snapshot();
+        break;
+      }
+      case 'number': {
+        if (level.isHub(r, c)) { App.toast('数字格不能与枢纽重合'); return; }
+        if (level.isObstacle(r, c)) { App.toast('数字格不能放在障碍上'); return; }
+        const raw = $('in-number').value;
+        if (raw === '') {
+          if (level.getNumber(r, c) === undefined) { App.toast('该格没有数字，或先在输入框填入步数'); return; }
+          level.removeNumber(r, c);
+        } else {
+          let x = parseInt(raw, 10);
+          if (!Number.isInteger(x) || x < 1) { App.toast('请输入 ≥1 的步数'); return; }
+          level.setNumber(r, c, Math.min(x, 999));
+        }
+        snapshot();
+        break;
+      }
+      case 'erase': {
+        const k = KEY(r, c);
+        level.obstacles.delete(k);
+        level.hubs.delete(k);
+        level.diagonals.delete(k);
+        level.numbers.delete(k);
+        if (level.isStart(r, c)) level.start = null;
+        if (level.isEnd(r, c)) level.end = null;
+        /* ★ 修复：擦除时同时删除与该格相连的所有红/绿边 */
+        for (const set of [level.redEdges, level.greenEdges]) {
+          for (const ek of [...set]) {
+            if (ek.split('|').some(part => part === k)) set.delete(ek);
+          }
+        }
+        snapshot();
+        break;
+      }
+      case 'redEdge':
+      case 'greenEdge': {
+        if (!edgeFrom) {
+          edgeFrom = [r, c];
+          App.toast('已选择 (' + r + ',' + c + ')，请点击相邻格（含斜向）');
+        } else if (edgeFrom[0] === r && edgeFrom[1] === c) {
+          edgeFrom = null;
+        } else {
+          if (!level.isAdjacent(edgeFrom, cell)) {
+            App.toast('只能连接相邻的格子（上下左右或斜向）');
+            return;
+          }
+          const color = tool === 'redEdge' ? 'red' : 'green';
+          const exists = level.hasEdge(color, edgeFrom, cell);
+          if (!exists && (level.isObstacle(edgeFrom[0], edgeFrom[1]) || level.isObstacle(r, c))) {
+            App.toast('障碍格不能连接边');
+            return;
+          }
+          level.toggleEdge(color, edgeFrom, cell);
+          edgeFrom = null;
+          snapshot();
+        }
+        break;
+      }
+    }
+    setStatus(statusHtml());
+    render();
+  }
+
+  /* ---------- 答案路径工具 ---------- */
+  function samePath(a, b) {
+    if (a === b) return true;
+    if (!a || !b || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) return false;
+    }
+    return true;
+  }
+
+  function extendSolution(cell, silent) {
+    const res = canExtendPath(level, level.solution || [], cell);
+    if (!res.ok) {
+      if (!silent && res.reason) App.toast(res.reason);
+      return;
+    }
+    if (!samePath(level.solution, res.hypo)) {
+      level.solution = res.hypo;
+      snapshot();
+      setStatus(statusHtml());
+    }
+    render();
+  }
+
+  function interpolateSolution(to) {
+    /* ★ 修复：使用智能插值——直接斜向走不通时尝试正交绕行，
+     * 解决「从枢纽出去再进来（含斜向）拖不动」的问题 */
+    const newPath = smartInterpolate(level, level.solution || [], to, 256);
+    if (!samePath(level.solution, newPath)) {
+      level.solution = newPath;
+      snapshot();
+      setStatus(statusHtml());
+    }
+    render();
+  }
+
+  function clearSolution() {
+    if (!level.solution || !level.solution.length) { App.toast('答案路径本来就是空的'); return; }
+    level.solution = null;
+    snapshot();
+    setStatus(statusHtml());
+    render();
+    App.toast('已清空答案路径');
+  }
+
+  /* ★ 新增：撤销答案路径最后一步 */
+  function undoSolutionStep() {
+    if (!level.solution || !level.solution.length) { App.toast('答案路径为空，无法撤销'); return; }
+    level.solution = level.solution.slice(0, -1);
+    if (!level.solution.length) level.solution = null;
+    snapshot();
+    setStatus(statusHtml());
+    render();
+    App.toast('已撤销答案路径一步（剩余 ' + (level.solution ? level.solution.length : 0) + ' 格）');
+  }
+
+  /* ---------- 密码 ---------- */
+  function openPasswordSet() {
+    $('pass-set-hint').textContent = level.hasPassword() ? '当前已设置密码（导出后需密码才能编辑）。' : '当前未设置密码。';
+    $('pass-new').value = '';
+    App.openModal('modal-pass-set');
+  }
+
+  function onPasswordSet() {
+    const pw = $('pass-new').value;
+    if (!pw) { App.toast('请输入要设置的密码'); return; }
+    level.setPassword(pw);
+    unlocked = true;
+    snapshot();
+    App.closeModal('modal-pass-set');
+    setStatus(statusHtml());
+    App.toast('已设置密码（导出时加密存储，不会保存明文）');
+  }
+
+  function onPasswordClear() {
+    level.setPassword('');
+    unlocked = true;
+    snapshot();
+    App.closeModal('modal-pass-set');
+    setStatus(statusHtml());
+    App.toast('已清除密码');
+  }
+
+  function isUnlocked() { return unlocked; }
+  function unlock() { unlocked = true; }
+  function verifyPassword(pw) { return level.checkPassword(pw); }
+
+  /* ---------- 关卡级操作 ---------- */
+  function clearLevel() {
+    level = new Level(level.rows, level.cols, nameValue());
+    unlocked = true;
+    refreshDifficultyInput();
+    setHideSol(false);
+    if (typeof Library !== 'undefined' && Library.setCurrentCommunity) Library.setCurrentCommunity(null);
+    snapshot();
+    render();
+    refreshNameInput();
+    App.toast('已清空，可重新设计');
+  }
+
+  function newLevel() {
+    const rows = clampInt($('in-rows').value, 2, 30, 6);
+    const cols = clampInt($('in-cols').value, 2, 30, 6);
+    level = new Level(rows, cols, nameValue());
+    unlocked = true;
+    refreshDifficultyInput();
+    setHideSol(false);
+    if (typeof Library !== 'undefined' && Library.setCurrentCommunity) Library.setCurrentCommunity(null);
+    snapshot();
+    render();
+    refreshNameInput();
+    App.toast('已新建 ' + rows + '×' + cols + ' 空白关卡');
+  }
+
+  function loadSample(id) {
+    const s = SAMPLE_LEVELS.find(x => x.id === id);
+    if (!s) return;
+    loadLevelData(s, { unlocked: true });
+    setHideSol(true);   /* ★ 示例载入时默认隐藏答案路径 */
+    if (typeof Library !== 'undefined' && Library.setCurrentCommunity) Library.setCurrentCommunity(null);
+    App.toast('已载入示例：「' + s.name + '」（答案已隐藏，可取消勾选「隐藏答案路径」查看）');
+  }
+
+  /* 载入关卡数据（导入/示例共用） */
+  function loadLevelData(obj, opts) {
+    opts = opts || {};
+    const r = Level.fromJSON(obj);
+    if (!r.level || r.errors.length) {
+      return { ok: false, errors: r.errors };
+    }
+    level = r.level;
+    /* 解锁状态：显式指定时按指定；否则带密码则锁定（进编辑器需密码） */
+    unlocked = (opts.unlocked !== undefined) ? opts.unlocked : !level.hasPassword();
+    edgeFrom = null;
+    solDrawing = false;
+    refreshDifficultyInput();
+    snapshot();
+    render();
+    refreshNameInput();
+    setStatus(statusHtml());
+    return { ok: true, warnings: r.warnings };
+  }
+
+  function nameValue() {
+    const v = $('in-name').value.trim();
+    return v ? v : '未命名关卡';
+  }
+
+  function refreshNameInput() {
+    $('in-name').value = level.name === '未命名关卡' ? '' : level.name;
+  }
+
+  /* ---------- 难度等级（默认 0，保留 1 位小数） ---------- */
+  function difficultyValue() {
+    const v = $('in-difficulty').value;
+    if (v === '') return 0;
+    const d = Number(v);
+    return Number.isFinite(d) ? Math.min(999, Math.max(0, Math.round(d * 10) / 10)) : 0;
+  }
+  function applyDifficulty() { level.difficulty = difficultyValue(); }
+  function refreshDifficultyInput() { $('in-difficulty').value = level.difficulty; }
+  function onDifficultyChange() {
+    applyDifficulty();
+    snapshot();
+    setStatus(statusHtml());
+    render();
+    App.toast('难度已设为 ' + fmtDifficulty(level.difficulty));
+  }
+
+  /* ---------- 导出 ---------- */
+  function exportLevel() {
+    level.name = nameValue();
+    applyDifficulty();
+    const json = JSON.stringify(level.toJSON(), null, 2);
+    $('export-text').value = json;
+    App.openModal('modal-export');
+    $('export-text').select();
+  }
+
+  function onExportCopy() {
+    const ta = $('export-text');
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    if (!ok && navigator.clipboard) {
+      navigator.clipboard.writeText(ta.value).then(
+        () => App.toast('已复制到剪贴板'),
+        () => App.toast('复制失败，请手动复制')
+      );
+      return;
+    }
+    App.toast(ok ? '已复制到剪贴板' : '复制失败，请手动复制');
+  }
+
+  function onExportDownload() {
+    const json = $('export-text').value;
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (level.name || 'level') + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /* ---------- 导入 ---------- */
+  function onImportFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      $('import-text').value = String(reader.result);
+      applyImportText();
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  }
+
+  function onImportText() { applyImportText(); }
+
+  function applyImportText() {
+    let obj;
+    try {
+      obj = JSON.parse($('import-text').value);
+    } catch (err) {
+      App.toast('JSON 解析失败：' + err.message);
+      return;
+    }
+    const r = loadLevelData(obj, {});
+    if (!r.ok) {
+      App.toast('导入失败：' + (r.errors.slice(0, 3).join('；') || '数据无效'));
+      return;
+    }
+    App.toast('导入成功' + (r.warnings.length ? '（注意：' + r.warnings[0] + '）' : ''));
+    App.closeModal('modal-import');
+    $('import-text').value = '';
+    /* ★ 导入后默认隐藏答案路径（防止偷看） */
+    setHideSol(true);
+    if (typeof Library !== 'undefined' && Library.setCurrentCommunity) Library.setCurrentCommunity(null);
+    /* 默认进入试玩；无有效答案则需补画（加密关卡先验证密码） */
+    if (level.solutionValid()) {
+      App.switchMode('player');
+    } else if (level.hasPassword()) {
+      App.toast('该关卡没有有效答案路径且设有密码，请输入密码进入编辑器补画');
+      App.openModal('modal-pass');
+    } else {
+      App.switchMode('editor');
+    }
+  }
+
+  /* ---------- 试玩 ---------- */
+  function play() {
+    level.name = nameValue();
+    applyDifficulty();
+    const problem = App.levelPlayable(level);
+    if (problem) { App.toast(problem); return; }
+    App.playCurrentLevel();
+  }
+
+  /* ---------- 渲染 ---------- */
+  function render() {
+    if (!canvas) return;
+    const h = { hover };
+    if (edgeFrom) h.sel = edgeFrom;
+    const opts = { highlights: h };
+    /* 锁定状态下隐藏答案路径（防止未解锁看到官方解）；
+     * ★ 修复：勾选「隐藏答案路径」后，即使选中了「答案路径」工具也不显示
+     * （仅正在绘制的那一下才临时显示，方便落笔） */
+    if (unlocked && level.solution && level.solution.length && (!hideSol || solDrawing)) {
+      opts.solution = { path: level.solution, showNumbers: solNumbers };
+    }
+    if ((tool === 'redEdge' || tool === 'greenEdge') && edgeFrom && hover &&
+        level.isAdjacent(edgeFrom, hover)) {
+      opts.preview = { color: tool === 'redEdge' ? 'red' : 'green', from: edgeFrom, to: hover };
+    }
+    Render.draw(canvas, level, opts);
+  }
+
+  function solText() {
+    if (!level.solution || !level.solution.length) return '答案：未设置';
+    const an = analyzePath(level, level.solution);
+    const hidden = hideSol ? '（已隐藏）' : '';
+    if (an.complete) return '答案：✓ 有效（' + level.solution.length + ' 格）' + hidden;
+    return '答案：✗ 无效（' + (an.errors[0] || '未覆盖全部要求') + '）' + hidden;
+  }
+
+  function numText() {
+    const n = level.numbers.size;
+    if (!n) return '数字格 0';
+    const seen = new Map();
+    const dups = [];
+    for (const [k, x] of level.numbers) {
+      if (seen.has(x)) dups.push('第' + x + '步重复');
+      else seen.set(x, k);
+    }
+    return '数字格 ' + n + (dups.length ? ' ⚠' + dups.join(',') : '');
+  }
+
+  function statusHtml() {
+    const s = level.stats();
+    let html = '<b>当前工具：</b>' + TOOL_HINT[tool] + ' ｜ 难度 ' + fmtDifficulty(level.difficulty) +
+      ' ｜ ' +
+      (s.hasStart ? 'S:' + level.start : '无起点') +
+      ' ｜ ' + (s.hasEnd ? 'E:' + level.end : '无终点') +
+      ' ｜ 障碍 ' + s.obstacles + ' ｜ 枢纽 ' + s.hubs +
+      ' ｜ 斜向 ' + s.diagonals + ' ｜ 红边 ' + s.redEdges + ' ｜ 绿边 ' + s.greenEdges +
+      ' ｜ ' + numText() +
+      ' ｜ ' + solText();
+    if (level.hasPassword()) html += ' ｜ 🔒 已设密码';
+    if (!unlocked) html += ' ｜ 🔒 已锁定';
+    return html;
+  }
+
+  function setStatus(html) { App.setStatus(html); }
+
+  function getLevel() { return level; }
+  function getTool() { return tool; }
+
+  return {
+    init, render, setTool, undo, redo, clearLevel, newLevel,
+    exportLevel, play, getLevel, getTool, snapshot, loadSample,
+    isUnlocked, unlock, verifyPassword, loadLevelData, undoSolutionStep,
+    isHideSol, setHideSol
+  };
+})();
+
+</script>
+  <script>
+'use strict';
+/* =========================================================
+ * 路径谜题 · 游玩（试玩）模块
+ * 玩法：从起点 S 出发画一条路径，经过每个普通格恰好一次，
+ *       至少经过每个枢纽一次、覆盖所有绿边、不跨越红边，
+ *       最后到达终点 E。
+ * 答案路径（官方解）在此模式中隐藏。
+ * ========================================================= */
+
+const Player = (function () {
+  let canvas = null;
+  let level = null;
+  let path = [];
+  let analysis = null;
+  let won = false;
+  let drawing = false;
+  let showNumbers = true;   // ★ 显示序号默认勾选
+  let showAnswer = false;   // ★ 查看答案（显示官方解）
+  let viewedAnswer = false; // ★ 看过答案后不计入排行榜/实力
+  let startTime = 0;
+
+  function $(id) { return document.getElementById(id); }
+
+  function init() {
+    canvas = $('game');
+    canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointermove', onMove);
+    canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
+
+    $('p-undo').addEventListener('click', () => undoSteps(1));
+    $('p-undo10').addEventListener('click', () => undoSteps(10));
+    $('p-clear').addEventListener('click', clearPath);
+    $('p-numbers').addEventListener('change', e => { showNumbers = e.target.checked; render(); });
+    $('p-back').addEventListener('click', () => App.switchMode('editor'));
+    $('p-exit').addEventListener('click', exitSave);
+    $('p-answer').addEventListener('click', viewAnswer);
+
+    $('win-restart').addEventListener('click', () => {
+      hideWin();
+      clearPath();
+    });
+    $('win-back').addEventListener('click', () => App.switchMode('editor'));
+  }
+
+  function loadLevel(jsonObj) {
+    const r = Level.fromJSON(jsonObj);
+    if (!r.level) return;
+    level = r.level;
+    reset();
+    $('p-levelname').textContent = '关卡：' + level.name + ' · 难度 ' + fmtDifficulty(level.difficulty);
+    /* ★ 恢复上次退出的作答进度（社区关卡） */
+    if (typeof Library !== 'undefined' && Library.getDraft) {
+      const draft = Library.getDraft();
+      if (draft && Array.isArray(draft.path) && draft.path.length >= 1) {
+        path = draft.path.map(p => [p[0], p[1]]);
+        viewedAnswer = !!draft.viewed;
+        showAnswer = viewedAnswer;
+        won = false;
+        analysis = analyzePath(level, path);
+        render();
+        updateStatus();
+        App.toast('↩ 已恢复上次作答进度' + (viewedAnswer ? '（此局已标记查看过答案）' : ''));
+      }
+    }
+  }
+
+  function reset() {
+    path = [];
+    won = false;
+    startTime = Date.now();
+    analysis = analyzePath(level, path);
+    hideWin();
+    render();
+    updateStatus();
+  }
+
+  /* ---------- 事件 ---------- */
+  function onDown(e) {
+    if (App.getMode() !== 'player' || !level) return;
+    e.preventDefault();
+    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY);
+    if (!cell) return;
+    drawing = true;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
+    /* ★ 修复：落点就是当前端点时不弹「已在当前格」提示（每次拖动开始都会触发） */
+    const last = path[path.length - 1];
+    const silent = !!last && last[0] === cell[0] && last[1] === cell[1];
+    tryAppend(cell, silent);
+  }
+
+  function onMove(e) {
+    if (!drawing || App.getMode() !== 'player' || !level) return;
+    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY);
+    if (!cell) return;
+    const last = path[path.length - 1];
+    if (!last || (last[0] === cell[0] && last[1] === cell[1])) return;
+    interpolate(cell);
+  }
+
+  function onUp() {
+    drawing = false;
+    /* ★ 修复：松手时强制重绘一次，避免最后一步未显示 */
+    render();
+  }
+
+  function interpolate(to) {
+    /* ★ 修复：智能插值——直接斜向走不通时尝试正交绕行，
+     * 解决「从枢纽出去再进来（含斜向）拖不动」的问题 */
+    const newPath = smartInterpolate(level, path, to, 256);
+    if (newPath.length > path.length) {
+      path = newPath;
+      const last = path[path.length - 1];
+      if (level.isEnd(last[0], last[1])) {
+        const an = analyzePath(level, path);
+        if (an.complete) { finish(an); return; }
+        analysis = an;
+      } else {
+        analysis = analyzePath(level, path);
+      }
+      updateStatus();
+    }
+    render();
+  }
+
+  /* ---------- 画线核心（与编辑器答案绘制共用 canExtendPath） ---------- */
+  function tryAppend(cell, silent) {
+    const res = canExtendPath(level, path, cell);
+    if (!res.ok) {
+      if (!silent && res.reason) App.toast(res.reason);
+      return false;
+    }
+    const last = res.hypo[res.hypo.length - 1];
+    if (level.isEnd(last[0], last[1]) && res.analysis && res.analysis.complete) {
+      path = res.hypo;
+      finish(res.analysis);
+      return true;
+    }
+    path = res.hypo;
+    analysis = res.analysis;
+    updateStatus();
+    return true;
+  }
+
+  function finish(an) {
+    won = true;
+    analysis = an;
+    render();
+    const secs = ((Date.now() - startTime) / 1000).toFixed(1);
+    $('win-stats').textContent =
+      '用时 ' + secs + ' 秒 · 步数 ' + (path.length - 1) + ' · 难度 ' + fmtDifficulty(level.difficulty) +
+      ' · 覆盖 ' + an.totalNormal + ' 个普通格 + ' + level.hubs.size + ' 个枢纽';
+    showWin();
+    App.setStatus('🎉 通关成功！');
+    /* ★ 社区关卡：自动记录完成时间（进排行榜）；看过答案则不计入 */
+    if (typeof Library !== 'undefined' && Library.onWin) {
+      try { Library.onWin(viewedAnswer); } catch (e) { /* 静默 */ }
+    }
+    if (typeof Library !== 'undefined' && Library.clearDraft) {
+      try { Library.clearDraft(); } catch (e) { /* 静默 */ }
+    }
+    if (viewedAnswer) {
+      $('win-stats').textContent += '（已查看答案，不计入排行榜）';
+    }
+  }
+
+  /* ---------- 操作 ---------- */
+  /* ★ 新增：撤销 n 步（试玩用：撤销一步 / 撤销十步） */
+  function undoSteps(n) {
+    if (path.length <= 1) { App.toast('没有可撤销的步骤'); return; }
+    const remove = Math.min(n, path.length - 1);
+    path = path.slice(0, path.length - remove);
+    won = false;
+    hideWin();
+    analysis = analyzePath(level, path);
+    render();
+    updateStatus();
+  }
+
+  function undoStep() { undoSteps(1); }
+
+  function clearPath() {
+    path = [];
+    won = false;
+    startTime = Date.now();
+    analysis = analyzePath(level, path);
+    render();
+    updateStatus();
+    hideWin();
+  }
+
+  /* ---------- 渲染 ---------- */
+  function render() {
+    if (!canvas || !level) return;
+    const h = {};
+    if (analysis && (analysis.redCells.length || analysis.dupCells.length)) {
+      h.errors = analysis.redCells.concat(analysis.dupCells);
+    }
+    const opts = {
+      path,
+      showNumbers,
+      highlights: h
+    };
+    /* ★ 查看答案：显示官方解（灰色虚线） */
+    if (showAnswer && level.solution && level.solution.length) {
+      opts.solution = { path: level.solution, showNumbers: true };
+    }
+    Render.draw(canvas, level, opts);
+  }
+
+  function updateStatus() {
+    if (!analysis) return;
+    const an = analysis;
+    let msg = '普通格 ' + an.visitedNormal + '/' + an.totalNormal +
+      ' · 枢纽 ' + an.visitedHubs + '/' + an.totalHubs +
+      ' · 绿边 ' + an.crossedGreen + '/' + an.totalGreen;
+    if (an.totalNumbers > 0) msg += ' · 数字 ' + an.okNumbers + '/' + an.totalNumbers;
+    msg += ' · 步数 ' + Math.max(0, path.length - 1);
+    if (won) msg = '🎉 通关成功！' + msg;
+    else if (an.errors.length) msg += ' ｜ ⚠ ' + an.errors[0];
+    else msg += ' ｜ 继续画线，目标：' + an.missingCells.length + ' 个普通格 / ' +
+      an.missingHubs.length + ' 个枢纽 / ' + an.missingGreens.length + ' 条绿边未覆盖';
+    App.setStatus(msg);
+  }
+
+  /* ---------- 通关浮层 ---------- */
+  function showWin() {
+    $('win-overlay').classList.add('show');
+  }
+  function hideWin() {
+    $('win-overlay').classList.remove('show');
+  }
+
+  /* ★ 查看答案：显示官方解，之后通关不计入排行榜/实力 */
+  function viewAnswer() {
+    if (!level || !level.solution || !level.solution.length) {
+      App.toast('这关还没有官方答案');
+      return;
+    }
+    showAnswer = true;
+    viewedAnswer = true;
+    render();
+    App.toast('👁 已显示答案，本次通关不计入排行榜和实力');
+  }
+
+  /* ★ 退出并保存作答进度（社区关卡），回到选关界面；编辑器内容清空 */
+  function exitSave() {
+    if (typeof Library !== 'undefined' && Library.saveDraft) {
+      Library.saveDraft(path, viewedAnswer);
+    }
+    if (typeof Library !== 'undefined' && Library.openCommunityTab) {
+      App.switchMode('editor');                 // 停止游玩并清理玩家状态
+      if (typeof Editor !== 'undefined') Editor.newLevel();   // 清空编辑器内容
+      Library.openCommunityTab();               // 回到选关界面（社区列表）
+      App.toast('⏏ 进度已保存，可随时回来继续');
+    } else {
+      App.switchMode('editor');
+      App.toast('⏏ 进度已保存');
+    }
+  }
+
+  /* ★ 新增：离开试玩时清理状态（清空玩家路径、隐藏通关浮层）。
+   * 修复「从试玩返回编辑器时试玩路径没有删除、通关返回后窗口不消失」 */
+  function stop() {
+    path = [];
+    won = false;
+    analysis = null;
+    showAnswer = false;
+    viewedAnswer = false;
+    hideWin();
+  }
+
+  return {
+    init, loadLevel, undoStep, undoSteps, clearPath, reset, render, stop,
+    viewAnswer, exitSave
+  };
+})();
+
+</script>
+  <script>
+'use strict';
+/* =========================================================
+ * 路径谜题 · 关卡库（本地存档 + 社区）
+ *  - 本地：把当前关卡（成品）或半成品草稿保存到 localStorage，
+ *    随时载入继续编辑/游玩，完全离线可用
+ *  - 社区（两种存储方式，任选其一）：
+ *      A. 自建服务器（server/community-server.js 或 CloudBase 云函数）
+ *      B. GitHub Gist（免服务器）：游戏直接读写一个 Gist 里的
+ *         levels.json，读取免 Token，上传/删除需要 GitHub Token
+ * ========================================================= */
+
+const Library = (function () {
+  const LS_KEY = 'path-game:library';
+  const SRV_KEY = 'path-game:server-url';
+  const OWNER_KEY = 'path-game:owner-key';
+  const AUTHOR_KEY = 'path-game:author';
+
+  function $(id) { return document.getElementById(id); }
+  function uid() {
+    return 'lv_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+  }
+  function setAuthorName(n) {
+    localStorage.setItem(AUTHOR_KEY, String(n || '匿名').slice(0, 20));
+  }
+  function serverUrl() {
+    return localStorage.getItem(SRV_KEY) || '';
+  }
+  function setServerUrl(u) {
+    u = String(u || '').trim().replace(/\/+$/, '');
+    if (u) localStorage.setItem(SRV_KEY, u); else localStorage.removeItem(SRV_KEY);
+  }
+
+  /* ---------- 存储方式：自建服务器 或 GitHub Gist（免服务器） ---------- */
+  const STORE_KEY = 'path-game:store-mode';
+  const GIST_KEY = 'path-game:gist-url';
+  const GIST_TOKEN_KEY = 'path-game:gist-token';
+
+  function storeMode() { return 'repo'; }   /* ★ 固定共享社区，不再可选 */
+  function setStoreMode() { /* 兼容旧调用，固定 repo */ }
+  function gistUrl() { return localStorage.getItem(GIST_KEY) || ''; }
+  function gistToken() { return localStorage.getItem(GIST_TOKEN_KEY) || ''; }
+  function setGist(url, token) {
+    const u = String(url || '').trim();
+    const t = String(token || '').trim();
+    if (u) localStorage.setItem(GIST_KEY, u); else localStorage.removeItem(GIST_KEY);
+    if (t) localStorage.setItem(GIST_TOKEN_KEY, t); else localStorage.removeItem(GIST_TOKEN_KEY);
+  }
+  /* 从 Gist 地址或裸 ID 提取 gist id */
+  function parseGistId(url) {
+    const s = String(url || '').trim();
+    const m = s.match(/gist\.github\.com\/[^/]+\/([0-9a-f]{7,40})/i);
+    if (m) return m[1];
+    return /^[0-9a-f]{7,40}$/i.test(s) ? s : '';
+  }
+  /* 免 Token 的读取地址（raw，无速率限制） */
+  function gistRawUrl() {
+    const m = String(gistUrl() || '').match(/gist\.github\.com\/([^/]+)\/([0-9a-f]{7,40})/i);
+    return m ? 'https://gist.githubusercontent.com/' + m[1] + '/' + m[2] + '/raw/levels.json' : '';
+  }
+  async function gistReadData() {
+    const raw = gistRawUrl();
+    if (!raw) throw new Error('请先填写 Gist 地址（https://gist.github.com/用户名/一串id）');
+    const res = await apiFetch(raw, { cache: 'no-store' });
+    if (!res.ok) throw new Error('读取 Gist 失败（HTTP ' + res.status + '），请确认 Gist 里有 levels.json 文件');
+    let data;
+    try { data = await res.json(); }
+    catch (e) { throw new Error('Gist 里的 levels.json 不是有效 JSON'); }
+    if (!data || typeof data !== 'object' || !Array.isArray(data.levels)) {
+      throw new Error('Gist 里 levels.json 结构不对（应为 {"levels":[...]}）');
+    }
+    return data;
+  }
+  async function gistWriteData(data) {
+    const id = parseGistId(gistUrl());
+    const token = gistToken();
+    if (!id) throw new Error('请先填写 Gist 地址');
+    if (!token) {
+      throw new Error('上传/删除需要 GitHub Token：GitHub → 头像 → Settings → Developer settings → Personal access tokens → 新建（勾选 gist）→ 粘贴到上面');
+    }
+    const res = await apiFetch('https://api.github.com/gists/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + token },
+      body: JSON.stringify({ files: { 'levels.json': { content: JSON.stringify(data) } } })
+    }, 15000);
+    if (!res.ok) {
+      if (res.status === 401) throw new Error('Token 无效或已过期，请重新生成（勾选 gist 权限）');
+      if (res.status === 404) throw new Error('Gist 不存在，或 Token 无权访问');
+      throw new Error('写入 Gist 失败（HTTP ' + res.status + '）');
+    }
+    return res.json();
+  }
+
+  /* ---------- GitHub 仓库（GitHub Pages）存储：大陆可访问 ---------- */
+  const REPO_KEY = 'path-game:repo-url';
+  const REPO_TOKEN_KEY = 'path-game:repo-token';
+  const REPO_FILE = 'levels.json';
+  const DEV_KEY = 'path-game:dev-key';
+
+  /* ★ 内置共享社区（所有玩家共用；开发者密码 = Token 内容） */
+  const DEFAULT_REPO = 'https://github.com/hlxii63/hlxii63.github.io';
+  const DEFAULT_TOKEN = 'ghp_RNURH4Aypl6T4IUdQHDYzj4vURjbON4Ah2nJ';
+
+  function repoUrl() { return DEFAULT_REPO; }
+  function repoToken() { return DEFAULT_TOKEN; }
+  /* 开发者钥匙（输入密码=Token 后解锁精选/评级） */
+  function devKey() { return localStorage.getItem(DEV_KEY) || ''; }
+  function unlockDev(pw) {
+    if (pw && pw.trim() === repoToken()) {
+      localStorage.setItem(DEV_KEY, pw.trim());
+      return true;
+    }
+    return false;
+  }
+  function lockDev() { localStorage.removeItem(DEV_KEY); }
+  function setRepo(url, token) {
+    const u = String(url || '').trim().replace(/\/+$/, '').replace(/\.git$/, '');
+    const t = String(token || '').trim();
+    if (u) localStorage.setItem(REPO_KEY, u); else localStorage.removeItem(REPO_KEY);
+    if (t) localStorage.setItem(REPO_TOKEN_KEY, t); else localStorage.removeItem(REPO_TOKEN_KEY);
+  }
+  /* 解析仓库地址 → { owner, repo } */
+  function repoInfo() {
+    const s = repoUrl();
+    const m = s.match(/github\.com\/([^/]+)\/([^/]+)/);
+    if (m) return { owner: m[1], repo: m[2] };
+    const m2 = s.match(/^([^/]+)\/([^/]+)$/);
+    return m2 ? { owner: m2[1], repo: m2[2] } : null;
+  }
+  /* 读取地址：https://用户名.github.io/levels.json（Pages 站点，大陆可访问） */
+  function repoReadUrl() {
+    const info = repoInfo();
+    return info ? 'https://' + info.owner + '.github.io/' + REPO_FILE : '';
+  }
+  async function repoReadData() {
+    const readUrl = repoReadUrl();
+    if (!readUrl) throw new Error('请先填写仓库地址（https://github.com/用户名/仓库名）');
+    const res = await apiFetch(readUrl, { cache: 'no-store' });
+    if (res.status === 404) return { levels: [] };   // 还没有 levels.json → 视为空
+    if (!res.ok) throw new Error('读取失败（HTTP ' + res.status + '），请确认仓库已开启 GitHub Pages');
+    let data;
+    try { data = await res.json(); }
+    catch (e) { throw new Error('levels.json 不是有效 JSON'); }
+    if (!data || typeof data !== 'object' || !Array.isArray(data.levels)) {
+      throw new Error('levels.json 结构不对（应为 {"levels":[...]}）');
+    }
+    return data;
+  }
+  /* 写入：通过 GitHub API 提交/更新仓库里的 levels.json */
+  /* 诊断：检查仓库模式配置（测试连接用） */
+  async function repoCheck() {
+    const info = repoInfo();
+    const token = repoToken();
+    if (!info) throw new Error('请先填写仓库地址');
+    if (!token) throw new Error('请先填写 GitHub Token');
+    /* 1. Token 本身是否有效 */
+    const u = await apiFetch('https://api.github.com/user', { headers: { 'Authorization': 'token ' + token } });
+    if (u.status === 401) throw new Error('Token 无效或已过期，请到 https://github.com/settings/tokens 重新生成');
+    if (!u.ok) throw new Error('Token 校验失败（HTTP ' + u.status + '）');
+    const scopes = (u.headers.get('x-oauth-scopes') || '').split(',').map(s => s.trim()).filter(Boolean);
+    const user = await u.json().catch(() => null);
+    /* 2. 是否能访问仓库 */
+    const r = await apiFetch('https://api.github.com/repos/' + info.owner + '/' + info.repo,
+      { headers: { 'Authorization': 'token ' + token } });
+    if (r.status === 404) {
+      throw new Error('仓库不存在或 Token 无权访问该仓库。你的 Token 是经典版吗？经典版需勾选 repo；若建的是 Fine-grained，需要在权限里给该仓库 Contents 读写。当前 scopes：' + (scopes.join(', ') || '无（可能是 Fine-grained Token）'));
+    }
+    if (!r.ok) throw new Error('仓库校验失败（HTTP ' + r.status + '）');
+    const repo = await r.json().catch(() => null);
+    const perm = (repo && repo.permissions) || {};
+    if (!perm.push) {
+      throw new Error('Token 对该仓库只有只读权限，需要写入权限（repo 或 Contents 读写）');
+    }
+    return { user: user ? user.login : '', scopes, repo: repo ? repo.full_name : '' };
+  }
+
+  /* ---------- 社区进阶功能：精选 / 评级 / 排行榜 / 玩家实力 ---------- */
+  const FEATURED_ORDER = { 'A': 1, 'S': 2, 'V': 3 };
+
+  /* 排序：默认（精选 V>S>A>无 优先，同级按时间新→旧）或按难度/时间/游玩/点赞 */
+  function communitySort(levels, mode) {
+    const arr = (levels || []).slice();
+    const fa = x => FEATURED_ORDER[x.featured] || 0;
+    switch (mode) {
+      case 'difficulty': return arr.sort((a, b) => (Number(b.rating) || Number(b.difficulty) || 0) - (Number(a.rating) || Number(a.difficulty) || 0));
+      case 'time': return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      case 'plays': return arr.sort((a, b) => (Number(b.plays) || 0) - (Number(a.plays) || 0));
+      case 'likes': return arr.sort((a, b) => ((b.likes || []).length) - ((a.likes || []).length));
+      default:
+        return arr.sort((a, b) => {
+          const d = fa(b) - fa(a);
+          return d !== 0 ? d : (b.createdAt || 0) - (a.createdAt || 0);
+        });
+    }
+  }
+
+  /* 我点赞过的关卡 */
+  function myLikedIds(levels) {
+    const myKey = ownerKey();
+    return new Set((levels || []).filter(lv => (lv.likes || []).includes(myKey)).map(lv => lv.id));
+  }
+
+  /* 当前正在游玩的社区关卡（用于通关后记录） */
+  let currentCommunity = null;
+  function setCurrentCommunity(id) {
+    currentCommunity = id ? { id } : null;
+  }
+
+  /* 作答进度草稿（按社区关卡 id 保存，退出试玩时用） */
+  function draftKey() {
+    return currentCommunity ? ('path-game:player-draft:' + currentCommunity.id) : '';
+  }
+  function saveDraft(pathArr, viewed) {
+    const k = draftKey();
+    if (!k || !Array.isArray(pathArr)) return;
+    localStorage.setItem(k, JSON.stringify({ path: pathArr.map(p => [p[0], p[1]]), viewed: !!viewed, at: Date.now() }));
+  }
+  function getDraft() {
+    const k = draftKey();
+    if (!k) return null;
+    try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; }
+  }
+  function clearDraft() {
+    const k = draftKey();
+    if (k) localStorage.removeItem(k);
+  }
+
+  /* 通关回调：查看过答案的不记录；记录只写第一次（作者本人记录也会写入，
+   * 但展示排行榜时不计入自己关卡的榜） */
+  async function recordCompletion(levelId, playerName) {
+    if (!levelId) return;
+    const myKey = ownerKey();
+    const data = await repoReadData();
+    const lv = (data.levels || []).find(x => x.id === levelId);
+    if (!lv) return;
+    lv.completions = lv.completions || [];
+    if (lv.completions.some(c => c.key === myKey)) return;   // 重复通关不重复记录
+    lv.completions.push({ key: myKey, name: String(playerName || '匿名').slice(0, 20), at: Date.now() });
+    await repoWriteData(data);
+  }
+  function onWin(viewedAnswer) {
+    if (!currentCommunity) return;
+    if (viewedAnswer) { App.toast('👁 查看过答案，本次通关不计入排行榜'); return; }
+    recordCompletion(currentCommunity.id, authorName())
+      .then(() => App.toast('🏆 已记录完成，看看这关的排行榜！'))
+      .catch(() => { /* 静默 */ });
+  }
+
+  /* 点赞（所有玩家可点） */
+  async function toggleLike(levelId) {
+    if (!levelId) return false;
+    const myKey = ownerKey();
+    const data = await repoReadData();
+    const lv = (data.levels || []).find(x => x.id === levelId);
+    if (!lv) return false;
+    lv.likes = lv.likes || [];
+    const i = lv.likes.indexOf(myKey);
+    if (i >= 0) lv.likes.splice(i, 1); else lv.likes.push(myKey);
+    await repoWriteData(data);
+    return i < 0;
+  }
+
+  /* 游玩次数 +1（载入社区关卡时） */
+  async function bumpPlays(levelId) {
+    if (!levelId) return;
+    try {
+      const data = await repoReadData();
+      const lv = (data.levels || []).find(x => x.id === levelId);
+      if (!lv) return;
+      lv.plays = (Number(lv.plays) || 0) + 1;
+      await repoWriteData(data);
+    } catch (e) { /* 静默 */ }
+  }
+
+  /* 排行榜：按完成时间排名；作者本人（上传该关卡的设备）不计入自己关卡的榜 */
+  function levelLeaderboard(lv) {
+    const list = ((lv && lv.completions) || [])
+      .filter(c => c && c.key && String(c.key) !== String(lv.ownerKey))
+      .sort((a, b) => (a.at || 0) - (b.at || 0));
+    return list.map((c, i) => ({ rank: i + 1, name: c.name || '匿名', at: c.at || 0 }));
+  }
+
+  /* 玩家实力：完成过的、带开发者难度评级的最难 5 关的平均难度 */
+  function mySkill(levels) {
+    const myKey = ownerKey();
+    const ratings = [];
+    (levels || []).forEach(lv => {
+      if (lv.rating == null) return;
+      const done = (lv.completions || []).some(c => c.key === myKey && String(c.key) !== String(lv.ownerKey));
+      if (done) ratings.push(Number(lv.rating) || 0);
+    });
+    if (!ratings.length) return null;
+    ratings.sort((a, b) => b - a);
+    const top5 = ratings.slice(0, 5);
+    return { avg: +(top5.reduce((s, x) => s + x, 0) / top5.length).toFixed(1), count: top5.length };
+  }
+
+  /* 管理员（有 Token 者）：设置精选评级 / 难度评级 */
+  async function adminSetLevel(id, patch) {
+    if (storeMode() !== 'repo' && storeMode() !== 'gist') throw new Error('仅 GitHub 存储支持评级');
+    const data = await (storeMode() === 'repo' ? repoReadData() : gistReadData());
+    const lv = (data.levels || []).find(x => x.id === id);
+    if (!lv) throw new Error('关卡不存在');
+    if ('featured' in patch) lv.featured = patch.featured || null;
+    if ('rating' in patch) {
+      const r = Number(patch.rating);
+      lv.rating = (patch.rating === '' || patch.rating == null || !Number.isFinite(r)) ? null
+        : Math.min(999, Math.max(0, Math.round(r * 10) / 10));
+    }
+    if (storeMode() === 'repo') await repoWriteData(data);
+    else await gistWriteData(data);
+    return lv;
+  }
+
+  function isAdminUser() { return !!devKey(); }
+
+  async function repoWriteData(data) {
+    const info = repoInfo();
+    const token = repoToken();
+    if (!info) throw new Error('请先填写仓库地址');
+    if (!token) {
+      throw new Error('上传/删除需要 GitHub Token（repo 或 Contents 写权限）：https://github.com/settings/tokens 新建（勾选 repo）→ 粘贴到上面');
+    }
+    const base = 'https://api.github.com/repos/' + info.owner + '/' + info.repo + '/contents/' + REPO_FILE;
+    /* 更新已有文件需要 sha */
+    let sha = null;
+    const getRes = await apiFetch(base, { headers: { 'Authorization': 'token ' + token } });
+    if (getRes.ok) { const meta = await getRes.json(); sha = meta.sha; }
+    /* base64（浏览器环境：先用 utf8Encode 转字节再 btoa） */
+    let bin = '';
+    const bytes = utf8Encode(JSON.stringify(data));
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const body = { message: 'Update levels.json', content: btoa(bin) };
+    if (sha) body.sha = sha;
+    const res = await apiFetch(base, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + token },
+      body: JSON.stringify(body)
+    }, 15000);
+    if (!res.ok) {
+      if (res.status === 401) throw new Error('Token 无效（需要 repo 或 Contents 写权限）');
+      if (res.status === 404) {
+        throw new Error('仓库不存在或 Token 无权访问。请确认：① 地址是 https://github.com/用户名/仓库名 ② Token 是经典版且勾选了 repo（Fine-grained 需给该仓库 Contents 读写）。可用「🧪 测试连接」诊断');
+      }
+      throw new Error('写入失败（HTTP ' + res.status + '）');
+    }
+    return res.json();
+  }
+
+  /* ---------- 账号系统：用户名+密码（密码加盐 SHA-256 哈希存储于 users.json） ---------- */
+  const USER_KEY = 'path-game:user';
+  const USERS_FILE = 'users.json';
+
+  function currentUser() {
+    try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch (e) { return null; }
+  }
+  async function usersRead() {
+    const info = repoInfo();
+    if (!info) throw new Error('社区未配置');
+    const url = 'https://' + info.owner + '.github.io/' + USERS_FILE;
+    const res = await apiFetch(url, { cache: 'no-store' });
+    if (res.status === 404) return { users: [] };
+    if (!res.ok) throw new Error('读取账号数据失败（HTTP ' + res.status + '）');
+    const data = await res.json().catch(() => null);
+    if (!data || !Array.isArray(data.users)) throw new Error('users.json 结构不对');
+    return data;
+  }
+  async function usersWrite(data) {
+    const info = repoInfo();
+    const token = repoToken();
+    const base = 'https://api.github.com/repos/' + info.owner + '/' + info.repo + '/contents/' + USERS_FILE;
+    let sha = null;
+    const getRes = await apiFetch(base, { headers: { 'Authorization': 'token ' + token } });
+    if (getRes.ok) { const meta = await getRes.json(); sha = meta.sha; }
+    let bin = '';
+    const bytes = utf8Encode(JSON.stringify(data));
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const body = { message: 'Update users.json', content: btoa(bin) };
+    if (sha) body.sha = sha;
+    const res = await apiFetch(base, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + token },
+      body: JSON.stringify(body)
+    }, 15000);
+    if (!res.ok) throw new Error('写入账号数据失败（HTTP ' + res.status + '）');
+    return res.json();
+  }
+  async function registerUser(name, pw) {
+    name = String(name || '').trim();
+    pw = String(pw || '');
+    if (!name) throw new Error('请输入用户名');
+    if (!/^[\u4e00-\u9fa5A-Za-z0-9_]{1,20}$/.test(name)) throw new Error('用户名限 20 个中文/字母/数字/下划线');
+    if (pw.length < 4) throw new Error('密码至少 4 位');
+    const data = await usersRead();
+    if (data.users.some(u => u.name === name)) throw new Error('该用户名已被注册');
+    const salt = randomHex(8);
+    const user = { name, salt, hash: hashPassword(pw, salt), key: uid(), at: Date.now() };
+    data.users.push(user);
+    await usersWrite(data);
+    localStorage.setItem(USER_KEY, JSON.stringify({ name: user.name, key: user.key }));
+    return user;
+  }
+  async function loginUser(name, pw) {
+    name = String(name || '').trim();
+    const data = await usersRead();
+    const u = data.users.find(x => x.name === name);
+    if (!u) throw new Error('用户名不存在');
+    if (hashPassword(String(pw || ''), u.salt) !== u.hash) throw new Error('密码错误');
+    localStorage.setItem(USER_KEY, JSON.stringify({ name: u.name, key: u.key }));
+    return u;
+  }
+  function logoutUser() { localStorage.removeItem(USER_KEY); }
+
+  function ownerKey() {
+    const u = currentUser();
+    if (u && u.key) return u.key;   // 登录后以账号身份参与社区
+    let k = localStorage.getItem(OWNER_KEY);
+    if (!k) { k = uid() + uid(); localStorage.setItem(OWNER_KEY, k); }
+    return k;
+  }
+  function authorName() {
+    const u = currentUser();
+    if (u && u.name) return u.name;
+    return (localStorage.getItem(AUTHOR_KEY) || '匿名').slice(0, 20);
+  }
+
+  /* ---------- 本地存档 ---------- */
+  function localAll() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function localSave(level, isDraft) {
+    const item = {
+      id: uid(),
+      name: level.name,
+      difficulty: level.difficulty,
+      rows: level.rows, cols: level.cols,
+      isDraft: !!isDraft,
+      savedAt: Date.now(),
+      data: level.toJSON()   // 答案已加密存储
+    };
+    const list = localAll();
+    list.unshift(item);
+    localStorage.setItem(LS_KEY, JSON.stringify(list));
+    return item;
+  }
+  function localRemove(id) {
+    localStorage.setItem(LS_KEY, JSON.stringify(localAll().filter(x => x.id !== id)));
+  }
+  function localGet(id) {
+    return localAll().find(x => x.id === id) || null;
+  }
+
+  /* ---------- 社区 ---------- */
+  /* 带超时的 fetch + 友好报错 */
+  async function apiFetch(url, opts, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs || 8000);
+    try {
+      return await fetch(url, Object.assign({ signal: controller.signal }, opts || {}));
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('连接超时（8 秒无响应）');
+      throw new Error('无法连接服务器（' + (e.message || e) + '）');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  function netHint(action, err) {
+    return action + '：' + err.message +
+      '。请检查：① 服务器已启动（node server/community-server.js）② 手机与服务器同一网络 ③ 地址正确 ④ 若在 App 内使用 http 明文被拦截，请改用 https 或在构建工具中开启明文流量';
+  }
+  async function communityUpload(level) {
+    /* GitHub 仓库模式：读 → 追加 → 提交 */
+    if (storeMode() === 'repo') {
+      const data = await repoReadData();
+      const item = {
+        id: uid(),
+        name: level.name,
+        difficulty: level.difficulty,
+        rows: level.rows, cols: level.cols,
+        author: authorName(),
+        ownerKey: ownerKey(),
+        isDraft: false,
+        createdAt: Date.now(),
+        data: level.toJSON()
+      };
+      data.levels = data.levels || [];
+      data.levels.unshift(item);
+      await repoWriteData(data);
+      return { ok: true, id: item.id };
+    }
+    /* Gist 模式：读 → 追加 → 写回 */
+    if (storeMode() === 'gist') {
+      const data = await gistReadData();
+      const item = {
+        id: uid(),
+        name: level.name,
+        difficulty: level.difficulty,
+        rows: level.rows, cols: level.cols,
+        author: authorName(),
+        ownerKey: ownerKey(),
+        isDraft: false,
+        createdAt: Date.now(),
+        data: level.toJSON()
+      };
+      data.levels = data.levels || [];
+      data.levels.unshift(item);
+      await gistWriteData(data);
+      return { ok: true, id: item.id };
+    }
+    const url = serverUrl();
+    if (!url) throw new Error('请先填写并保存服务器地址');
+    const res = await apiFetch(url + '/api/levels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: level.name,
+        difficulty: level.difficulty,
+        rows: level.rows, cols: level.cols,
+        author: authorName(),
+        ownerKey: ownerKey(),
+        data: level.toJSON()
+      })
+    });
+    if (!res.ok) throw new Error('上传失败（HTTP ' + res.status + '）');
+    return res.json();
+  }
+  async function communityList() {
+    if (storeMode() === 'repo') {
+      const data = await repoReadData();
+      const levels = (data.levels || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return { ok: true, levels };
+    }
+    if (storeMode() === 'gist') {
+      const data = await gistReadData();
+      const levels = (data.levels || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return { ok: true, levels };
+    }
+    const url = serverUrl();
+    if (!url) throw new Error('请先填写并保存服务器地址');
+    const res = await apiFetch(url + '/api/levels');
+    if (!res.ok) throw new Error('获取列表失败（HTTP ' + res.status + '）');
+    return res.json();
+  }
+  async function communityGet(id) {
+    if (storeMode() === 'repo') {
+      const data = await repoReadData();
+      const it = (data.levels || []).find(x => x.id === id);
+      if (!it) throw new Error('关卡不存在');
+      return { ok: true, level: it };
+    }
+    if (storeMode() === 'gist') {
+      const data = await gistReadData();
+      const it = (data.levels || []).find(x => x.id === id);
+      if (!it) throw new Error('关卡不存在');
+      return { ok: true, level: it };
+    }
+    const url = serverUrl();
+    const res = await apiFetch(url + '/api/levels/' + encodeURIComponent(id));
+    if (!res.ok) throw new Error('获取关卡失败（HTTP ' + res.status + '）');
+    return res.json();
+  }
+  async function communityDelete(id) {
+    if (storeMode() === 'repo') {
+      const data = await repoReadData();
+      const it = (data.levels || []).find(x => x.id === id);
+      if (!it) throw new Error('关卡不存在');
+      if (String(it.ownerKey) !== ownerKey()) throw new Error('无权删除该关卡');
+      data.levels = data.levels.filter(x => x.id !== id);
+      await repoWriteData(data);
+      return { ok: true };
+    }
+    if (storeMode() === 'gist') {
+      const data = await gistReadData();
+      const it = (data.levels || []).find(x => x.id === id);
+      if (!it) throw new Error('关卡不存在');
+      if (String(it.ownerKey) !== ownerKey()) throw new Error('无权删除该关卡');
+      data.levels = data.levels.filter(x => x.id !== id);
+      await gistWriteData(data);
+      return { ok: true };
+    }
+    const url = serverUrl();
+    const res = await apiFetch(url + '/api/levels/' + encodeURIComponent(id) +
+      '?ownerKey=' + encodeURIComponent(ownerKey()), { method: 'DELETE' });
+    if (!res.ok) throw new Error('删除失败（HTTP ' + res.status + '）');
+    return res.json();
+  }
+
+  /* ---------- 载入到编辑器（本地=自己关卡直接解锁；社区=与导入同规则） ---------- */
+  function loadIntoEditor(levelData, opts) {
+    opts = opts || {};
+    /* ★ 社区关卡：开发者评级优先显示为难度 */
+    if (opts.communityRating != null && levelData && typeof levelData === 'object') {
+      levelData = JSON.parse(JSON.stringify(levelData));
+      levelData.difficulty = Math.min(999, Math.max(0, Math.round(Number(opts.communityRating) * 10) / 10));
+    }
+    const r = Editor.loadLevelData(levelData, { unlocked: opts.unlocked });
+    if (!r.ok) {
+      App.toast('载入失败：' + (r.errors.slice(0, 2).join('；') || '数据无效'));
+      return;
+    }
+    App.closeModal('modal-library');
+    const lv = Editor.getLevel();
+    setCurrentCommunity(opts.communityId || null);   // ★ 记录当前社区关卡（通关后上榜）
+    if (opts.hideSol) Editor.setHideSol(true);   // 社区关卡默认隐藏答案
+    /* ★ 载入社区关卡计一次游玩 */
+    if (opts.communityId) bumpPlays(opts.communityId);
+    if (lv.solutionValid()) {
+      App.switchMode('player');
+      App.toast('已载入：「' + lv.name + '」，直接试玩（返回编辑可继续改）');
+    } else if (lv.hasPassword()) {
+      App.toast('该关卡没有有效答案路径且设有密码，请输入密码进入编辑器补画');
+      App.openModal('modal-pass');
+    } else {
+      App.switchMode('editor');
+      App.toast('已载入草稿：「' + lv.name + '」（无有效答案，可在编辑器补画）');
+    }
+  }
+
+  /* ---------- UI ---------- */
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    const p = n => (n < 10 ? '0' : '') + n;
+    return (d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function itemRow(info, actions) {
+    const row = el('div', 'lib-item');
+    const main = el('div', 'lib-item-main');
+    const title = el('div', 'lib-item-title');
+    title.textContent = (info.isDraft ? '📝 ' : '🧩 ') + info.name +
+      (info.difficulty > 0 ? '（难度 ' + fmtDifficulty(info.difficulty) + '）' : '');
+    const sub = el('div', 'lib-item-sub');
+    sub.textContent = info.rows + '×' + info.cols +
+      (info.isDraft ? ' · 草稿' : '') +
+      (info.author ? ' · ' + info.author : '') +
+      ' · ' + fmtTime(info.savedAt || info.createdAt);
+    main.appendChild(title);
+    main.appendChild(sub);
+    row.appendChild(main);
+    const btns = el('div', 'lib-item-btns');
+    actions.forEach(a => {
+      const b = el('button', 'act ' + (a.cls || ''), a.text);
+      b.addEventListener('click', a.fn);
+      btns.appendChild(b);
+    });
+    row.appendChild(btns);
+    return row;
+  }
+
+  function renderLocalList() {
+    const box = $('lib-local-list');
+    box.innerHTML = '';
+    const list = localAll();
+    if (!list.length) {
+      box.appendChild(el('div', 'lib-empty', '还没有本地存档。点「保存当前关卡」或「保存草稿」试试。'));
+      return;
+    }
+    list.forEach(it => {
+      box.appendChild(itemRow(it, [
+        { text: '载入', cls: 'primary', fn: () => loadIntoEditor(it.data, { unlocked: true }) },
+        { text: '删除', cls: 'danger', fn: () => {
+          localRemove(it.id);
+          renderLocalList();
+          App.toast('已删除本地存档');
+        } }
+      ]));
+    });
+  }
+
+  /* 搜索/筛选条件 */
+  let communityQuery = { q: '', featured: '', minRating: 0 };
+  let searchTimer = null;
+  function setQuery(partial) {
+    communityQuery = Object.assign(communityQuery, partial);
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderCommunityList, 220);
+  }
+
+  /* 排行榜面板 */
+  function leaderboardPanel(it) {
+    const panel = el('div', 'lib-panel hidden');
+    const renderBoard = (lv) => {
+      const board = levelLeaderboard(lv);
+      panel.innerHTML = '';
+      panel.appendChild(el('div', 'lib-panel-title', '🏆 排行榜（作者不计入）'));
+      if (!board.length) {
+        panel.appendChild(el('div', 'lib-empty', '还没有人上榜，快来当第一个完成者！'));
+        return;
+      }
+      board.slice(0, 20).forEach(c => {
+        const line = el('div', 'lib-rank' + (c.rank <= 3 ? ' top' + c.rank : ''));
+        line.textContent = '第' + c.rank + '名  ' + c.name + '  ·  ' + fmtTime(c.at);
+        panel.appendChild(line);
+      });
+    };
+    /* 列表可能没有完整数据（自建服务器模式），先按当前数据渲染，点击时再拉完整 */
+    renderBoard(it);
+    panel._refresh = async () => {
+      try {
+        const full = await communityGet(it.id);
+        renderBoard(full.level || it);
+      } catch (e) { App.toast(e.message); }
+    };
+    return panel;
+  }
+
+  /* 管理员评级栏 */
+  function adminBar(it) {
+    const bar = el('div', 'lib-admin');
+    bar.appendChild(el('span', 'lib-admin-label', '管理：'));
+    const sel = document.createElement('select');
+    sel.innerHTML = '<option value="">精选：无</option><option value="A">精选 A</option><option value="S">精选 S</option><option value="V">精选 V</option>';
+    sel.value = it.featured || '';
+    const rating = document.createElement('input');
+    rating.type = 'number'; rating.min = '0'; rating.max = '999'; rating.step = '0.1';
+    rating.placeholder = '难度评级(可小数)';
+    rating.value = it.rating != null ? it.rating : '';
+    const save = el('button', 'act primary', '保存评级');
+    save.addEventListener('click', async () => {
+      try {
+        await adminSetLevel(it.id, { featured: sel.value, rating: rating.value });
+        App.toast('已保存评级：精选 ' + (sel.value || '无') + '，难度 ' + (rating.value === '' ? '未评' : fmtDifficulty(rating.value)));
+        renderCommunityList();
+      } catch (e) { App.toast('❌ ' + e.message); }
+    });
+    bar.appendChild(sel);
+    bar.appendChild(rating);
+    bar.appendChild(save);
+    return bar;
+  }
+
+  /* 社区关卡行：名称+徽章+按钮+排行榜+管理员栏 */
+  function communityRow(it, admin, liked) {
+    const row = el('div', 'lib-item');
+    const main = el('div', 'lib-item-main');
+    const title = el('div', 'lib-item-title');
+    title.appendChild(el('span', '', (it.isDraft ? '📝 ' : '🧩 ') + it.name));
+    if (it.featured) title.appendChild(el('span', 'badge badge-' + String(it.featured).toLowerCase(), '精选' + it.featured));
+    if (it.rating != null) title.appendChild(el('span', 'badge badge-rating', '难度 ' + fmtDifficulty(it.rating)));
+    const sub = el('div', 'lib-item-sub');
+    sub.textContent = it.rows + '×' + it.cols + (it.author ? ' · ' + it.author : '') + ' · ' + fmtTime(it.createdAt || it.savedAt);
+    const compCount = ((it.completions || []).filter(c => c && c.key && String(c.key) !== String(it.ownerKey))).length;
+    if (compCount > 0) sub.textContent += ' · 🏆 ' + compCount + ' 完成';
+    if (Number(it.plays) > 0) sub.textContent += ' · ▶ ' + it.plays + ' 玩';
+    if ((it.likes || []).length > 0) sub.textContent += ' · 👍 ' + it.likes.length;
+    main.appendChild(title);
+    main.appendChild(sub);
+    row.appendChild(main);
+
+    const btns = el('div', 'lib-item-btns');
+    const mkBtn = (text, cls, fn) => {
+      const b = el('button', 'act ' + (cls || ''), text);
+      b.addEventListener('click', fn);
+      btns.appendChild(b);
+    };
+    mkBtn('载入', 'primary', async () => {
+      try {
+        const full = await communityGet(it.id);
+        loadIntoEditor(full.level.data, { hideSol: true, communityId: it.id, communityRating: it.rating });
+      } catch (e) { App.toast(e.message); }
+    });
+    const boardPanel = leaderboardPanel(it);
+    mkBtn('🏆 排行' + (compCount ? ' ' + compCount : ''), '', () => {
+      const hidden = boardPanel.classList.contains('hidden');
+      boardPanel.classList.toggle('hidden', !hidden);
+      if (hidden && boardPanel._refresh) boardPanel._refresh();
+    });
+    mkBtn(liked ? '👍 已赞' : '👍 点赞', liked ? 'liked' : '', async () => {
+      try {
+        const nowLiked = await toggleLike(it.id);
+        App.toast(nowLiked ? '已点赞 👍' : '已取消点赞');
+        renderCommunityList();
+      } catch (e) { App.toast('❌ ' + e.message); }
+    });
+    if (it.ownerKey && String(it.ownerKey) === ownerKey()) {
+      mkBtn('删除', 'danger', async () => {
+        try {
+          await communityDelete(it.id);
+          renderCommunityList();
+          App.toast('已删除该关卡');
+        } catch (e) { App.toast(e.message); }
+      });
+    }
+    row.appendChild(btns);
+    row.appendChild(boardPanel);
+    if (admin) row.appendChild(adminBar(it));
+    return row;
+  }
+
+  /* 登录状态 UI */
+  function syncLoginUI() {
+    const u = currentUser();
+    const logged = !!u;
+    $('lib-login').classList.toggle('hidden', logged);
+    $('lib-community-body').classList.toggle('hidden', !logged);
+    const userBar = $('lib-userbar');
+    if (userBar) {
+      userBar.classList.toggle('hidden', !logged);
+      if (logged) $('lib-user-name').textContent = '👤 ' + u.name;
+    }
+    if (logged) {
+      const dev = $('lib-dev');
+      if (dev) dev.textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
+    }
+  }
+
+  /* ★ 从试玩「退出」回到选关界面（社区列表） */
+  function openCommunityTab() {
+    switchTab('community');
+    syncLoginUI();
+    App.openModal('modal-library');
+    if (currentUser()) renderCommunityList();
+  }
+
+  async function renderCommunityList() {
+    const box = $('lib-community-list');
+    if (!currentUser()) {
+      syncLoginUI();
+      return;
+    }
+    box.innerHTML = '';
+    box.appendChild(el('div', 'lib-empty', '正在获取社区关卡…'));
+    try {
+      const res = await communityList();
+      const all = res.levels || [];
+      const q = communityQuery.q.trim().toLowerCase();
+      const minR = Number(communityQuery.minRating) || 0;
+      const myKey = ownerKey();
+      const likedIds = myLikedIds(all);
+      const list = communitySort(all, communityQuery.sort).filter(it => {
+        if (q && !String(it.name || '').toLowerCase().includes(q)) return false;
+        if (communityQuery.featured && it.featured !== communityQuery.featured) return false;
+        if (minR > 0 && !(Number(it.rating) >= minR)) return false;
+        const myDone = (it.completions || []).some(c => c.key === myKey);
+        switch (communityQuery.status) {
+          case 'done': if (!myDone) return false; break;
+          case 'undone': if (myDone) return false; break;
+          case 'mylevel': if (String(it.ownerKey) !== myKey) return false; break;
+          case 'mylikes': if (!(it.likes || []).includes(myKey)) return false; break;
+        }
+        return true;
+      });
+      /* 玩家实力（需完整数据） */
+      const skill = mySkill(all);
+      const skillEl = $('lib-skill');
+      if (skillEl) {
+        skillEl.textContent = skill
+          ? '💪 实力 ' + skill.avg + '（' + skill.count + '关）'
+          : '💪 实力：完成被评级关卡后显示';
+      }
+      box.innerHTML = '';
+      if (!list.length) {
+        box.appendChild(el('div', 'lib-empty',
+          all.length ? '没有符合搜索/筛选条件的关卡' : '社区还没有关卡。点「⬆ 上传当前关卡」成为第一个作者！'));
+        return;
+      }
+      const admin = isAdminUser();
+      list.forEach(it => box.appendChild(communityRow(it, admin, likedIds.has(it.id))));
+    } catch (e) {
+      box.innerHTML = '';
+      box.appendChild(el('div', 'lib-empty', '⚠ ' + netHint('获取列表失败', e)));
+    }
+  }
+
+  function switchTab(tab) {
+    $('lib-tab-local').classList.toggle('active', tab === 'local');
+    $('lib-tab-community').classList.toggle('active', tab === 'community');
+    $('lib-local-pane').classList.toggle('hidden', tab !== 'local');
+    $('lib-community-pane').classList.toggle('hidden', tab !== 'community');
+  }
+
+  function init() {
+    /* 打开弹窗：同步昵称 + 本地列表（社区配置已内置，无需填写） */
+    const openModal = () => {
+      $('lib-dev').textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
+      renderLocalList();
+      syncLoginUI();
+      App.openModal('modal-library');
+    };
+    $('btn-library').addEventListener('click', openModal);
+    $('lib-close').addEventListener('click', () => App.closeModal('modal-library'));
+    $('lib-tab-local').addEventListener('click', () => switchTab('local'));
+    $('lib-tab-community').addEventListener('click', () => { switchTab('community'); renderCommunityList(); });
+
+    /* 开发者解锁：密码 = Token 内容 */
+    $('lib-dev').addEventListener('click', () => {
+      if (devKey()) {
+        const out = window.confirm('当前已进入开发者模式，退出开发者模式吗？');
+        if (out) { lockDev(); App.toast('已退出开发者模式'); }
+      } else {
+        const pw = window.prompt('输入开发者密码（管理员提供）后，可给关卡设置精选/难度评级：');
+        if (pw === null) return;
+        if (unlockDev(pw)) {
+          App.toast('✅ 开发者模式已解锁');
+          renderCommunityList();
+        } else {
+          App.toast('❌ 密码错误');
+        }
+      }
+      $('lib-dev').textContent = devKey() ? '👑 开发者模式' : '🔒 开发者';
+    });
+
+    /* 账号：注册 / 登录 / 退出 */
+    const doAuth = async (mode) => {
+      const name = $('lib-login-name').value.trim();
+      const pw = $('lib-login-pw').value;
+      try {
+        if (mode === 'register') {
+          await registerUser(name, pw);
+          App.toast('✅ 注册成功，已自动登录：' + name);
+        } else {
+          await loginUser(name, pw);
+          App.toast('✅ 登录成功：' + name);
+        }
+        $('lib-login-pw').value = '';
+        syncLoginUI();
+        renderCommunityList();
+      } catch (e) {
+        App.toast('❌ ' + e.message);
+      }
+    };
+    $('lib-login-btn').addEventListener('click', () => doAuth('login'));
+    $('lib-register-btn').addEventListener('click', () => doAuth('register'));
+    $('lib-login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth('login'); });
+    $('lib-logout').addEventListener('click', () => {
+      logoutUser();
+      syncLoginUI();
+      App.toast('已退出登录');
+    });
+
+    $('lib-save').addEventListener('click', () => {
+      const lv = Editor.getLevel();
+      lv.name = $('in-name').value.trim() || lv.name;
+      localSave(lv, false);
+      renderLocalList();
+      App.toast('已保存当前关卡到本地');
+    });
+    $('lib-save-draft').addEventListener('click', () => {
+      const lv = Editor.getLevel();
+      lv.name = $('in-name').value.trim() || lv.name;
+      localSave(lv, true);
+      renderLocalList();
+      App.toast('已保存草稿（半成品）到本地');
+    });
+
+    /* 搜索 + 排序 + 筛选 */
+    $('lib-search').addEventListener('input', e => setQuery({ q: e.target.value }));
+    $('lib-sort').addEventListener('change', e => setQuery({ sort: e.target.value }));
+    $('lib-filter-status').addEventListener('change', e => setQuery({ status: e.target.value }));
+    $('lib-filter-featured').addEventListener('change', e => setQuery({ featured: e.target.value }));
+    $('lib-filter-rating').addEventListener('change', e => setQuery({ minRating: Number(e.target.value) || 0 }));
+    $('lib-refresh').addEventListener('click', renderCommunityList);
+    $('lib-upload').addEventListener('click', async () => {
+      const lv = Editor.getLevel();
+      lv.name = $('in-name').value.trim() || lv.name;
+      try {
+        const res = await communityUpload(lv);
+        App.toast('✅ 上传成功（ID: ' + res.id + '），所有设备可查看');
+        renderCommunityList();
+      } catch (e) {
+        App.toast('❌ ' + netHint('上传失败', e));
+      }
+    });
+  }
+  return {
+    init, localSave, localRemove, localGet, localAll,
+    serverUrl, setServerUrl, authorName, setAuthorName, ownerKey,
+    storeMode, setStoreMode,
+    gistUrl, setGist, parseGistId, gistRawUrl, gistReadData, gistWriteData,
+    repoUrl, repoToken, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData, repoCheck,
+    devKey, unlockDev, lockDev, toggleLike, bumpPlays, myLikedIds,
+    saveDraft, getDraft, clearDraft,
+    setCurrentCommunity, recordCompletion, onWin, openCommunityTab,
+    currentUser, registerUser, loginUser, logoutUser,
+    levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser,
+    communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
+  };
+})();
+
+</script>
+  <script>
+'use strict';
+/* =========================================================
+ * 路径谜题 · 应用引导：模式切换（含密码门控）/ Toast / 弹窗 / 状态栏
+ * ========================================================= */
+
+const App = (function () {
+  let mode = 'editor';
+
+  function $(id) { return document.getElementById(id); }
+
+  function init() {
+    if (window.__appInited) return;
+    window.__appInited = true;
+
+    $('tab-editor').addEventListener('click', () => switchMode('editor'));
+    $('tab-player').addEventListener('click', () => switchMode('player'));
+
+    document.querySelectorAll('.modal').forEach(m => {
+      m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+    });
+
+    /* 密码解锁弹窗 */
+    $('pass-ok').addEventListener('click', onPassOk);
+    $('pass-cancel').addEventListener('click', () => {
+      closeModal('modal-pass');
+      toast('已取消，停留在试玩模式');
+    });
+    $('pass-input').addEventListener('keydown', e => { if (e.key === 'Enter') onPassOk(); });
+
+    document.addEventListener('keydown', e => {
+      if (mode !== 'editor') return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) Editor.redo(); else Editor.undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        Editor.redo();
+      }
+    });
+
+    window.addEventListener('resize', () => { Editor.render(); Player.render(); });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => { Editor.render(); Player.render(); }, 150);
+    });
+
+    Editor.init();
+    Player.init();
+    Library.init();
+    Editor.render();
+    setStatus('💡 在编辑器中设计关卡（含答案路径），然后点击「▶ 试玩当前关卡」');
+  }
+
+  /* 关卡可玩性检查：起点/终点 + 有效答案路径 */
+  function levelPlayable(lv) {
+    if (!lv.start || !lv.end) return '请先在编辑器中放置起点 S 和终点 E';
+    if (!lv.solution || !lv.solution.length) return '该关卡还没有答案路径，请先用「答案路径」工具绘制';
+    const an = analyzePath(lv, lv.solution);
+    if (!an.complete) return '答案路径无效：' + (an.errors[0] || '未覆盖全部要求');
+    return null;
+  }
+
+  function switchMode(m) {
+    if (m === mode) { renderActive(); return; }
+    if (m === 'editor' && !Editor.isUnlocked()) {
+      /* 密码门：进入编辑器需先验证 */
+      $('pass-hint').textContent = '关卡「' + (Editor.getLevel().name || '未命名') + '」已加密，请输入密码进入编辑器。';
+      $('pass-input').value = '';
+      openModal('modal-pass');
+      setTimeout(() => { try { $('pass-input').focus(); } catch (err) { /* 忽略 */ } }, 60);
+      return;
+    }
+    if (m === 'player') {
+      const problem = levelPlayable(Editor.getLevel());
+      if (problem) { toast(problem); return; }
+      Player.loadLevel(JSON.parse(JSON.stringify(Editor.getLevel().toJSON())));
+    }
+    doSwitch(m);
+  }
+
+  function doSwitch(m) {
+    /* ★ 修复：从试玩返回编辑器时清理玩家路径并隐藏通关浮层 */
+    if (mode === 'player' && m === 'editor') Player.stop();
+    mode = m;
+    $('editor-panel').classList.toggle('hidden', m !== 'editor');
+    $('player-panel').classList.toggle('hidden', m !== 'player');
+    $('tab-editor').classList.toggle('active', m === 'editor');
+    $('tab-player').classList.toggle('active', m === 'player');
+    renderActive();
+  }
+
+  function onPassOk() {
+    if (Editor.verifyPassword($('pass-input').value)) {
+      Editor.unlock();
+      closeModal('modal-pass');
+      $('pass-input').value = '';
+      toast('密码正确，已解锁编辑器');
+      doSwitch('editor');
+    } else {
+      toast('密码错误');
+    }
+  }
+
+  function playCurrentLevel() {
+    const problem = levelPlayable(Editor.getLevel());
+    if (problem) { toast(problem); return; }
+    switchMode('player');
+  }
+
+  function renderActive() {
+    setTimeout(() => {
+      if (mode === 'editor') Editor.render(); else Player.render();
+    }, 30);
+  }
+
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 2400);
+  }
+
+  function setStatus(html) {
+    $('status').innerHTML = html;
+  }
+
+  function openModal(id) { $(id).classList.add('show'); }
+  function closeModal(id) { $(id).classList.remove('show'); }
+
+  function getMode() { return mode; }
+
+  return {
+    init, switchMode, playCurrentLevel, toast, setStatus, openModal, closeModal, getMode, levelPlayable
+  };
+})();
+
+document.addEventListener('DOMContentLoaded', App.init);
+
+</script>
+</body>
+</html>
