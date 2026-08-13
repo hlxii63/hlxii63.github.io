@@ -690,7 +690,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
             <button id="lib-refresh" class="act">🔄 刷新</button>
             <span id="lib-skill" class="lib-skill"></span>
           </div>
-          <p class="modal-tip" id="lib-community-tip">通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；开发者输入密码后可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
+          <p class="modal-tip" id="lib-community-tip">共享社区（码云 Gitee 存储，大陆可访问）。通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；开发者输入密码后可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
           <div id="lib-community-list" class="lib-list"></div>
         </div>
       </div>
@@ -2868,7 +2868,7 @@ const Library = (function () {
   const GIST_KEY = 'path-game:gist-url';
   const GIST_TOKEN_KEY = 'path-game:gist-token';
 
-  function storeMode() { return 'repo'; }   /* ★ 固定共享社区，不再可选 */
+  function storeMode() { return GITEE_REPO ? 'gitee' : 'repo'; }   /* ★ 固定共享社区：优先码云，无配置回退 GitHub */
   function setStoreMode() { /* 兼容旧调用，固定 repo */ }
   function gistUrl() { return localStorage.getItem(GIST_KEY) || ''; }
   function gistToken() { return localStorage.getItem(GIST_TOKEN_KEY) || ''; }
@@ -3062,13 +3062,13 @@ const Library = (function () {
   async function recordCompletion(levelId, playerName) {
     if (!levelId) return;
     const myKey = ownerKey();
-    const data = await repoReadAuthoritative();
+    const data = await readData();
     const lv = (data.levels || []).find(x => x.id === levelId);
     if (!lv) return;
     lv.completions = lv.completions || [];
     if (lv.completions.some(c => c.key === myKey)) return;   // 重复通关不重复记录
     lv.completions.push({ key: myKey, name: String(playerName || '匿名').slice(0, 20), at: Date.now() });
-    await repoWriteData(data);
+    await writeData(data);
   }
   function onWin(viewedAnswer) {
     if (!currentCommunity) return;
@@ -3082,13 +3082,13 @@ const Library = (function () {
   async function toggleLike(levelId) {
     if (!levelId) return false;
     const myKey = ownerKey();
-    const data = await repoReadAuthoritative();
+    const data = await readData();
     const lv = (data.levels || []).find(x => x.id === levelId);
     if (!lv) return false;
     lv.likes = lv.likes || [];
     const i = lv.likes.indexOf(myKey);
     if (i >= 0) lv.likes.splice(i, 1); else lv.likes.push(myKey);
-    await repoWriteData(data);
+    await writeData(data);
     return i < 0;
   }
 
@@ -3096,11 +3096,11 @@ const Library = (function () {
   async function bumpPlays(levelId) {
     if (!levelId) return;
     try {
-      const data = await repoReadAuthoritative();
+      const data = await readData();
       const lv = (data.levels || []).find(x => x.id === levelId);
       if (!lv) return;
       lv.plays = (Number(lv.plays) || 0) + 1;
-      await repoWriteData(data);
+      await writeData(data);
     } catch (e) { /* 静默 */ }
   }
 
@@ -3129,8 +3129,8 @@ const Library = (function () {
 
   /* 管理员（有 Token 者）：设置精选评级 / 难度评级 */
   async function adminSetLevel(id, patch) {
-    if (storeMode() !== 'repo' && storeMode() !== 'gist') throw new Error('仅 GitHub 存储支持评级');
-    const data = await (storeMode() === 'repo' ? repoReadData() : gistReadData());
+    if (isGitee() === false && storeMode() !== 'repo') throw new Error('当前存储不支持评级');
+    const data = await readData();
     const lv = (data.levels || []).find(x => x.id === id);
     if (!lv) throw new Error('关卡不存在');
     if ('featured' in patch) lv.featured = patch.featured || null;
@@ -3139,8 +3139,7 @@ const Library = (function () {
       lv.rating = (patch.rating === '' || patch.rating == null || !Number.isFinite(r)) ? null
         : Math.min(999, Math.max(0, Math.round(r * 10) / 10));
     }
-    if (storeMode() === 'repo') await repoWriteData(data);
-    else await gistWriteData(data);
+    await writeData(data);
     return lv;
   }
 
@@ -3188,6 +3187,10 @@ const Library = (function () {
     try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch (e) { return null; }
   }
   async function usersRead() {
+    if (isGitee()) {
+      const data = await giteeReadFile(USERS_FILE);
+      return data === null ? { users: [] } : data;
+    }
     const info = repoInfo();
     if (!info) throw new Error('社区未配置');
     const token = repoToken();
@@ -3213,6 +3216,7 @@ const Library = (function () {
     }
   }
   async function usersWrite(data) {
+    if (isGitee()) return giteeWriteFile(USERS_FILE, data);
     const info = repoInfo();
     const token = repoToken();
     const base = 'https://api.github.com/repos/' + info.owner + '/' + info.repo + '/contents/' + USERS_FILE;
@@ -3366,10 +3370,79 @@ const Library = (function () {
     }
     return data;
   }
+  /* ---------- 码云 Gitee 存储（中国原生、全网络可访问） ----------
+   * 用法：开发者把 GITEE_REPO / GITEE_TOKEN 填好即可，玩家无需任何配置。
+   * GITEE_TOKEN = 码云「私人令牌」（需勾选 projects 读写权限）。 */
+  const GITEE_REPO_DEFAULT = 'https://gitee.com/hlxii63/path-game';   // ★ 码云仓库（大陆可访问）
+  const GITEE_TOKEN_DEFAULT = '73f3644a039290355b753eb4154ff406';     // ★ 码云私人令牌（projects 权限）
+  let GITEE_REPO = GITEE_REPO_DEFAULT;
+  let GITEE_TOKEN = GITEE_TOKEN_DEFAULT;
+  function setGitee(url, token) { GITEE_REPO = url || ''; GITEE_TOKEN = token || ''; }
+  function giteeInfo() {
+    const m = String(GITEE_REPO).match(/gitee\.com\/([^/]+)\/([^/?#]+)/);
+    return m ? { owner: m[1], repo: m[2].replace(/\.git$/, '') } : null;
+  }
+  function giteeToken() { return GITEE_TOKEN; }
+  function b64of(str) {
+    let bin = '';
+    const bytes = utf8Encode(str);
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  async function giteeApi(path, opts) {
+    const info = giteeInfo();
+    const token = giteeToken();
+    if (!info) throw new Error('码云仓库未配置（GITEE_REPO 为空）');
+    if (!token) throw new Error('码云令牌未配置（GITEE_TOKEN 为空）');
+    const sep = path.includes('?') ? '&' : '?';
+    const url = 'https://gitee.com/api/v5' + path + sep + 'access_token=' + encodeURIComponent(token);
+    opts = opts || {};
+    opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    return apiWrite(url, opts);
+  }
+  async function giteeReadFile(file) {
+    const info = giteeInfo();
+    const res = await giteeApi('/repos/' + info.owner + '/' + info.repo + '/contents/' + file);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error('读取码云数据失败（HTTP ' + res.status + '）');
+    const meta = await res.json();
+    return JSON.parse(b64ToUtf8(meta.content));
+  }
+  async function giteeWriteFile(file, data) {
+    const info = giteeInfo();
+    const path = '/repos/' + info.owner + '/' + info.repo + '/contents/' + file;
+    let sha = null;
+    const getRes = await giteeApi(path);
+    if (getRes.ok) { const meta = await getRes.json(); sha = meta.sha; }
+    const body = { content: b64of(JSON.stringify(data)), message: 'Update ' + file };
+    if (sha) body.sha = sha;
+    const res = await giteeApi(path, { method: 'POST', body: JSON.stringify(body) });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).message || '';
+      if (res.status === 401) throw new Error('码云令牌无效（请确认私人令牌有效且勾选 projects 权限）');
+      if (res.status === 404) throw new Error('码云仓库不存在（请确认 GITEE_REPO 的用户名/仓库名正确）');
+      throw new Error('写入码云失败（HTTP ' + res.status + '）' + (msg ? '：' + msg : ''));
+    }
+    return res.json();
+  }
+  async function giteeReadData() {
+    const data = await giteeReadFile(REPO_FILE);
+    if (data === null) return { levels: [] };
+    if (!data || !Array.isArray(data.levels)) throw new Error('levels.json 结构不对');
+    return data;
+  }
+  async function giteeWriteData(data) { return giteeWriteFile(REPO_FILE, data); }
+  /* 存储分发（写路径用权威读；列表用快读） */
+  function isGitee() { return storeMode() === 'gitee'; }
+  async function readData() { return isGitee() ? giteeReadData() : repoReadAuthoritative(); }
+  async function writeData(data) { return isGitee() ? giteeWriteData(data) : repoWriteData(data); }
+  async function readUsersData() { return isGitee() ? giteeReadFile(USERS_FILE) : usersRead(); }
+  async function writeUsersData(data) { return isGitee() ? giteeWriteFile(USERS_FILE, data) : usersWrite(data); }
+
   async function communityUpload(level) {
     /* GitHub 仓库模式：读 → 追加 → 提交 */
-    if (storeMode() === 'repo') {
-      const data = await repoReadAuthoritative();
+    if (storeMode() === 'repo' || storeMode() === 'gitee') {
+      const data = await readData();
       const item = {
         id: uid(),
         name: level.name,
@@ -3383,7 +3456,7 @@ const Library = (function () {
       };
       data.levels = data.levels || [];
       data.levels.unshift(item);
-      await repoWriteData(data);
+      await writeData(data);
       return { ok: true, id: item.id };
     }
     /* Gist 模式：读 → 追加 → 写回 */
@@ -3423,8 +3496,8 @@ const Library = (function () {
     return res.json();
   }
   async function communityList() {
-    if (storeMode() === 'repo') {
-      const data = await repoReadData();
+    if (storeMode() === 'repo' || storeMode() === 'gitee') {
+      const data = isGitee() ? await giteeReadData() : await repoReadData();
       const levels = (data.levels || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       return { ok: true, levels };
     }
@@ -3440,8 +3513,8 @@ const Library = (function () {
     return res.json();
   }
   async function communityGet(id) {
-    if (storeMode() === 'repo') {
-      const data = await repoReadData();
+    if (storeMode() === 'repo' || storeMode() === 'gitee') {
+      const data = isGitee() ? await giteeReadData() : await repoReadData();
       const it = (data.levels || []).find(x => x.id === id);
       if (!it) throw new Error('关卡不存在');
       return { ok: true, level: it };
@@ -3458,13 +3531,13 @@ const Library = (function () {
     return res.json();
   }
   async function communityDelete(id) {
-    if (storeMode() === 'repo') {
-      const data = await repoReadAuthoritative();
+    if (storeMode() === 'repo' || storeMode() === 'gitee') {
+      const data = await readData();
       const it = (data.levels || []).find(x => x.id === id);
       if (!it) throw new Error('关卡不存在');
       if (String(it.ownerKey) !== ownerKey()) throw new Error('无权删除该关卡');
       data.levels = data.levels.filter(x => x.id !== id);
-      await repoWriteData(data);
+      await writeData(data);
       return { ok: true };
     }
     if (storeMode() === 'gist') {
@@ -3833,38 +3906,72 @@ const Library = (function () {
 
     /* 🔧 网络诊断：从用户浏览器逐环节测试，定位 401 原因 */
     $('lib-diag').addEventListener('click', async () => {
-      const tok = repoToken();
-      const lines = ['【网络诊断】' + new Date().toLocaleString(),
-        'Token: ' + tok.slice(0, 8) + '…' + tok.slice(-4)];
-      try {
-        const u = await apiWrite('https://api.github.com/user', { headers: { 'Authorization': 'token ' + tok } });
-        const uj = await u.json().catch(() => ({}));
-        lines.push('① 校验Token → HTTP ' + u.status + (uj.login ? ' 账号:' + uj.login : (uj.message ? ' ' + uj.message : '')));
-      } catch (e) { lines.push('① 校验Token → 请求失败: ' + e.message); }
-      try {
-        const g = await apiWrite('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/users.json', { headers: { 'Authorization': 'token ' + tok } });
-        lines.push('② 读users.json → HTTP ' + g.status);
-      } catch (e) { lines.push('② 读users.json → 请求失败: ' + e.message); }
-      try {
-        const tmp = 'diag_' + Date.now().toString(36) + '.txt';
-        const put = await apiWrite('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/' + tmp, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + tok },
-          body: JSON.stringify({ message: 'diag test', content: btoa('ok') })
-        });
-        const pj = await put.json().catch(() => ({}));
-        lines.push('③ 写测试文件 → HTTP ' + put.status + (put.ok ? '（随后自动删除）' : (pj.message ? ' ' + pj.message : '')));
-        if (put.ok) {
-          try {
-            await fetch('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/' + tmp, {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + tok },
-              body: JSON.stringify({ message: 'diag cleanup', sha: pj.content.sha })
-            });
-          } catch (e) { /* 忽略清理失败 */ }
-        }
-      } catch (e) { lines.push('③ 写测试文件 → 请求失败: ' + e.message); }
-      lines.push('——若①②③都正常，可直接注册；若①就 401，请切换网络（WiFi/4G）后重试');
+      const lines = ['【网络诊断】' + new Date().toLocaleString()];
+      if (isGitee()) {
+        const info = giteeInfo();
+        const tok = giteeToken();
+        lines.push('存储：码云 Gitee · ' + (info ? info.owner + '/' + info.repo : '未配置'));
+        lines.push('令牌: ' + (tok ? tok.slice(0, 6) + '…' + tok.slice(-4) : '未配置'));
+        try {
+          const u = await apiWrite('https://gitee.com/api/v5/user?access_token=' + encodeURIComponent(tok));
+          const uj = await u.json().catch(() => ({}));
+          lines.push('① 校验令牌 → HTTP ' + u.status + (uj.login ? ' 账号:' + uj.login : (uj.message ? ' ' + uj.message : '')));
+        } catch (e) { lines.push('① 校验令牌 → 请求失败: ' + e.message); }
+        try {
+          const g = await giteeApi('/repos/' + info.owner + '/' + info.repo + '/contents/' + REPO_FILE);
+          lines.push('② 读levels.json → HTTP ' + g.status);
+        } catch (e) { lines.push('② 读levels.json → ' + e.message); }
+        try {
+          const tmp = 'diag_' + Date.now().toString(36) + '.txt';
+          const put = await giteeApi('/repos/' + info.owner + '/' + info.repo + '/contents/' + tmp, {
+            method: 'POST',
+            body: JSON.stringify({ content: b64of('ok'), message: 'diag test' })
+          });
+          const pj = await put.json().catch(() => ({}));
+          lines.push('③ 写测试文件 → HTTP ' + put.status + (put.ok ? '（随后自动删除）' : (pj.message ? ' ' + pj.message : '')));
+          if (put.ok) {
+            try {
+              await giteeApi('/repos/' + info.owner + '/' + info.repo + '/contents/' + tmp, {
+                method: 'DELETE',
+                body: JSON.stringify({ sha: pj.content.sha, message: 'diag cleanup' })
+              });
+            } catch (e) { /* 忽略清理失败 */ }
+          }
+        } catch (e) { lines.push('③ 写测试文件 → ' + e.message); }
+      } else {
+        const tok = repoToken();
+        lines.push('存储：GitHub 仓库 · hlxii63/hlxii63.github.io');
+        lines.push('Token: ' + tok.slice(0, 8) + '…' + tok.slice(-4));
+        try {
+          const u = await apiWrite('https://api.github.com/user', { headers: { 'Authorization': 'token ' + tok } });
+          const uj = await u.json().catch(() => ({}));
+          lines.push('① 校验Token → HTTP ' + u.status + (uj.login ? ' 账号:' + uj.login : (uj.message ? ' ' + uj.message : '')));
+        } catch (e) { lines.push('① 校验Token → 请求失败: ' + e.message); }
+        try {
+          const g = await apiWrite('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/users.json', { headers: { 'Authorization': 'token ' + tok } });
+          lines.push('② 读users.json → HTTP ' + g.status);
+        } catch (e) { lines.push('② 读users.json → 请求失败: ' + e.message); }
+        try {
+          const tmp = 'diag_' + Date.now().toString(36) + '.txt';
+          const put = await apiWrite('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/' + tmp, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + tok },
+            body: JSON.stringify({ message: 'diag test', content: btoa('ok') })
+          });
+          const pj = await put.json().catch(() => ({}));
+          lines.push('③ 写测试文件 → HTTP ' + put.status + (put.ok ? '（随后自动删除）' : (pj.message ? ' ' + pj.message : '')));
+          if (put.ok) {
+            try {
+              await fetch('https://api.github.com/repos/hlxii63/hlxii63.github.io/contents/' + tmp, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'token ' + tok },
+                body: JSON.stringify({ message: 'diag cleanup', sha: pj.content.sha })
+              });
+            } catch (e) { /* 忽略清理失败 */ }
+          }
+        } catch (e) { lines.push('③ 写测试文件 → 请求失败: ' + e.message); }
+      }
+      lines.push('——若①是 401/失败：当前网络访问该 API 受限，请切换网络或使用码云存储');
       window.alert(lines.join('\n'));
     });
 
@@ -3908,6 +4015,7 @@ const Library = (function () {
     storeMode, setStoreMode,
     gistUrl, setGist, parseGistId, gistRawUrl, gistReadData, gistWriteData,
     repoUrl, repoToken, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData, repoCheck,
+    giteeInfo, giteeToken, giteeReadData, giteeWriteData, isGitee, setGitee,
     devKey, unlockDev, lockDev, toggleLike, bumpPlays, myLikedIds,
     saveDraft, getDraft, clearDraft,
     setCurrentCommunity, recordCompletion, onWin, openCommunityTab,
