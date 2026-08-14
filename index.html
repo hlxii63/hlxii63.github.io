@@ -536,7 +536,8 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
             <option value="">— 载入示例 —</option>
           </select>
         </label>
-        <button id="btn-library" class="act" title="本地存档 / 社区关卡">🗂️ 关卡库</button>
+        <button id="btn-community" class="act" title="共享社区（码云，可对战/上传/玩别人的关卡）">🌐 社区</button>
+        <button id="btn-library" class="act" title="本地存档">🗂️ 关卡库</button>
         <button id="btn-export" class="act">📤 导出关卡</button>
         <button id="btn-import" class="act">📥 导入关卡</button>
         <button id="btn-play" class="act primary">▶ 试玩当前关卡</button>
@@ -2729,6 +2730,12 @@ const Player = (function () {
     level = r.level;
     reset();
     $('p-levelname').textContent = '关卡：' + level.name + ' · 难度 ' + fmtDifficulty(level.difficulty);
+    /* ★ 退出按钮只在对战/社区关卡显示（本地试玩隐藏） */
+    try {
+      const inCom = typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity();
+      const inMatch = typeof Library !== 'undefined' && Library.inPvpMatch && Library.inPvpMatch();
+      $('p-exit').style.display = (inCom || inMatch) ? '' : 'none';
+    } catch (e) { /* 忽略 */ }
     /* ★ 恢复上次退出的作答进度（社区关卡） */
     if (typeof Library !== 'undefined' && Library.getDraft) {
       const draft = Library.getDraft();
@@ -2931,8 +2938,15 @@ const Player = (function () {
       App.toast('这关还没有官方答案');
       return;
     }
-    /* ★ 二次确认：防止解题中途误触剧透 */
-    if (!window.confirm('👁 查看答案后将不能记录本关成绩（排行榜/实力不计入）。确定查看吗？')) return;
+    /* ★ 二次确认：防止解题中途误触剧透；社区/对战才有不计成绩提示 */
+    let penalty = '';
+    try {
+      if ((typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity()) ||
+          (typeof Library !== 'undefined' && Library.inPvpMatch && Library.inPvpMatch())) {
+        penalty = '\n查看后将不能记录本关成绩（排行榜/实力不计入）。';
+      }
+    } catch (e) { /* 忽略 */ }
+    if (!window.confirm('👁 确定查看答案吗？' + penalty)) return;
     showAnswer = true;
     viewedAnswer = true;
     if (typeof Library !== 'undefined' && Library.markViewed) {
@@ -4243,6 +4257,7 @@ const Library = (function () {
   let pvpHeartbeatTick = 0;
   let pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
   let buildDeadlineLocal = 0;
+  let pvpModeSel = 'race';   // ★ 房主当前选择的模式（轮询重渲染时保持）
 
   function inPvpRoom() { return !!pvpRoom; }
   function inPvpRace() { return !!pvpRoom && pvpRoom.state === 'race'; }
@@ -4302,6 +4317,7 @@ const Library = (function () {
     await pvpWrite(d);
     pvpRoom = { id: room.id, myKey: me.key, state: 'waiting' };
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+    pvpModeSel = 'race';
     startPvpPoll();
     return room;
   }
@@ -4330,6 +4346,7 @@ const Library = (function () {
     await pvpWrite(d);
     pvpRoom = { id: room.id, myKey: me.key, state: room.state };
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+    pvpModeSel = 'race';
     startPvpPoll();
     return room;
   }
@@ -4362,6 +4379,7 @@ const Library = (function () {
     stopPvpPoll();
     pvpRoom = null;
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+    pvpSetSizeLock(false);
   }
 
   /* 房主删除房间 */
@@ -4449,12 +4467,14 @@ const Library = (function () {
       pvpLocal.overShown = false;
       hidePvpRaceBar();
       showPvpBuildBar();
+      pvpSetSizeLock(false);
     }
     if (room.state === 'race' && pvpLocal.raceFor !== room.startedAt) {
       pvpLocal.raceFor = room.startedAt;
       pvpLocal.buildStarted = false;   // 上一局是 build 的话重置
       pvpLocal.overShown = false;
-      App.closeModal('modal-pvp');
+      pvpCloseAllModals();
+      pvpSetSizeLock(false);
       if (room.mode === 'race' && room.level && room.level.data) {
         loadIntoEditor(room.level.data, { hideSol: true, communityId: null, communityRating: null, pvp: true });
       } else if (room.mode === 'build' && room.build && room.build.maps) {
@@ -4469,7 +4489,7 @@ const Library = (function () {
       pvpLocal.buildStarted = true;
       pvpLocal.raceLoaded = false;   // 上一局是 race 的话重置
       pvpLocal.overShown = false;
-      App.closeModal('modal-pvp');
+      pvpCloseAllModals();                        // ★ 直接跳到空编辑器（关掉社区等所有弹窗）
       /* ★ 强制新建空白关卡（清空编辑器，防止带入之前写的关） */
       Editor.newLevel();
       const b = room.build || {};
@@ -4479,11 +4499,13 @@ const Library = (function () {
       buildDeadlineLocal = Number(b.deadline) || 0;
       try { Editor.render(); } catch (e) { /* 忽略 */ }
       App.switchMode('editor', true);
+      pvpSetSizeLock(true);                       // ★ 锁定行列
       showPvpBuildBar(false);
       App.toast('⏳ 开始作图！' + (Number(b.timeLimit) || 5) + ' 分钟内完成并交卷');
     }
     if (room.state === 'over' && !pvpLocal.overShown) {
       pvpLocal.overShown = true;
+      pvpSetSizeLock(false);
       const iWon = room.winner === pvpRoom.myKey;
       const msg = room.draw ? '🤝 平局（双方同意）' : (room.winner ? (iWon ? '🏆 你赢了！' : '😢 你输了') : '平局');
       App.toast(msg + (room.overMsg ? ' · ' + room.overMsg : ''));
@@ -4623,6 +4645,10 @@ const Library = (function () {
     const d = await pvpRead();
     const room = d.rooms.find(r => r.id === pvpRoom.id);
     if (!room || room.state !== 'build') throw new Error('当前不在作图阶段');
+    /* ★ 尺寸必须与房主规定一致 */
+    if (lv.rows !== Number(room.build.rows) || lv.cols !== Number(room.build.cols)) {
+      throw new Error('地图尺寸必须为 ' + room.build.rows + '×' + room.build.cols + '（当前 ' + lv.rows + '×' + lv.cols + '）');
+    }
     room.build.maps[pvpRoom.myKey] = { name: lv.name || '我的地图', data: lv.toJSON(), submittedAt: Date.now() };
     room.build.submitted = room.build.submitted || [];
     if (!room.build.submitted.includes(pvpRoom.myKey)) room.build.submitted.push(pvpRoom.myKey);
@@ -4872,7 +4898,9 @@ const Library = (function () {
           } catch (e) { App.toast('❌ ' + e.message); }
         });
         c3.appendChild(b3);
+        sel.value = pvpModeSel;
         function syncMode() {
+          pvpModeSel = sel.value;                 // ★ 记住选择，防轮询重置
           pickBox.classList.toggle('hidden', sel.value !== 'race');
           c3.classList.toggle('hidden', sel.value !== 'build');
         }
@@ -4936,6 +4964,15 @@ const Library = (function () {
         ctrl.appendChild(el('div', 'lib-status', '⏳ 等待房主选择「再来一局」或结束…'));
       }
     }
+  }
+  function pvpCloseAllModals() {
+    ['modal-pvp', 'modal-library', 'modal-import', 'modal-export', 'modal-pass', 'modal-pass-set', 'modal-help', 'modal-preview'].forEach(id => {
+      try { App.closeModal(id); } catch (e) { /* 忽略 */ }
+    });
+  }
+  /* ★ 作图阶段锁定行列输入（防改尺寸作弊） */
+  function pvpSetSizeLock(locked) {
+    ['in-rows', 'in-cols'].forEach(id => { const e = $(id); if (e) e.disabled = !!locked; });
   }
   /* ★ 作图阶段的交卷/回房条 */
   function showPvpBuildBar(submitted) {
@@ -5087,6 +5124,14 @@ const Library = (function () {
       App.openModal('modal-library');
     };
     $('btn-library').addEventListener('click', openModal);
+    const openCommunity = () => {
+      if (inPvpMatch()) { App.toast('⚔️ 对战中不可打开社区'); return; }
+      switchTab('community');
+      renderCommunityList();
+      App.openModal('modal-library');
+    };
+    const bc = $('btn-community');
+    if (bc) bc.addEventListener('click', openCommunity);
     $('lib-close').addEventListener('click', () => App.closeModal('modal-library'));
     $('lib-tab-local').addEventListener('click', () => switchTab('local'));
     $('lib-tab-community').addEventListener('click', () => { switchTab('community'); renderCommunityList(); });
@@ -5403,7 +5448,7 @@ const Library = (function () {
     pvpSubmitMap, pvpReportDone, pvpDrawRequest, pvpDrawRespond, pvpPoll, renderPvp,
     pvpRematch, pvpDeleteRoom,
     renderPvpList, renderPvpRoom, inPvpRoom, inPvpRace, inPvpBuild, startPvpPoll, stopPvpPoll,
-    showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch,
+    showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch, pvpSetSizeLock,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
@@ -5474,8 +5519,22 @@ const App = (function () {
     return null;
   }
 
+  let lastPlayerJson = null;   // ★ 上次载入试玩的内容（用于判断是否需要重载）
   function switchMode(m, force) {
-    if (m === mode) { renderActive(); return; }
+    if (m === 'player') {
+      const problem = levelPlayable(Editor.getLevel());
+      if (problem) { toast(problem); return; }
+      const json = JSON.stringify(Editor.getLevel().toJSON());
+      if (m !== mode || json !== lastPlayerJson) {
+        /* ★ 内容变了才重载（修复：本地试玩中载入社区关仍显示旧关） */
+        Player.loadLevel(JSON.parse(json));
+        lastPlayerJson = json;
+      }
+      if (m === mode) { renderActive(); return; }
+    } else if (m === mode) {
+      renderActive();
+      return;
+    }
     /* ★ force：退出/恢复等场景绕过确认与密码门（返回编辑/查看答案仍走确认） */
     if (force) { doSwitch(m); return; }
     if (m === 'editor' && typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) {
@@ -5494,11 +5553,6 @@ const App = (function () {
       /* ★ 二次确认：社区关卡进入编辑器 = 可偷看答案，通关将不计成绩 */
       if (!window.confirm('进入编辑器后将不能记录本关成绩（排行榜/实力不计入）。确定进入吗？')) return;
       if (Library.markEdited) Library.markEdited(Library.getCurrentCommunity().id);
-    }
-    if (m === 'player') {
-      const problem = levelPlayable(Editor.getLevel());
-      if (problem) { toast(problem); return; }
-      Player.loadLevel(JSON.parse(JSON.stringify(Editor.getLevel().toJSON())));
     }
     doSwitch(m);
   }
