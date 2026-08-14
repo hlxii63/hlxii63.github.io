@@ -656,22 +656,14 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
         <!-- 已登录：社区主体 -->
         <div id="lib-community-body" class="hidden">
           <div class="lib-actions" id="lib-userbar">
-            <span id="lib-user-name" class="lib-status"></span>
+            <button id="lib-user-name" class="act" title="查看个人主页">👤 </button>
             <button id="lib-logout" class="act">退出登录</button>
-            <button id="lib-changepw-btn" class="act">🔑 修改密码</button>
-            <button id="lib-delete-account" class="act" style="color:#c62828">🗑 注销账号</button>
             <span class="lib-status">🌐 共享社区（码云）</span>
             <button id="lib-dev" class="act">🔒 开发者</button>
           </div>
-          <div id="lib-changepw" class="lib-login hidden">
-            <div class="lib-login-row">
-              <input id="lib-changepw-old" type="password" maxlength="60" placeholder="当前密码（初始密码）" autocomplete="off">
-              <input id="lib-changepw-new" type="password" maxlength="60" placeholder="新密码（至少 4 位）" autocomplete="off">
-              <button id="lib-changepw-ok" class="act primary">确认修改</button>
-            </div>
-          </div>
           <div class="lib-actions">
             <input id="lib-search" type="search" placeholder="🔍 搜索关卡名称…" spellcheck="false">
+            <input id="lib-player-search" type="search" placeholder="🔍 搜玩家…" spellcheck="false" style="max-width:120px" title="按玩家名搜索，点开可看主页">
             <select id="lib-sort">
               <option value="">排序：精选优先</option>
               <option value="difficulty">排序：难度高→低</option>
@@ -707,6 +699,26 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
           </div>
           <p class="modal-tip" id="lib-community-tip">共享社区（码云 Gitee 存储，大陆可访问）。通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；第一个注册的账号自动成为开发者，可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
           <div id="lib-rank-box" class="lib-list hidden"></div>
+          <div id="lib-profile-box" class="lib-list hidden">
+            <div class="lib-actions">
+              <button id="lib-profile-back" class="act">← 返回列表</button>
+              <span id="lib-profile-name" class="lib-status"></span>
+            </div>
+            <div id="lib-profile-stats" class="lib-status" style="margin:4px 2px 8px"></div>
+            <div id="lib-profile-levels" class="lib-list"></div>
+            <div id="lib-profile-settings" class="hidden">
+              <p class="modal-tip">🔑 账号设置</p>
+              <div class="lib-login-row">
+                <input id="lib-changepw-old" type="password" maxlength="60" placeholder="当前密码（初始密码）" autocomplete="off">
+                <input id="lib-changepw-new" type="password" maxlength="60" placeholder="新密码（至少 4 位）" autocomplete="off">
+                <button id="lib-changepw-ok" class="act primary">确认修改</button>
+              </div>
+              <div class="lib-actions">
+                <button id="lib-delete-account" class="act" style="color:#c62828">🗑 注销账号</button>
+              </div>
+            </div>
+          </div>
+          <div id="lib-player-box" class="lib-list hidden"></div>
           <div id="lib-community-list" class="lib-list"></div>
         </div>
       </div>
@@ -1765,9 +1777,9 @@ const Render = (function () {
     ctx.fillText(ch, px, py + fs * 0.05);
   }
 
-  /* 红/绿边 */
+  /* 红/绿边（★ 缩小贴图：正交两端留白、更细；斜向中间挖空，避免误读为封路） */
   function drawEdges(ctx, m, level) {
-    const w = Math.max(3, Math.round(m.cs * 0.16));
+    const w = Math.max(2, Math.round(m.cs * 0.11));
     drawEdgeSet(ctx, m, level.redEdges, C.redEdge, w);
     drawEdgeSet(ctx, m, level.greenEdges, C.greenEdge, w);
   }
@@ -1779,31 +1791,37 @@ const Render = (function () {
     for (const k of set) {
       const [a, b] = k.split('|').map(p => p.split(',').map(Number));
       if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) === 1) {
-        /* 正交：画在共享边上 */
+        /* 正交：画在共享边上（两端留白，更短更细） */
+        const pad = m.cs * 0.18;
         if (a[0] === b[0]) {
           const r = a[0], c = Math.max(a[1], b[1]);
-          const x = m.ox + c * m.cs, y1 = m.oy + r * m.cs, y2 = y1 + m.cs;
+          const x = m.ox + c * m.cs, y1 = m.oy + r * m.cs + pad, y2 = y1 + m.cs - pad * 2;
           ctx.beginPath();
           ctx.moveTo(x, y1); ctx.lineTo(x, y2);
           ctx.stroke();
         } else {
           const c = a[1], r = Math.max(a[0], b[0]);
-          const y = m.oy + r * m.cs, x1 = m.ox + c * m.cs, x2 = x1 + m.cs;
+          const y = m.oy + r * m.cs + pad, x1 = m.ox + c * m.cs + pad, x2 = x1 + m.cs - pad * 2;
           ctx.beginPath();
           ctx.moveTo(x1, y); ctx.lineTo(x2, y);
           ctx.stroke();
         }
       } else {
-        /* 斜向：画在共享角点交叉的短线上 */
+        /* 斜向：共享角点交叉的两段短线，中间挖空（看清是边标记而非封路） */
         const dr = b[0] - a[0], dc = b[1] - a[1];
         const cornerX = m.ox + (Math.max(a[1], b[1])) * m.cs;
         const cornerY = m.oy + (Math.max(a[0], b[0])) * m.cs;
-        const d = m.cs * 0.24;
-        /* 方向向量 (dr, dc) 归一化 */
-        const dx = dr / (Math.abs(dr) || 1), dy = dc / (Math.abs(dc) || 1);
+        const L = m.cs * 0.30;      // 半长
+        const gap = m.cs * 0.13;    // 中间挖空半宽
+        const len = Math.sqrt(dr * dr + dc * dc) || 1;
+        const ux = dr / len, uy = dc / len;
         ctx.beginPath();
-        ctx.moveTo(cornerX - dx * d, cornerY - dy * d);
-        ctx.lineTo(cornerX + dx * d, cornerY + dy * d);
+        ctx.moveTo(cornerX - ux * L, cornerY - uy * L);
+        ctx.lineTo(cornerX - ux * gap, cornerY - uy * gap);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cornerX + ux * gap, cornerY + uy * gap);
+        ctx.lineTo(cornerX + ux * L, cornerY + uy * L);
         ctx.stroke();
       }
     }
@@ -2833,7 +2851,7 @@ const Player = (function () {
       Library.saveDraft(path, viewedAnswer);
     }
     if (typeof Library !== 'undefined') {
-      App.switchMode('editor');                 // 停止游玩并清理玩家状态
+      App.switchMode('editor', true);           // ★ force：绕过密码门/确认，直接回编辑器
       if (typeof Editor !== 'undefined' && Library.restoreEditorAfterExit) {
         Library.restoreEditorAfterExit();       // ★ 还原进入关卡前的编辑器内容
       }
@@ -4047,11 +4065,71 @@ const Library = (function () {
       box.appendChild(row);
     });
   }
-  function backToList() {
-    const box = $('lib-rank-box');
-    if (box) box.classList.add('hidden');
-    const listBox = $('lib-community-list');
-    if (listBox) listBox.classList.remove('hidden');
+  /* ★ 视图切换：关卡列表 / 实力排行 / 个人主页 / 玩家搜索结果 */
+  function showView(id) {
+    ['lib-community-list', 'lib-rank-box', 'lib-profile-box', 'lib-player-box'].forEach(bid => {
+      const e = $(bid);
+      if (e) e.classList.toggle('hidden', bid !== id);
+    });
+  }
+  function backToList() { showView('lib-community-list'); }
+
+  /* ★ 玩家搜索：从作者名 + 完成者名聚合玩家列表 */
+  function searchPlayers(q) {
+    const box = $('lib-player-box');
+    if (!box) return;
+    const names = new Set();
+    (lastLevels || []).forEach(l => {
+      if (l.author) names.add(String(l.author));
+      ((l.completions || [])).forEach(c => { if (c && c.name) names.add(String(c.name)); });
+    });
+    const qq = String(q || '').trim().toLowerCase();
+    const list = [...names].filter(n => !qq || n.toLowerCase().includes(qq)).sort((a, b) => a.localeCompare(b, 'zh'));
+    box.innerHTML = '';
+    if (!list.length) {
+      box.appendChild(el('div', 'lib-empty', qq ? '没有找到玩家「' + q + '」' : '社区暂时没有其他玩家'));
+    } else {
+      list.forEach(n => {
+        const row = el('div', 'lib-item');
+        const btn = el('button', 'act primary', '👤 ' + n + ' ›');
+        btn.addEventListener('click', () => openProfile(n));
+        row.appendChild(btn);
+        box.appendChild(row);
+      });
+    }
+    showView('lib-player-box');
+  }
+
+  /* ★ 个人主页：统计 + 该玩家关卡 + 设置（仅自己） */
+  async function openProfile(name) {
+    name = String(name || '').trim();
+    if (!name) return;
+    if (!lastLevels.length) {
+      try { const res = await communityList(); lastLevels = res.levels || []; } catch (e) { /* 忽略 */ }
+    }
+    const levels = lastLevels || [];
+    const isMe = !!(currentUser() && currentUser().name === name);
+    const myLevels = levels.filter(l => String(l.author) === name);
+    const doneCount = levels.filter(l => (l.completions || []).some(c => c && c.name === name)).length;
+    const skill = skillRanking(levels).find(p => p.name === name) || null;
+    const likedIds = myLikedIds(levels);
+    const nameEl = $('lib-profile-name');
+    if (nameEl) nameEl.textContent = '👤 ' + name + (isMe ? '（我）' : '');
+    const statsEl = $('lib-profile-stats');
+    if (statsEl) statsEl.textContent = [
+      '📤 上传 ' + myLevels.length + ' 关',
+      '🏆 完成 ' + doneCount + ' 关',
+      skill ? '💪 实力 ' + skill.avg + '（' + skill.count + '关）' : '💪 暂无评级完成记录'
+    ].join(' · ');
+    const lvBox = $('lib-profile-levels');
+    if (lvBox) {
+      lvBox.innerHTML = '';
+      if (!myLevels.length) lvBox.appendChild(el('div', 'lib-empty', '还没有上传关卡'));
+      else myLevels.forEach(it => lvBox.appendChild(communityRow(it, false, likedIds.has(it.id))));
+    }
+    const setBox = $('lib-profile-settings');
+    if (setBox) setBox.classList.toggle('hidden', !isMe);
+    showView('lib-profile-box');
   }
 
   function switchTab(tab) {
@@ -4218,6 +4296,23 @@ const Library = (function () {
     $('lib-filter-rating-min').addEventListener('input', e => setQuery({ minRating: Number(e.target.value) || 0 }));
     $('lib-filter-rating-max').addEventListener('input', e => setQuery({ maxRating: Number(e.target.value) || 0 }));
     $('lib-refresh').addEventListener('click', () => { backToList(); renderCommunityList(); });
+    /* ★ 个人主页 */
+    const unameBtn = $('lib-user-name');
+    if (unameBtn) unameBtn.addEventListener('click', () => { const me = currentUser(); if (me) openProfile(me.name); });
+    const pbackBtn = $('lib-profile-back');
+    if (pbackBtn) pbackBtn.addEventListener('click', backToList);
+    const psearch = $('lib-player-search');
+    if (psearch) {
+      let psTimer = null;
+      psearch.addEventListener('input', () => {
+        clearTimeout(psTimer);
+        psTimer = setTimeout(() => {
+          if (!String(psearch.value || '').trim()) { backToList(); return; }
+          searchPlayers(psearch.value);
+        }, 250);
+      });
+      psearch.addEventListener('keydown', e => { if (e.key === 'Enter') searchPlayers(psearch.value); });
+    }
     const rankBtn = $('lib-rank');
     if (rankBtn) rankBtn.addEventListener('click', () => {
       if ($('lib-rank-box') && !$('lib-rank-box').classList.contains('hidden')) { backToList(); return; }
@@ -4283,7 +4378,7 @@ const Library = (function () {
     currentUser, registerUser, loginUser, logoutUser,
     levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser, isDevUser, setDevMode,
     changePassword, deleteAccount, markViewed, viewedMap, markEdited, editedMap, skillRanking,
-    snapshotEditorOnLoad, restoreEditorAfterExit,
+    snapshotEditorOnLoad, restoreEditorAfterExit, openProfile, searchPlayers, showView, backToList,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
@@ -4353,8 +4448,10 @@ const App = (function () {
     return null;
   }
 
-  function switchMode(m) {
+  function switchMode(m, force) {
     if (m === mode) { renderActive(); return; }
+    /* ★ force：退出/恢复等场景绕过确认与密码门（返回编辑/查看答案仍走确认） */
+    if (force) { doSwitch(m); return; }
     if (m === 'editor' && !Editor.isUnlocked()) {
       /* 密码门：进入编辑器需先验证 */
       $('pass-hint').textContent = '关卡「' + (Editor.getLevel().name || '未命名') + '」已加密，请输入密码进入编辑器。';
