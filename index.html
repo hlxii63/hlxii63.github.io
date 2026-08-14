@@ -313,6 +313,10 @@ select {
 .lib-pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .lib-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .pvp-racebar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #263238; color: #fff; border-radius: 10px; margin-bottom: 10px; }
+/* 跳转高亮闪烁 */
+@keyframes libFlash { 0% { background: #fff59d; } 100% { background: transparent; } }
+.lib-item.flash { animation: libFlash 1.2s ease 2; }
+
 #pvp-timer { position: fixed; top: 10px; right: 10px; z-index: 99; background: #c62828; color: #fff; padding: 8px 14px; border-radius: 20px; font-weight: 700; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.3); cursor: pointer; }
 .jump-flash { animation: jumpFlash 1.2s ease; }
 @keyframes jumpFlash { 0%, 100% { background: transparent; } 30% { background: #fff8e1; } }
@@ -738,18 +742,24 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
               <span id="lib-profile-name" class="lib-status"></span>
             </div>
             <div id="lib-profile-stats" class="lib-status" style="margin:4px 2px 8px"></div>
-            <div id="lib-profile-levels" class="lib-list"></div>
             <div id="lib-profile-settings" class="hidden">
-              <p class="modal-tip">🔑 账号设置</p>
-              <div class="lib-login-row">
+              <div class="lib-actions">
+                <button id="lib-changepw-btn" class="act">🔑 修改密码</button>
+                <button id="lib-delete-account" class="act" style="color:#c62828">🗑 注销账号</button>
+              </div>
+              <div id="lib-changepw-row" class="lib-login-row hidden">
                 <input id="lib-changepw-old" type="password" maxlength="60" placeholder="当前密码（初始密码）" autocomplete="off">
                 <input id="lib-changepw-new" type="password" maxlength="60" placeholder="新密码（至少 4 位）" autocomplete="off">
                 <button id="lib-changepw-ok" class="act primary">确认修改</button>
               </div>
-              <div class="lib-actions">
-                <button id="lib-delete-account" class="act" style="color:#c62828">🗑 注销账号</button>
-              </div>
             </div>
+            <div class="lib-actions">
+              <span class="lib-status">跳到第</span>
+              <input id="lib-profile-jump-input" type="number" min="1" max="999" style="width:60px" value="1">
+              <span class="lib-status">关</span>
+              <button id="lib-profile-jump-btn" class="act">跳转</button>
+            </div>
+            <div id="lib-profile-levels" class="lib-list"></div>
           </div>
           <div id="lib-player-box" class="lib-list hidden"></div>
           <div id="lib-community-list" class="lib-list"></div>
@@ -758,6 +768,22 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 
       <div class="modal-btns">
         <button id="lib-close" class="act">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 关卡评论弹窗 ================= -->
+  <div id="modal-comment" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">💬 评论</div>
+      <p id="comment-title" class="modal-tip"></p>
+      <div id="comment-list" class="lib-list" style="max-height:280px;overflow:auto"></div>
+      <div class="lib-actions">
+        <input id="comment-input" type="text" maxlength="200" placeholder="写下你的评论（需登录）" autocomplete="off">
+        <button id="comment-send" class="act primary">发表</button>
+      </div>
+      <div class="modal-btns">
+        <button id="comment-close" class="act">关闭</button>
       </div>
     </div>
   </div>
@@ -806,6 +832,21 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
   </div>
 
   <!-- ================= 帮助弹窗 ================= -->
+  <!-- ================= 快速上手（首次访问） ================= -->
+  <div id="modal-guide" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">🧭 快速上手（3 步）</div>
+      <div class="help-body">
+        <p>1️⃣ <b>画关卡</b>：选工具（⬛ 障碍 / ◎ 枢纽 / 数字 / 红绿边）摆出关卡；再用「┅ 答案路径」画一条连续的路</p>
+        <p>2️⃣ <b>放起点终点</b>：点「S 起点」「E 终点」放好，答案路径从 S 到 E 且经过每个普通格一次</p>
+        <p>3️⃣ <b>开玩</b>：「▶ 试玩当前关卡」验证 → 「🌐 社区」玩别人的关 / 上传自己的关 → 「⚔️ 对战」双人比拼</p>
+      </div>
+      <div class="modal-btns">
+        <button id="guide-start" class="act primary">开始游戏</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-help" class="modal">
     <div class="modal-box">
       <div class="modal-title">❓ 规则与图例</div>
@@ -4119,7 +4160,9 @@ const Library = (function () {
     if (compCount > 0) sub.textContent += ' · 🏆 ' + compCount + ' 完成';
     if (Number(it.plays) > 0) sub.textContent += ' · ▶ ' + it.plays + ' 玩';
     const net = netLikes(it);
-    if (net !== 0 || (it.likes || []).length > 0) sub.textContent += ' · 👍 ' + net;   // ★ 踩的数量不显示
+    /* ★ 显示规则：净赞为负 → 显示踩数；为0/正 → 显示赞数（无人点过不显示） */
+    const reacted = ((it.likes || []).length + (it.dislikes || []).length) > 0;
+    if (reacted) sub.textContent += net < 0 ? ' · 👎 ' + (-net) : ' · 👍 ' + net;
     main.appendChild(title);
     main.appendChild(sub);
     row.appendChild(main);
@@ -4138,6 +4181,7 @@ const Library = (function () {
       } catch (e) { App.toast(e.message); }
     });
     const boardPanel = leaderboardPanel(it);
+    mkBtn('💬 ' + ((it.comments || []).length || 0), '', () => openCommentModal(it.id));
     mkBtn('🏆 排行' + (compCount ? ' ' + compCount : ''), '', () => {
       const hidden = boardPanel.classList.contains('hidden');
       boardPanel.classList.toggle('hidden', !hidden);
@@ -5178,6 +5222,94 @@ const Library = (function () {
     if (bar) bar.classList.add('hidden');
   }
 
+  /* ---------- 评论系统 ---------- */
+  function levelById(id) { return (lastLevels || []).find(x => String(x.id) === String(id)) || null; }
+  /* 发表评论（需登录；写回社区存储） */
+  async function addComment(levelId, text) {
+    const me = currentUser();
+    if (!me) throw new Error('请先登录后再评论');
+    text = String(text || '').trim().slice(0, 200);
+    if (!text) throw new Error('评论内容不能为空');
+    if (!levelById(levelId)) throw new Error('关卡不存在');
+    const data = await readData();
+    const lv = (data.levels || []).find(x => String(x.id) === String(levelId));
+    if (!lv) throw new Error('关卡不存在');
+    lv.comments = lv.comments || [];
+    if (lv.comments.length >= 100) throw new Error('评论已满（最多100条）');
+    lv.comments.push({ key: me.key, name: me.name, text, at: Date.now() });
+    await writeData(data);
+    const local = levelById(levelId);
+    if (local) { local.comments = local.comments || []; local.comments.push({ key: me.key, name: me.name, text, at: Date.now() }); }
+    return true;
+  }
+  /* 删除评论（作者或开发者） */
+  async function deleteComment(levelId, index) {
+    const me = currentUser();
+    if (!me) throw new Error('请先登录');
+    const lv = levelById(levelId);
+    if (!lv) throw new Error('关卡不存在');
+    const c = (lv.comments || [])[index];
+    if (!c) throw new Error('评论不存在');
+    const isDev = (lv.author === me.name || isDevUserSync());
+    if (c.key !== me.key && !isDev) throw new Error('仅作者或开发者可删除');
+    const data = await readData();
+    const rlv = (data.levels || []).find(x => String(x.id) === String(levelId));
+    if (rlv) { rlv.comments = (rlv.comments || []).filter((_, i) => i !== index); await writeData(data); }
+    if (lv.comments) lv.comments = lv.comments.filter((_, i) => i !== index);
+    return true;
+  }
+  function isDevUserSync() {
+    try {
+      const u = currentUser();
+      const key = devKey();
+      return !!(u && u.name && (String(key) === String(u.key) || key === u.name));
+    } catch (e) { return false; }
+  }
+  let commentLevelId = null;
+  /* 打开评论弹窗 */
+  function openCommentModal(levelId) {
+    commentLevelId = levelId;
+    const lv = levelById(levelId);
+    if (!lv) { App.toast('关卡不存在'); return; }
+    const t = $('comment-title');
+    if (t) t.textContent = '「' + lv.name + '」· ' + (lv.author || '匿名') + ' · ' + (lv.comments ? lv.comments.length : 0) + ' 条评论';
+    renderCommentList(levelId);
+    const inp = $('comment-input');
+    if (inp) inp.value = '';
+    App.openModal('modal-comment');
+  }
+  function renderCommentList(levelId) {
+    const lv = levelById(levelId);
+    const box = $('comment-list');
+    if (!box) return;
+    box.innerHTML = '';
+    const list = lv && lv.comments ? lv.comments.slice().reverse() : [];
+    if (!list.length) { box.appendChild(el('div', 'lib-empty', '还没有评论，来抢沙发～')); return; }
+    const me = currentUser();
+    const isDev = me && (lv.author === me.name || isDevUserSync());
+    list.forEach((c, i) => {
+      const row = el('div', 'lib-item');
+      const main = el('div', 'lib-item-main');
+      const title = el('div', 'lib-item-title', '👤 ' + c.name + ' · ' + fmtTime(c.at));
+      const sub = el('div', 'lib-item-sub', c.text);
+      main.appendChild(title);
+      main.appendChild(sub);
+      row.appendChild(main);
+      if (me && (c.key === me.key || isDev)) {
+        const btns = el('div', 'lib-item-btns', '');
+        const del = el('button', 'act danger', '🗑 删除');
+        del.addEventListener('click', async () => {
+          const realIdx = (lv.comments || []).findIndex(x => x === c);
+          if (realIdx < 0) return;
+          try { await deleteComment(levelId, realIdx); renderCommentList(levelId); App.toast('已删除评论'); }
+          catch (e) { App.toast('❌ ' + e.message); }
+        });
+        btns.appendChild(del);
+        row.appendChild(btns);
+      }
+      box.appendChild(row);
+    });
+  }
   /* ★ 创作积分：作者名下关卡被设精选的分数（A=1, S=3, V=10） */
   function creationPointsOf(levels, name) {
     return (levels || []).reduce((s, lv) => {
@@ -5274,7 +5406,26 @@ const Library = (function () {
     if (lvBox) {
       lvBox.innerHTML = '';
       if (!myLevels.length) lvBox.appendChild(el('div', 'lib-empty', '还没有上传关卡'));
-      else myLevels.forEach(it => lvBox.appendChild(communityRow(it, false, likedIds.has(it.id))));
+      else myLevels.forEach((it, i) => {
+        const row = communityRow(it, false, likedIds.has(it.id));
+        row.id = 'lib-profile-lv-' + (i + 1);   // ★ 供「跳到第N关」定位
+        lvBox.appendChild(row);
+      });
+      const jump = $('lib-profile-jump-btn');
+      const jumpInp = $('lib-profile-jump-input');
+      if (jump && jumpInp) {
+        jumpInp.max = String(Math.max(1, myLevels.length));
+        jump.onclick = () => {
+          const n = Math.min(myLevels.length, Math.max(1, parseInt(jumpInp.value, 10) || 1));
+          const row2 = document.getElementById('lib-profile-lv-' + n);
+          if (!row2) return;
+          try { row2.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* 忽略 */ }
+          row2.classList.remove('flash');
+          void row2.offsetWidth;   /* 重启动画 */
+          row2.classList.add('flash');
+          jumpInp.value = String(n);
+        };
+      }
     }
     const setBox = $('lib-profile-settings');
     if (setBox) setBox.classList.toggle('hidden', !isMe);
@@ -5529,6 +5680,33 @@ const Library = (function () {
       App.openModal('modal-pvp');
       renderPvp();
     });
+    /* 💬 评论 */
+    $('comment-send').addEventListener('click', async () => {
+      const inp = $('comment-input');
+      const lv = levelById(commentLevelId);
+      if (!lv) return;
+      try {
+        await addComment(lv.id, inp ? inp.value : '');
+        App.toast('✅ 评论已发表');
+        if (inp) inp.value = '';
+        renderCommentList(lv.id);
+        const t = $('comment-title');
+        if (t) t.textContent = '「' + lv.name + '」· ' + (lv.author || '匿名') + ' · ' + (lv.comments ? lv.comments.length : 0) + ' 条评论';
+      } catch (e) { App.toast('❌ ' + e.message); }
+    });
+    $('comment-close').addEventListener('click', () => App.closeModal('modal-comment'));
+    /* 🧭 快速上手 */
+    const gs = $('guide-start');
+    if (gs) gs.addEventListener('click', () => {
+      try { localStorage.setItem('path-game:guided', '1'); } catch (e) { /* 忽略 */ }
+      App.closeModal('modal-guide');
+    });
+    if (gs && !(function () { try { return localStorage.getItem('path-game:guided'); } catch (e) { return '1'; } })()) {
+      setTimeout(() => { try { App.openModal('modal-guide'); } catch (e) { /* 忽略 */ } }, 350);
+    }
+    /* 🔑 修改密码开关 */
+    const cpb = $('lib-changepw-btn');
+    if (cpb) cpb.addEventListener('click', () => $('lib-changepw-row').classList.toggle('hidden'));
     const bpvp = $('btn-pvp');
     if (bpvp) bpvp.addEventListener('click', () => {
       if (!currentUser()) { App.toast('请先登录后再对战'); return; }
@@ -5639,6 +5817,7 @@ const Library = (function () {
     renderPvpList, renderPvpRoom, inPvpRoom, inPvpRace, inPvpBuild, startPvpPoll, stopPvpPoll,
     showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch, pvpSetSizeLock,
     pvpTryResume, creationPointsOf, pvpTransferHost,
+    addComment, deleteComment, openCommentModal, renderCommentList,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
