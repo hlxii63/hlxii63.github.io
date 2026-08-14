@@ -536,7 +536,8 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
             <option value="">— 载入示例 —</option>
           </select>
         </label>
-        <button id="btn-community" class="act" title="共享社区（码云，可对战/上传/玩别人的关卡）">🌐 社区</button>
+        <button id="btn-pvp" class="act" title="双人对战（需登录）">⚔️ 对战</button>
+        <button id="btn-community" class="act" title="共享社区（码云，可上传/玩别人的关卡）">🌐 社区</button>
         <button id="btn-library" class="act" title="本地存档">🗂️ 关卡库</button>
         <button id="btn-export" class="act">📤 导出关卡</button>
         <button id="btn-import" class="act">📥 导入关卡</button>
@@ -551,6 +552,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
     <div id="pvp-racebar" class="hidden pvp-racebar">
       <span id="pvp-race-info" class="lib-status"></span>
       <button id="pvp-draw-btn" class="act">🤝 求和</button>
+      <button id="pvp-draw-no-btn" class="act" style="display:none">✖ 拒绝</button>
       <button id="pvp-race-room-btn" class="act">⚔️ 房间</button>
     </div>
     <section class="toolbar">
@@ -3388,7 +3390,7 @@ const Library = (function () {
     Object.keys(byName).forEach(k => {
       const p = byName[k];
       const top = p.ratings.sort((a, b) => b - a).slice(0, 5);
-      list.push({ name: p.name, avg: +(top.reduce((s, x) => s + x, 0) / 5).toFixed(1), count: top.length });
+      list.push({ name: p.name, avg: +(top.reduce((s, x) => s + x, 0) / 5).toFixed(2), count: top.length });   // ★ 精确到 2 位小数
     });
     list.sort((a, b) => b.avg - a.avg || b.count - a.count);
     return list;
@@ -4330,6 +4332,9 @@ const Library = (function () {
     if (pvpRoom) await pvpLeave();
     const d = await pvpRead();
     d.rooms = pvpGc(d.rooms);
+    /* ★ 每人至多一个房间（已有房间则拒绝开新房间） */
+    const dup = d.rooms.find(r => (r.players || []).some(p => p.key === me.key));
+    if (dup) throw new Error('你已在房间 ' + dup.id + ' 中，请先退出该房间再开新房间');
     let id;
     do { id = String(1000 + Math.floor(Math.random() * 9000)); } while (d.rooms.some(r => r.id === id));
     const room = {
@@ -4350,6 +4355,7 @@ const Library = (function () {
     pvpRoom = { id: room.id, myKey: me.key, state: 'waiting' };
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
     pvpModeSel = 'race';
+    setCurrentCommunity(null);   // ★ 进房即脱离社区上下文（本地试玩无退出/无惩罚提示）
     try { localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({ id: room.id, myKey: me.key })); } catch (e) { /* 忽略 */ }
     startPvpPoll();
     return room;
@@ -4361,11 +4367,16 @@ const Library = (function () {
     if (pvpRoom && pvpRoom.id !== String(id).trim()) throw new Error('请先退出当前房间');
     const d = await pvpRead();
     d.rooms = pvpGc(d.rooms);
+    /* ★ 每人至多一个房间（在其他房间则拒绝） */
+    const dupRoom = d.rooms.find(r => r.id !== String(id).trim() && (r.players || []).some(p => p.key === me.key));
+    if (dupRoom) throw new Error('你已在房间 ' + dupRoom.id + ' 中，每人最多同时加入一个房间');
     const room = d.rooms.find(r => r.id === String(id).trim());
     if (!room) throw new Error('房间不存在（可能已被清理）');
     if (room.players.some(p => p.key === me.key)) {
       pvpRoom = { id: room.id, myKey: me.key, state: room.state };
       pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+      pvpModeSel = 'race';
+      setCurrentCommunity(null);   // ★ 进房即脱离社区上下文（本地试玩无退出/无惩罚提示）
       startPvpPoll();
       return room;
     }
@@ -4380,6 +4391,7 @@ const Library = (function () {
     pvpRoom = { id: room.id, myKey: me.key, state: room.state };
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
     pvpModeSel = 'race';
+    setCurrentCommunity(null);   // ★ 进房即脱离社区上下文（本地试玩无退出/无惩罚提示）
     try { localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({ id: room.id, myKey: me.key })); } catch (e) { /* 忽略 */ }
     startPvpPoll();
     return room;
@@ -4446,6 +4458,16 @@ const Library = (function () {
     await pvpWrite(d);
   }
 
+  /* ★ 房主移交房主身份 */
+  async function pvpTransferHost(newKey) {
+    if (!pvpRoom) return;
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room || room.hostKey !== pvpRoom.myKey) throw new Error('仅房主可移交房主身份');
+    room.hostKey = newKey;
+    room.lastActiveAt = Date.now();
+    await pvpWrite(d);
+  }
   /* 房主清理玩家 */
   async function pvpKickPlayer(targetKey) {
     if (!pvpRoom) return;
@@ -4648,6 +4670,7 @@ const Library = (function () {
       } else {
         try { localStorage.removeItem(pvpBuildKey(room.id)); } catch (e) { /* 忽略 */ }
       }
+      if (room.state === 'race') updatePvpRaceBar(room);   // ★ 实时刷新求和邀请状态
       pvpHeartbeatTick++;
       if (pvpHeartbeatTick % 3 === 0) await pvpHeartbeat();   // 约12s一次心跳写
       renderPvp();
@@ -4896,7 +4919,27 @@ const Library = (function () {
     const players = $('pvp-room-players');
     if (players) {
       players.innerHTML = '';
-      room.players.forEach(p => players.appendChild(pvpRoomRow(p, p.key === room.hostKey)));
+      room.players.forEach(p => {
+        const row = pvpRoomRow(p, p.key === room.hostKey);
+        /* ★ 房主对非房主玩家：踢出 + 移交房主 */
+        if (isHost && p.key !== room.hostKey) {
+          const acts = el('div', 'lib-item-btns', '');
+          const kick = el('button', 'act', '🚪 踢出');
+          kick.addEventListener('click', async () => {
+            if (!window.confirm('确定将 ' + p.name + ' 踢出房间吗？')) return;
+            try { await pvpKickPlayer(p.key); App.toast('已踢出 ' + p.name); renderPvpRoom(); } catch (e) { App.toast('❌ ' + e.message); }
+          });
+          const tr = el('button', 'act', '👑 移交房主');
+          tr.addEventListener('click', async () => {
+            if (!window.confirm('确定将房主移交给 ' + p.name + ' 吗？')) return;
+            try { await pvpTransferHost(p.key); App.toast('已移交房主给 ' + p.name); renderPvpRoom(); } catch (e) { App.toast('❌ ' + e.message); }
+          });
+          acts.appendChild(kick);
+          acts.appendChild(tr);
+          row.appendChild(acts);
+        }
+        players.appendChild(row);
+      });
     }
     if (box) {
       const st = room.state === 'waiting' ? '⏳ 等待对手加入…（房间号 ' + room.id + '）'
@@ -4934,11 +4977,12 @@ const Library = (function () {
         const other = room.players.find(p => p.key !== room.hostKey);
         const eligible = (lastLevels || []).filter(lv => {
           const doneByAny = (lv.completions || []).some(c => c.key === room.players[0].key || c.key === room.players[1].key);
+          const playedByAny = (lv.playedBy || []).some(k => k === room.players[0].key || k === room.players[1].key);   // ★ 一方玩过也不可选
           const byHost = String(lv.author) === room.hostName;
           const byGuest = other && String(lv.author) === other.name;
-          return !doneByAny && !byHost && !byGuest;   // ★ 双方未通关 + 排除双方自己上传的关
+          return !doneByAny && !playedByAny && !byHost && !byGuest;
         });
-        if (!eligible.length) pickBox.appendChild(el('div', 'lib-empty', '没有公平可选的关卡（需双方未通关且非双方上传）'));
+        if (!eligible.length) pickBox.appendChild(el('div', 'lib-empty', '没有公平可选的关卡（需双方都没玩过且非双方上传）'));
         eligible.slice(0, 10).forEach(lv => {
           const r2 = el('div', 'lib-item');
           const b2 = el('button', 'act', '⚡ ' + lv.name + (lv.rating != null ? '（难度 ' + fmtDifficulty(lv.rating) + '）' : ''));
@@ -5077,18 +5121,39 @@ const Library = (function () {
     App.openModal('modal-pvp');
     renderPvp();
   }
-  /* 对战中的浮动状态条（选手面板上方） */
+  /* 对战中的浮动状态条（选手面板上方）——每轮轮询刷新，实时响应求和 */
   function showPvpRaceBar(room) {
     const bar = $('pvp-racebar');
     if (!bar) return;
     bar.classList.remove('hidden');
+    updatePvpRaceBar(room);
+  }
+  function updatePvpRaceBar(room) {
+    const bar = $('pvp-racebar');
+    if (!bar || bar.classList.contains('hidden')) return;
     const opp = room.players.find(p => p.key !== pvpRoom.myKey);
     const info = $('pvp-race-info');
-    if (info) info.textContent = '⚔️ 对战 · 对手 ' + (opp ? opp.name : '?') + ' 解题中';
     const drawBtn = $('pvp-draw-btn');
-    if (drawBtn) drawBtn.addEventListener('click', async () => {
-      try { await pvpDrawRequest(); App.toast('🤝 已向对方求和，等待回应'); } catch (e) { App.toast('❌ ' + e.message); }
-    });
+    const noBtn = $('pvp-draw-no-btn');
+    if (!info) return;
+    const show = el2 => { if (el2) el2.style.display = 'inline-block'; };
+    const hide = el2 => { if (el2) el2.style.display = 'none'; };
+    if (room.drawReq) {
+      if (room.drawReq.by === pvpRoom.myKey) {
+        info.textContent = '🤝 已发送求和请求，等待对方回应…';
+        hide(drawBtn); hide(noBtn);
+      } else {
+        info.textContent = '🤝 对方请求平局，是否同意？';
+        if (drawBtn) { drawBtn.textContent = '✅ 同意平局'; drawBtn.onclick = async () => { try { await pvpDrawRespond(true); App.toast('🤝 已同意平局'); } catch (e) { App.toast('❌ ' + e.message); } }; }
+        if (noBtn) { noBtn.textContent = '✖ 拒绝'; noBtn.onclick = async () => { try { await pvpDrawRespond(false); App.toast('已拒绝求和'); } catch (e) { App.toast('❌ ' + e.message); } }; }
+        show(drawBtn); show(noBtn);
+      }
+    } else {
+      info.textContent = '⚔️ 对战 · 对手 ' + (opp ? opp.name : '?') + ' 解题中';
+      if (drawBtn) { drawBtn.textContent = '🤝 求和'; drawBtn.onclick = async () => { try { await pvpDrawRequest(); App.toast('🤝 已向对方求和，等待回应'); } catch (e) { App.toast('❌ ' + e.message); } }; }
+      hide(noBtn);
+      show(drawBtn);
+    }
   }
   function hidePvpRaceBar() {
     const bar = $('pvp-racebar');
@@ -5220,6 +5285,7 @@ const Library = (function () {
     const openCommunity = () => {
       if (inPvpMatch()) { App.toast('⚔️ 对战中不可打开社区'); return; }
       switchTab('community');
+      syncLoginUI();              // ★ 先同步登录态（防首次打开显示登录表单）
       renderCommunityList();
       App.openModal('modal-library');
     };
@@ -5445,6 +5511,13 @@ const Library = (function () {
       App.openModal('modal-pvp');
       renderPvp();
     });
+    const bpvp = $('btn-pvp');
+    if (bpvp) bpvp.addEventListener('click', () => {
+      if (!currentUser()) { App.toast('请先登录后再对战'); return; }
+      App.closeModal('modal-library');
+      App.openModal('modal-pvp');
+      renderPvp();
+    });
     $('pvp-close').addEventListener('click', () => App.closeModal('modal-pvp'));
     $('pvp-refresh-btn').addEventListener('click', () => renderPvpList());
     $('pvp-create-btn').addEventListener('click', async () => {
@@ -5545,7 +5618,7 @@ const Library = (function () {
     pvpRematch, pvpDeleteRoom,
     renderPvpList, renderPvpRoom, inPvpRoom, inPvpRace, inPvpBuild, startPvpPoll, stopPvpPoll,
     showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch, pvpSetSizeLock,
-    pvpTryResume, creationPointsOf,
+    pvpTryResume, creationPointsOf, pvpTransferHost,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
