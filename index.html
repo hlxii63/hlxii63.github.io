@@ -3816,6 +3816,10 @@ const Library = (function () {
   async function writeUsersData(data) { return isGitee() ? giteeWriteFile(USERS_FILE, data) : usersWrite(data); }
 
   async function communityUpload(level) {
+    /* ★ 无解关卡禁止上传（对战模式隐患；所有路径统一拦截） */
+    if (!level || !level.solutionValid || !level.solutionValid()) {
+      throw new Error('该关卡没有有效答案路径，不能上传（需先画好答案）');
+    }
     /* GitHub 仓库模式：读 → 追加 → 提交 */
     if (storeMode() === 'repo' || storeMode() === 'gitee') {
       const data = await readData();
@@ -4332,9 +4336,12 @@ const Library = (function () {
     if (pvpRoom) await pvpLeave();
     const d = await pvpRead();
     d.rooms = pvpGc(d.rooms);
-    /* ★ 每人至多一个房间（已有房间则拒绝开新房间） */
-    const dup = d.rooms.find(r => (r.players || []).some(p => p.key === me.key));
-    if (dup) throw new Error('你已在房间 ' + dup.id + ' 中，请先退出该房间再开新房间');
+    /* ★ 每人至多一个房间：开房时自动清理账号残留的其他房间 */
+    const stale = d.rooms.filter(r => (r.players || []).some(p => p.key === me.key));
+    stale.forEach(r => {
+      r.players = (r.players || []).filter(p => p.key !== me.key);
+      r.lastActiveAt = Date.now();
+    });
     let id;
     do { id = String(1000 + Math.floor(Math.random() * 9000)); } while (d.rooms.some(r => r.id === id));
     const room = {
@@ -4367,9 +4374,15 @@ const Library = (function () {
     if (pvpRoom && pvpRoom.id !== String(id).trim()) throw new Error('请先退出当前房间');
     const d = await pvpRead();
     d.rooms = pvpGc(d.rooms);
-    /* ★ 每人至多一个房间（在其他房间则拒绝） */
-    const dupRoom = d.rooms.find(r => r.id !== String(id).trim() && (r.players || []).some(p => p.key === me.key));
-    if (dupRoom) throw new Error('你已在房间 ' + dupRoom.id + ' 中，每人最多同时加入一个房间');
+    /* ★ 每人至多一个房间：若账号残留在其他房间（如旧版本造成的卡死），自动退出，而不是拒绝 */
+    const stale = d.rooms.filter(r => r.id !== String(id).trim() && (r.players || []).some(p => p.key === me.key));
+    stale.forEach(r => {
+      r.players = (r.players || []).filter(p => p.key !== me.key);
+      r.lastActiveAt = Date.now();
+    });
+    if (stale.length) {
+      try { App.toast('↩ 已自动退出残留房间 ' + stale.map(r => r.id).join('、')); } catch (e) { /* 忽略 */ }
+    }
     const room = d.rooms.find(r => r.id === String(id).trim());
     if (!room) throw new Error('房间不存在（可能已被清理）');
     if (room.players.some(p => p.key === me.key)) {
@@ -4688,6 +4701,11 @@ const Library = (function () {
     if (mode === 'race') {
       const lv = (lastLevels || []).find(x => x.id === cfg);
       if (!lv || !lv.data) throw new Error('关卡数据缺失，请先刷新社区列表');
+      /* ★ 无解关卡禁止对战（重大隐患） */
+      const lvCheck = Level.fromJSON(lv.data);
+      if (!lvCheck.level || !lvCheck.level.solutionValid()) {
+        throw new Error('该关卡没有有效答案路径，不能用于对战');
+      }
       room.startVote = { by: room.hostKey, mode, cfg, level: { id: lv.id, name: lv.name, data: lv.data, rating: lv.rating } };
     } else {
       room.startVote = { by: room.hostKey, mode, cfg: cfg || null };
@@ -5590,6 +5608,8 @@ const Library = (function () {
       const lv = Editor.getLevel();
       lv.name = $('in-name').value.trim() || lv.name;
       try {
+        /* ★ 无解关卡禁止上传（对战模式隐患） */
+        if (!lv.solutionValid()) throw new Error('该关卡没有有效答案路径，不能上传（需先画好答案）');
         const res = await communityUpload(lv);
         App.toast('✅ 上传成功（ID: ' + res.id + '），所有设备可查看');
         renderCommunityList();
