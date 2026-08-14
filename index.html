@@ -312,6 +312,14 @@ select {
 .tab-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 600; }
 .lib-pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .lib-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#preview-canvas {
+  width: 100%; max-width: 340px; aspect-ratio: 1;
+  border: 1px solid #cfd8dc; border-radius: 10px; background: #fff;
+}
+.badge-author {
+  background: #ffffff; color: #111111;
+  border: 1px solid #cfd8dc;
+}
 .lib-actions input[type="number"], .lib-rating-range input[type="number"] {
   width: 64px; padding: 6px 8px; border: 1px solid #cfd8dc; border-radius: 8px;
   font-size: 13px; font-family: inherit;
@@ -690,6 +698,9 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
               ~
               <input id="lib-filter-rating-max" type="number" min="0" max="999" step="0.1" placeholder="最高" title="最高难度（留空不限）">
             </span>
+            <label class="field check" title="只显示被开发者评级的关卡">
+              <input id="lib-filter-rated" type="checkbox"> 仅已评级
+            </label>
           </div>
           <div class="lib-actions">
             <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
@@ -725,6 +736,19 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 
       <div class="modal-btns">
         <button id="lib-close" class="act">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 关卡预览弹窗 ================= -->
+  <div id="modal-preview" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">👁 关卡预览</div>
+      <p id="preview-info" class="modal-tip"></p>
+      <canvas id="preview-canvas" width="320" height="320"></canvas>
+      <div class="modal-btns">
+        <button id="preview-play" class="act primary">▶ 载入并试玩</button>
+        <button id="preview-close" class="act">关闭</button>
       </div>
     </div>
   </div>
@@ -1801,7 +1825,7 @@ const Render = (function () {
           ctx.stroke();
         } else {
           const c = a[1], r = Math.max(a[0], b[0]);
-          const y = m.oy + r * m.cs + pad, x1 = m.ox + c * m.cs + pad, x2 = x1 + m.cs - pad * 2;
+          const y = m.oy + r * m.cs, x1 = m.ox + c * m.cs + pad, x2 = x1 + m.cs - pad * 2;
           ctx.beginPath();
           ctx.moveTo(x1, y); ctx.lineTo(x2, y);
           ctx.stroke();
@@ -3838,7 +3862,11 @@ const Library = (function () {
   }
 
   /* 搜索/筛选条件 */
-  let communityQuery = { q: '', featured: '', minRating: 0, maxRating: 0 };
+  let communityQuery = { q: '', featured: '', minRating: 0, maxRating: 0, ratedOnly: false };
+  /* 有效难度：有评级用评级，否则用作者难度 */
+  function effDifficulty(it) {
+    return it.rating != null ? (Number(it.rating) || 0) : (Number(it.difficulty) || 0);
+  }
   let searchTimer = null;
   function setQuery(partial) {
     communityQuery = Object.assign(communityQuery, partial);
@@ -3906,7 +3934,12 @@ const Library = (function () {
     const title = el('div', 'lib-item-title');
     title.appendChild(el('span', '', (it.isDraft ? '📝 ' : '🧩 ') + it.name));
     if (it.featured) title.appendChild(el('span', 'badge badge-' + String(it.featured).toLowerCase(), '精选' + it.featured));
-    if (it.rating != null) title.appendChild(el('span', 'badge badge-rating', '难度 ' + fmtDifficulty(it.rating)));
+    if (it.rating != null) {
+      title.appendChild(el('span', 'badge badge-rating', '难度 ' + fmtDifficulty(it.rating)));
+    } else if (Number(it.difficulty) > 0) {
+      /* ★ 未评级关卡：显示作者难度（白底黑字） */
+      title.appendChild(el('span', 'badge badge-author', '难度 ' + fmtDifficulty(it.difficulty)));
+    }
     const sub = el('div', 'lib-item-sub');
     sub.textContent = it.rows + '×' + it.cols + (it.author ? ' · ' + it.author : '') + ' · ' + fmtTime(it.createdAt || it.savedAt);
     const compCount = ((it.completions || []).filter(c => c && c.key && String(c.key) !== String(it.ownerKey))).length;
@@ -3923,6 +3956,7 @@ const Library = (function () {
       b.addEventListener('click', fn);
       btns.appendChild(b);
     };
+    mkBtn('👁 预览', '', () => previewLevel(it.id));
     mkBtn('载入', 'primary', async () => {
       try {
         const full = await communityGet(it.id);
@@ -4003,7 +4037,8 @@ const Library = (function () {
       const list = communitySort(all, communityQuery.sort).filter(it => {
         if (q && !String(it.name || '').toLowerCase().includes(q)) return false;
         if (communityQuery.featured && it.featured !== communityQuery.featured) return false;
-        const lvR = Number(it.rating) || 0;
+        if (communityQuery.ratedOnly && it.rating == null) return false;   // ★ 仅展示已评级
+        const lvR = effDifficulty(it);                                     // ★ 难度=评级优先，否则作者难度
         if (minR > 0 && !(lvR >= minR)) return false;
         if (maxR > 0 && !(lvR <= maxR)) return false;
         const myDone = (it.completions || []).some(c => c.key === myKey);
@@ -4037,6 +4072,34 @@ const Library = (function () {
     }
   }
 
+  /* ★ 关卡预览：渲染关卡缩略图 + 信息，不进入编辑器/试玩 */
+  let previewData = null;
+  async function previewLevel(id) {
+    try {
+      const full = await communityGet(id);
+      previewData = full;
+      const meta = full.level || {};
+      const data = meta.data || {};
+      const name = meta.name || data.name || '未命名';
+      const eff = effDifficulty(meta);
+      const infoEl = $('preview-info');
+      if (infoEl) infoEl.textContent = '🧩 ' + name +
+        (eff > 0 ? ' · 难度 ' + fmtDifficulty(eff) : '') +
+        ' · ' + (data.rows || meta.rows || '?') + '×' + (data.cols || meta.cols || '?') +
+        (meta.author ? ' · ' + meta.author : '');
+      App.openModal('modal-preview');
+      setTimeout(() => {
+        const canvas = $('preview-canvas');
+        if (!canvas) return;
+        try {
+          const r = Level.fromJSON(data);
+          if (r.level) Render.draw(canvas, r.level, {});
+        } catch (e2) { /* 渲染失败忽略 */ }
+      }, 80);
+    } catch (e) {
+      App.toast('预览失败：' + e.message);
+    }
+  }
   /* ★ 玩家实力排行视图 */
   function renderRanking() {
     const box = $('lib-rank-box');
@@ -4295,6 +4358,17 @@ const Library = (function () {
     $('lib-filter-featured').addEventListener('change', e => setQuery({ featured: e.target.value }));
     $('lib-filter-rating-min').addEventListener('input', e => setQuery({ minRating: Number(e.target.value) || 0 }));
     $('lib-filter-rating-max').addEventListener('input', e => setQuery({ maxRating: Number(e.target.value) || 0 }));
+    const ratedChk = $('lib-filter-rated');
+    if (ratedChk) ratedChk.addEventListener('change', e => setQuery({ ratedOnly: !!e.target.checked }));
+    const pvClose = $('preview-close');
+    if (pvClose) pvClose.addEventListener('click', () => App.closeModal('modal-preview'));
+    const pvPlay = $('preview-play');
+    if (pvPlay) pvPlay.addEventListener('click', () => {
+      if (!previewData) return;
+      const meta = previewData.level || {};
+      App.closeModal('modal-preview');
+      loadIntoEditor(meta.data, { hideSol: true, communityId: previewData.id, communityRating: meta.rating });
+    });
     $('lib-refresh').addEventListener('click', () => { backToList(); renderCommunityList(); });
     /* ★ 个人主页 */
     const unameBtn = $('lib-user-name');
@@ -4378,7 +4452,7 @@ const Library = (function () {
     currentUser, registerUser, loginUser, logoutUser,
     levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser, isDevUser, setDevMode,
     changePassword, deleteAccount, markViewed, viewedMap, markEdited, editedMap, skillRanking,
-    snapshotEditorOnLoad, restoreEditorAfterExit, openProfile, searchPlayers, showView, backToList,
+    snapshotEditorOnLoad, restoreEditorAfterExit, openProfile, searchPlayers, showView, backToList, previewLevel, effDifficulty,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
