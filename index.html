@@ -2730,11 +2730,11 @@ const Player = (function () {
     level = r.level;
     reset();
     $('p-levelname').textContent = '关卡：' + level.name + ' · 难度 ' + fmtDifficulty(level.difficulty);
-    /* ★ 退出按钮只在对战/社区关卡显示（本地试玩隐藏） */
+    /* ★ 退出按钮只在对战（竞速阶段）/社区关卡显示（本地试玩、作图期试玩隐藏） */
     try {
       const inCom = typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity();
-      const inMatch = typeof Library !== 'undefined' && Library.inPvpMatch && Library.inPvpMatch();
-      $('p-exit').style.display = (inCom || inMatch) ? '' : 'none';
+      const inRace = typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace();
+      $('p-exit').style.display = (inCom || inRace) ? '' : 'none';
     } catch (e) { /* 忽略 */ }
     /* ★ 恢复上次退出的作答进度（社区关卡） */
     if (typeof Library !== 'undefined' && Library.getDraft) {
@@ -2942,7 +2942,7 @@ const Player = (function () {
     let penalty = '';
     try {
       if ((typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity()) ||
-          (typeof Library !== 'undefined' && Library.inPvpMatch && Library.inPvpMatch())) {
+          (typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace())) {
         penalty = '\n查看后将不能记录本关成绩（排行榜/实力不计入）。';
       }
     } catch (e) { /* 忽略 */ }
@@ -2956,7 +2956,14 @@ const Player = (function () {
       } catch (e) { /* 忽略 */ }
     }
     render();
-    App.toast('👁 已显示答案，本次通关不计入排行榜和实力');
+    let penaltyTxt = '';
+    try {
+      if ((typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity()) ||
+          (typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace())) {
+        penaltyTxt = '，本次通关不计入排行榜和实力';
+      }
+    } catch (e) { /* 忽略 */ }
+    App.toast('👁 已显示答案' + penaltyTxt);
   }
 
   /* ★ 退出并保存作答进度（社区关卡），回到导入前的编辑器界面 */
@@ -4252,6 +4259,8 @@ const Library = (function () {
    */
   const PVP_FILE = 'rooms.json';
   const PVP_POLL_MS = 4000;
+  const PVP_SESSION_KEY = 'path-game:pvp-session';   // ★ 房间会话（刷新后自动重进）
+  const pvpBuildKey = rid => 'path-game:pvp-build:' + rid;   // ★ 作图进度（刷新后恢复）
   let pvpRoom = null;       // { id, myKey, state }
   let pvpTimer = null;
   let pvpHeartbeatTick = 0;
@@ -4318,6 +4327,7 @@ const Library = (function () {
     pvpRoom = { id: room.id, myKey: me.key, state: 'waiting' };
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
     pvpModeSel = 'race';
+    try { localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({ id: room.id, myKey: me.key })); } catch (e) { /* 忽略 */ }
     startPvpPoll();
     return room;
   }
@@ -4347,6 +4357,7 @@ const Library = (function () {
     pvpRoom = { id: room.id, myKey: me.key, state: room.state };
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
     pvpModeSel = 'race';
+    try { localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({ id: room.id, myKey: me.key })); } catch (e) { /* 忽略 */ }
     startPvpPoll();
     return room;
   }
@@ -4380,6 +4391,7 @@ const Library = (function () {
     pvpRoom = null;
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
     pvpSetSizeLock(false);
+    try { localStorage.removeItem(PVP_SESSION_KEY); localStorage.removeItem(pvpBuildKey(room.id)); } catch (e) { /* 忽略 */ }
   }
 
   /* 房主删除房间 */
@@ -4393,6 +4405,7 @@ const Library = (function () {
     await pvpWrite(d);
     stopPvpPoll();
     pvpRoom = null;
+    try { localStorage.removeItem(PVP_SESSION_KEY); localStorage.removeItem(pvpBuildKey(room.id)); } catch (e) { /* 忽略 */ }
   }
 
   /* 房主再来一局：重置房间到 ready */
@@ -4490,18 +4503,34 @@ const Library = (function () {
       pvpLocal.raceLoaded = false;   // 上一局是 race 的话重置
       pvpLocal.overShown = false;
       pvpCloseAllModals();                        // ★ 直接跳到空编辑器（关掉社区等所有弹窗）
-      /* ★ 强制新建空白关卡（清空编辑器，防止带入之前写的关） */
-      Editor.newLevel();
       const b = room.build || {};
-      const lv = Editor.getLevel();
-      lv.rows = Math.min(20, Math.max(3, Number(b.rows) || 6));
-      lv.cols = Math.min(20, Math.max(3, Number(b.cols) || 6));
-      buildDeadlineLocal = Number(b.deadline) || 0;
-      try { Editor.render(); } catch (e) { /* 忽略 */ }
+      const wantRows = Math.min(20, Math.max(3, Number(b.rows) || 6));
+      const wantCols = Math.min(20, Math.max(3, Number(b.cols) || 6));
+      let restored = false;
+      /* ★ 刷新后恢复本地作图进度（尺寸一致才恢复） */
+      try {
+        const saved = localStorage.getItem(pvpBuildKey(room.id));
+        if (saved) {
+          const r2 = Level.fromJSON(JSON.parse(saved));
+          if (r2.level && r2.level.rows === wantRows && r2.level.cols === wantCols) {
+            Editor.loadLevelData(r2.level.toJSON(), { unlocked: true });
+            restored = true;
+          }
+        }
+      } catch (e) { /* 忽略 */ }
+      if (!restored) {
+        /* ★ 强制新建空白关卡（清空编辑器，防止带入之前写的关） */
+        Editor.newLevel();
+        const lv = Editor.getLevel();
+        lv.rows = wantRows;
+        lv.cols = wantCols;
+        try { Editor.render(); } catch (e) { /* 忽略 */ }
+      }
+      buildDeadlineLocal = Number(b.deadline) || 0;   // ★ 倒计时从房间恢复
       App.switchMode('editor', true);
       pvpSetSizeLock(true);                       // ★ 锁定行列
       showPvpBuildBar(false);
-      App.toast('⏳ 开始作图！' + (Number(b.timeLimit) || 5) + ' 分钟内完成并交卷');
+      App.toast(restored ? '↩ 已恢复作图进度' : '⏳ 开始作图！' + (Number(b.timeLimit) || 5) + ' 分钟内完成并交卷');
     }
     if (room.state === 'over' && !pvpLocal.overShown) {
       pvpLocal.overShown = true;
@@ -4522,6 +4551,18 @@ const Library = (function () {
     }
   }
 
+  /* ★ 刷新页面后自动恢复房间（会话持久化） */
+  async function pvpTryResume() {
+    try {
+      const s = JSON.parse(localStorage.getItem(PVP_SESSION_KEY) || 'null');
+      if (!s || !s.id || pvpRoom || !currentUser() || currentUser().key !== s.myKey) return;
+      await pvpJoin(s.id, '');
+      App.toast('↩ 已恢复对战房间 ' + s.id);
+      renderPvp();
+    } catch (e) {
+      try { localStorage.removeItem(PVP_SESSION_KEY); } catch (e2) { /* 忽略 */ }
+    }
+  }
   /* 轮询 */
   function startPvpPoll() {
     stopPvpPoll();
@@ -4577,7 +4618,13 @@ const Library = (function () {
       }
       handleRoomTransitions(room);
       pvpRoom.state = room.state;
-      if (room.state === 'build') showPvpBuildBar(pvpLocal.submitted);
+      if (room.state === 'build') {
+        showPvpBuildBar(pvpLocal.submitted);
+        /* ★ 本地持续保存作图进度（防刷新丢失） */
+        try { localStorage.setItem(pvpBuildKey(room.id), JSON.stringify(Editor.getLevel().toJSON())); } catch (e) { /* 忽略 */ }
+      } else {
+        try { localStorage.removeItem(pvpBuildKey(room.id)); } catch (e) { /* 忽略 */ }
+      }
       pvpHeartbeatTick++;
       if (pvpHeartbeatTick % 3 === 0) await pvpHeartbeat();   // 约12s一次心跳写
       renderPvp();
@@ -4838,6 +4885,11 @@ const Library = (function () {
     }
     /* 操作区 */
     if (ctrl) {
+      const activeEl = document.activeElement;
+      const userTyping = activeEl && ctrl.contains(activeEl);
+      if (userTyping) {
+        /* ★ 用户正在输入（行列/时间/模式）：本轮不重建，防输入被打断 */
+      } else {
       ctrl.innerHTML = '';
       if (room.state === 'ready' && isHost) {
         /* 模式选择：选哪个只显示哪个的设置 */
@@ -4938,6 +4990,7 @@ const Library = (function () {
           } catch (e) { App.toast('❌ ' + e.message); }
         });
         ctrl.appendChild(delRoom);
+      }
       }
     }
     /* 对战结束结果 + 再来一局/删除房间 */
@@ -5417,6 +5470,9 @@ const Library = (function () {
         App.toast('❌ ' + e.message);
       }
     });
+    /* ★ 页面加载后尝试恢复对战房间 */
+    setTimeout(() => { try { pvpTryResume(); } catch (e) { /* 忽略 */ } }, 400);
+
     $('lib-upload').addEventListener('click', async () => {
       const lv = Editor.getLevel();
       lv.name = $('in-name').value.trim() || lv.name;
@@ -5449,6 +5505,7 @@ const Library = (function () {
     pvpRematch, pvpDeleteRoom,
     renderPvpList, renderPvpRoom, inPvpRoom, inPvpRace, inPvpBuild, startPvpPoll, stopPvpPoll,
     showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch, pvpSetSizeLock,
+    pvpTryResume,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
