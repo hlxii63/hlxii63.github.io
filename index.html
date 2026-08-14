@@ -312,12 +312,16 @@ select {
 .tab-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 600; }
 .lib-pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .lib-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pvp-racebar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #263238; color: #fff; border-radius: 10px; margin-bottom: 10px; }
+#pvp-timer { position: fixed; top: 10px; right: 10px; z-index: 99; background: #c62828; color: #fff; padding: 8px 14px; border-radius: 20px; font-weight: 700; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+.jump-flash { animation: jumpFlash 1.2s ease; }
+@keyframes jumpFlash { 0%, 100% { background: transparent; } 30% { background: #fff8e1; } }
 #preview-canvas {
   width: 100%; max-width: 340px; aspect-ratio: 1;
   border: 1px solid #cfd8dc; border-radius: 10px; background: #fff;
 }
-.badge-author {
-  background: #ffffff; color: #111111;
+.badge.badge-author {
+  background: #ffffff; color: #111111 !important;
   border: 1px solid #cfd8dc;
 }
 .lib-actions input[type="number"], .lib-rating-range input[type="number"] {
@@ -538,6 +542,10 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 
   <!-- ================= 游玩面板 ================= -->
   <main id="player-panel" class="panel hidden">
+    <div id="pvp-racebar" class="hidden pvp-racebar">
+      <span id="pvp-race-info" class="lib-status"></span>
+      <button id="pvp-draw-btn" class="act">🤝 求和</button>
+    </div>
     <section class="toolbar">
       <div class="tool-row">
         <button id="p-undo" class="act">↩ 撤销一步</button>
@@ -704,9 +712,14 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
           </div>
           <div class="lib-actions">
             <button id="lib-upload" class="act primary">⬆ 上传当前关卡</button>
+            <button id="lib-pvp" class="act">⚔️ 对战</button>
             <button id="lib-rank" class="act">💪 实力排行</button>
             <button id="lib-refresh" class="act">🔄 刷新</button>
             <span id="lib-skill" class="lib-skill"></span>
+            <span class="lib-rating-range">跳第
+              <input id="lib-jump" type="number" min="1" step="1" placeholder="N关" style="width:60px">
+              <button id="lib-jump-btn" class="act" style="padding:6px 10px">跳转</button>
+            </span>
           </div>
           <p class="modal-tip" id="lib-community-tip">共享社区（码云 Gitee 存储，大陆可访问）。通关自动进排行榜（作者不计入自己关卡）；点👍可点赞；第一个注册的账号自动成为开发者，可给关卡设精选（V&gt;S&gt;A）与难度评级。</p>
           <div id="lib-rank-box" class="lib-list hidden"></div>
@@ -749,6 +762,36 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
       <div class="modal-btns">
         <button id="preview-play" class="act primary">▶ 载入并试玩</button>
         <button id="preview-close" class="act">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 双人对战弹窗 ================= -->
+  <div id="modal-pvp" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">⚔️ 双人对战</div>
+      <div id="pvp-list-view">
+        <div class="lib-actions">
+          <input id="pvp-join-id" type="number" min="1000" max="9999" placeholder="4位房间号" style="width:100px" autocomplete="off">
+          <button id="pvp-join-btn" class="act">🚪 进房间</button>
+          <button id="pvp-create-btn" class="act primary">➕ 开房间</button>
+          <button id="pvp-refresh-btn" class="act">🔄 刷新</button>
+        </div>
+        <p class="modal-tip">房间列表：房主名称与实力、人数；10 分钟无人空房自动清理。</p>
+        <div id="pvp-list" class="lib-list"></div>
+      </div>
+      <div id="pvp-room-view" class="hidden">
+        <div class="lib-actions">
+          <span id="pvp-room-title" class="lib-status"></span>
+          <button id="pvp-leave-btn" class="act">🚪 退出房间</button>
+        </div>
+        <div id="pvp-room-status" class="lib-status" style="margin:4px 0"></div>
+        <div id="pvp-room-players" class="lib-list"></div>
+        <div id="pvp-room-controls"></div>
+        <p id="pvp-room-msg" class="modal-tip"></p>
+      </div>
+      <div class="modal-btns">
+        <button id="pvp-close" class="act">关闭</button>
       </div>
     </div>
   </div>
@@ -2643,7 +2686,10 @@ const Player = (function () {
     $('p-undo10').addEventListener('click', () => undoSteps(10));
     $('p-clear').addEventListener('click', clearPath);
     $('p-numbers').addEventListener('change', e => { showNumbers = e.target.checked; render(); });
-    $('p-back').addEventListener('click', () => App.switchMode('editor'));
+    $('p-back').addEventListener('click', () => {
+      if (typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) { App.toast('⚔️ 对战中不可返回编辑器'); return; }
+      App.switchMode('editor');
+    });
     $('p-exit').addEventListener('click', exitSave);
     $('p-answer').addEventListener('click', viewAnswer);
 
@@ -2651,7 +2697,10 @@ const Player = (function () {
       hideWin();
       clearPath();
     });
-    $('win-back').addEventListener('click', () => App.switchMode('editor'));
+    $('win-back').addEventListener('click', () => {
+      if (typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) { App.toast('⚔️ 对战中不可返回编辑器'); return; }
+      App.switchMode('editor');
+    });
   }
 
   function loadLevel(jsonObj) {
@@ -2771,7 +2820,10 @@ const Player = (function () {
     showWin();
     App.setStatus('🎉 通关成功！');
     /* ★ 社区关卡：自动记录完成时间（进排行榜）；看过答案则不计入 */
-    if (typeof Library !== 'undefined' && Library.onWin) {
+    if (typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) {
+      /* ⚔️ 对战中：上报完成，等对方 */
+      try { Library.pvpReportDone().then(() => App.toast('⚔️ 你已完成！等待对方…')); } catch (e) { /* 静默 */ }
+    } else if (typeof Library !== 'undefined' && Library.onWin) {
       try { Library.onWin(viewedAnswer); } catch (e) { /* 静默 */ }
     }
     if (typeof Library !== 'undefined' && Library.clearDraft) {
@@ -2851,6 +2903,10 @@ const Player = (function () {
 
   /* ★ 查看答案：显示官方解，之后通关不计入排行榜/实力 */
   function viewAnswer() {
+    if (typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) {
+      App.toast('⚔️ 对战中不可查看答案');
+      return;
+    }
     if (!level || !level.solution || !level.solution.length) {
       App.toast('这关还没有官方答案');
       return;
@@ -2871,6 +2927,16 @@ const Player = (function () {
 
   /* ★ 退出并保存作答进度（社区关卡），回到导入前的编辑器界面 */
   function exitSave() {
+    /* ⚔️ 对战中退出 = 认输 */
+    if (typeof Library !== 'undefined' && Library.inPvpRoom && Library.inPvpRoom()) {
+      if (!window.confirm('⚔️ 对战中退出 = 认输，确定退出吗？')) return;
+      Library.pvpLeave().then(() => {
+        if (typeof App !== 'undefined') App.switchMode('editor', true);
+        if (typeof App !== 'undefined' && App.closeModal) App.closeModal('modal-library');
+        App.toast('😢 已认输，退出对战');
+      }).catch(() => { /* 忽略 */ });
+      return;
+    }
     if (typeof Library !== 'undefined' && Library.saveDraft) {
       Library.saveDraft(path, viewedAnswer);
     }
@@ -2900,7 +2966,7 @@ const Player = (function () {
 
   return {
     init, loadLevel, undoStep, undoSteps, clearPath, reset, render, stop,
-    viewAnswer, exitSave
+    viewAnswer, exitSave, getPath: () => path.slice(), hasViewed: () => viewedAnswer
   };
 })();
 
@@ -3092,7 +3158,7 @@ const Library = (function () {
       case 'difficulty': return arr.sort((a, b) => (Number(b.rating) || Number(b.difficulty) || 0) - (Number(a.rating) || Number(a.difficulty) || 0));
       case 'time': return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       case 'plays': return arr.sort((a, b) => (Number(b.plays) || 0) - (Number(a.plays) || 0));
-      case 'likes': return arr.sort((a, b) => ((b.likes || []).length) - ((a.likes || []).length));
+      case 'likes': return arr.sort((a, b) => netLikes(b) - netLikes(a));
       default:
         return arr.sort((a, b) => {
           const d = fa(b) - fa(a);
@@ -3188,11 +3254,36 @@ const Library = (function () {
     if (!lv) return false;
     lv.likes = lv.likes || [];
     const i = lv.likes.indexOf(myKey);
-    if (i >= 0) lv.likes.splice(i, 1); else lv.likes.push(myKey);
+    if (i >= 0) lv.likes.splice(i, 1); else {
+      lv.likes.push(myKey);
+      lv.dislikes = lv.dislikes || [];      // ★ 互斥：点赞自动取消自己的踩
+      const j = lv.dislikes.indexOf(myKey);
+      if (j >= 0) lv.dislikes.splice(j, 1);
+    }
     await writeData(data);
     return i < 0;
   }
 
+  /* 点踩：与点赞互斥（点踩后点赞数 = 赞-踩） */
+  async function toggleDislike(levelId) {
+    if (!levelId) return false;
+    const myKey = ownerKey();
+    const data = await readData();
+    const lv = (data.levels || []).find(x => x.id === levelId);
+    if (!lv) return false;
+    lv.dislikes = lv.dislikes || [];
+    const i = lv.dislikes.indexOf(myKey);
+    if (i >= 0) lv.dislikes.splice(i, 1); else {
+      lv.dislikes.push(myKey);
+      lv.likes = lv.likes || [];
+      const j = lv.likes.indexOf(myKey);   // 互斥：点踩自动取消点赞
+      if (j >= 0) lv.likes.splice(j, 1);
+    }
+    await writeData(data);
+    return i < 0;
+  }
+  /* 净赞数 = 赞 - 踩 */
+  function netLikes(lv) { return ((lv.likes || []).length) - ((lv.dislikes || []).length); }
   /* 游玩次数：每个账号只记一次（playedBy 记录账号 key，plays=去重人数） */
   async function bumpPlays(levelId) {
     if (!levelId) return;
@@ -3774,6 +3865,13 @@ const Library = (function () {
   /* ---------- 载入到编辑器（本地=自己关卡直接解锁；社区=与导入同规则） ---------- */
   function loadIntoEditor(levelData, opts) {
     opts = opts || {};
+    /* ★ 载入前：若正在玩社区关卡且有路径，先存为草稿（防止预览/载入清空游玩路径） */
+    if (currentCommunity && typeof Player !== 'undefined' && Player.getPath) {
+      try {
+        const pp = Player.getPath();
+        if (pp && pp.length) saveDraft(pp, Player.hasViewed ? Player.hasViewed() : false);
+      } catch (e) { /* 忽略 */ }
+    }
     snapshotEditorOnLoad();   // ★ 记住进入前的编辑器内容，退出后还原
     /* ★ 社区关卡：开发者评级优先显示为难度 */
     if (opts.communityRating != null && levelData && typeof levelData === 'object') {
@@ -3929,6 +4027,7 @@ const Library = (function () {
 
   /* 社区关卡行：名称+徽章+按钮+排行榜+管理员栏 */
   function communityRow(it, admin, liked) {
+    const myKey = ownerKey();
     const row = el('div', 'lib-item');
     const main = el('div', 'lib-item-main');
     const title = el('div', 'lib-item-title');
@@ -3945,7 +4044,9 @@ const Library = (function () {
     const compCount = ((it.completions || []).filter(c => c && c.key && String(c.key) !== String(it.ownerKey))).length;
     if (compCount > 0) sub.textContent += ' · 🏆 ' + compCount + ' 完成';
     if (Number(it.plays) > 0) sub.textContent += ' · ▶ ' + it.plays + ' 玩';
-    if ((it.likes || []).length > 0) sub.textContent += ' · 👍 ' + it.likes.length;
+    const net = netLikes(it);
+    if (net !== 0 || (it.likes || []).length > 0) sub.textContent += ' · 👍 ' + net;
+    if ((it.dislikes || []).length > 0) sub.textContent += ' · 👎 ' + it.dislikes.length;
     main.appendChild(title);
     main.appendChild(sub);
     row.appendChild(main);
@@ -3969,10 +4070,18 @@ const Library = (function () {
       boardPanel.classList.toggle('hidden', !hidden);
       if (hidden && boardPanel._refresh) boardPanel._refresh();
     });
+    const disliked = (it.dislikes || []).includes(myKey);
     mkBtn(liked ? '👍 已赞' : '👍 点赞', liked ? 'liked' : '', async () => {
       try {
         const nowLiked = await toggleLike(it.id);
         App.toast(nowLiked ? '已点赞 👍' : '已取消点赞');
+        renderCommunityList();
+      } catch (e) { App.toast('❌ ' + e.message); }
+    });
+    mkBtn(disliked ? '👎 已踩' : '👎 踩', disliked ? 'liked' : '', async () => {
+      try {
+        const nowDis = await toggleDislike(it.id);
+        App.toast(nowDis ? '已点踩 👎' : '已取消点踩');
         renderCommunityList();
       } catch (e) { App.toast('❌ ' + e.message); }
     });
@@ -4100,6 +4209,627 @@ const Library = (function () {
       App.toast('预览失败：' + e.message);
     }
   }
+  /* ================= ⚔️ 双人对战 =================
+   * 房间存于码云 rooms.json；轮询同步（约 4s）。
+   * 状态机：waiting(1人) → ready(2人) → build(造图) → race(竞速) → over
+   */
+  const PVP_FILE = 'rooms.json';
+  const PVP_POLL_MS = 4000;
+  let pvpRoom = null;       // { id, myKey, state }
+  let pvpTimer = null;
+  let pvpHeartbeatTick = 0;
+  let pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+  let buildDeadlineLocal = 0;
+
+  function inPvpRoom() { return !!pvpRoom; }
+  function inPvpRace() { return !!pvpRoom && pvpRoom.state === 'race'; }
+  function inPvpBuild() { return !!pvpRoom && pvpRoom.state === 'build'; }
+
+  async function pvpRead() {
+    const d = await giteeReadFile(PVP_FILE);
+    return d === null ? { rooms: [] } : d;
+  }
+  async function pvpWrite(d) { await giteeWriteFile(PVP_FILE, d); }
+  function pvpGc(rooms, now) {
+    now = now || Date.now();
+    return (rooms || []).filter(r => {
+      if (r.players && r.players.length) return true;
+      return now - (r.lastActiveAt || 0) < 10 * 60 * 1000;   // ★ 空房10分钟自动清理
+    });
+  }
+  function pvpSkillOf(name) {
+    const s = skillRanking(lastLevels || []).find(p => p.name === name);
+    return s ? s.avg : null;
+  }
+  function pvpRoomMe(room) {
+    return pvpRoom ? (room.players || []).find(p => p.key === pvpRoom.myKey) : null;
+  }
+
+  async function pvpList() {
+    const d = await pvpRead();
+    d.rooms = pvpGc(d.rooms);
+    try { await pvpWrite(d); } catch (e) { /* 清理写失败忽略 */ }
+    return d.rooms;
+  }
+
+  async function pvpCreate(name, password) {
+    const me = currentUser();
+    if (!me) throw new Error('请先登录');
+    if (pvpRoom) await pvpLeave();
+    const d = await pvpRead();
+    d.rooms = pvpGc(d.rooms);
+    let id;
+    do { id = String(1000 + Math.floor(Math.random() * 9000)); } while (d.rooms.some(r => r.id === id));
+    const room = {
+      id, name: String(name || '').trim().slice(0, 20) || ('房间' + id),
+      password: null,
+      hostKey: me.key, hostName: me.name, hostSkill: pvpSkillOf(me.name),
+      lastActiveAt: Date.now(),
+      players: [{ key: me.key, name: me.name, skill: pvpSkillOf(me.name), joinedAt: Date.now(), lastSeen: Date.now() }],
+      mode: null, state: 'waiting', level: null, build: null, startVote: null, drawReq: null,
+      winner: null, draw: false, overMsg: '', startedAt: 0, finishedAt: 0
+    };
+    if (password) {
+      const salt = randomHex(8);
+      room.password = { salt, hash: hashPassword(String(password), salt) };
+    }
+    d.rooms.push(room);
+    await pvpWrite(d);
+    pvpRoom = { id: room.id, myKey: me.key, state: 'waiting' };
+    pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+    startPvpPoll();
+    return room;
+  }
+
+  async function pvpJoin(id, password) {
+    const me = currentUser();
+    if (!me) throw new Error('请先登录');
+    if (pvpRoom && pvpRoom.id !== String(id).trim()) throw new Error('请先退出当前房间');
+    const d = await pvpRead();
+    d.rooms = pvpGc(d.rooms);
+    const room = d.rooms.find(r => r.id === String(id).trim());
+    if (!room) throw new Error('房间不存在（可能已被清理）');
+    if (room.players.some(p => p.key === me.key)) {
+      pvpRoom = { id: room.id, myKey: me.key, state: room.state };
+      pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+      startPvpPoll();
+      return room;
+    }
+    if (room.players.length >= 2) throw new Error('房间已满（限2人）');
+    if (room.password && hashPassword(String(password || ''), room.password.salt) !== room.password.hash) {
+      throw new Error('房间密码错误');
+    }
+    room.players.push({ key: me.key, name: me.name, skill: pvpSkillOf(me.name), joinedAt: Date.now(), lastSeen: Date.now() });
+    room.lastActiveAt = Date.now();
+    if (room.state === 'waiting') room.state = 'ready';
+    await pvpWrite(d);
+    pvpRoom = { id: room.id, myKey: me.key, state: room.state };
+    pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+    startPvpPoll();
+    return room;
+  }
+
+  /* 退出房间；对战阶段退出 = 认输 */
+  async function pvpLeave(forfeit) {
+    if (!pvpRoom) return;
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (room) {
+      const i = (room.players || []).findIndex(p => p.key === pvpRoom.myKey);
+      if (i >= 0) room.players.splice(i, 1);
+      if ((room.state === 'race' || room.state === 'build') && !room.winner) {
+        const other = room.players[0];
+        room.winner = other ? other.key : null;
+        room.overMsg = '对方退出认输';
+        room.state = 'over';
+        room.finishedAt = Date.now();
+      }
+      if (room.hostKey === pvpRoom.myKey && room.players.length) {
+        room.hostKey = room.players[0].key;
+        room.hostName = room.players[0].name;
+        room.hostSkill = room.players[0].skill;
+        room.state = 'ready';
+        room.startVote = null;
+      }
+      room.lastActiveAt = Date.now();
+      try { await pvpWrite(d); } catch (e) { /* 忽略 */ }
+    }
+    stopPvpPoll();
+    pvpRoom = null;
+    pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
+  }
+
+  /* 房主清理玩家 */
+  async function pvpKickPlayer(targetKey) {
+    if (!pvpRoom) return;
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room || room.hostKey !== pvpRoom.myKey) throw new Error('仅房主可操作');
+    const i = (room.players || []).findIndex(p => p.key === targetKey);
+    if (i < 0 || room.players[i].key === room.hostKey) throw new Error('无法清理');
+    room.players.splice(i, 1);
+    if ((room.state === 'race' || room.state === 'build') && !room.winner) {
+      room.winner = room.hostKey;
+      room.overMsg = '对方被房主移出，判负';
+      room.state = 'over';
+      room.finishedAt = Date.now();
+    }
+    room.lastActiveAt = Date.now();
+    await pvpWrite(d);
+  }
+
+  /* 心跳 + 超时判定（对战阶段 3 分钟无响应 → 判负） */
+  async function pvpHeartbeat() {
+    if (!pvpRoom) return;
+    try {
+      const d = await pvpRead();
+      const room = d.rooms.find(r => r.id === pvpRoom.id);
+      if (!room) return;
+      const me = pvpRoomMe(room);
+      if (me) me.lastSeen = Date.now();
+      const now = Date.now();
+      if ((room.state === 'race' || room.state === 'build') && !room.winner) {
+        room.players.forEach(pp => {
+          if (now - (pp.lastSeen || 0) > 3 * 60 * 1000) {
+            const other = room.players.find(q => q.key !== pp.key);
+            room.winner = other ? other.key : null;
+            room.overMsg = '对方长时间未响应，自动判负';
+            room.state = 'over';
+            room.finishedAt = now;
+          }
+        });
+      }
+      room.lastActiveAt = now;
+      await pvpWrite(d);
+    } catch (e) { /* 网络抖动忽略 */ }
+  }
+
+  /* 状态流转：客户端检测房间状态变化并做出本地响应 */
+  function handleRoomTransitions(room) {
+    const me = pvpRoomMe(room);
+    if (!me) return;
+    if (room.state === 'race' && !pvpLocal.raceLoaded) {
+      pvpLocal.raceLoaded = true;
+      App.closeModal('modal-pvp');
+      if (room.mode === 'race' && room.level && room.level.data) {
+        loadIntoEditor(room.level.data, { hideSol: true, communityId: null, communityRating: null, pvp: true });
+      } else if (room.mode === 'build' && room.build && room.build.maps) {
+        const opp = room.players.find(p => p.key !== pvpRoom.myKey);
+        const m = opp && room.build.maps[opp.key];
+        if (m && m.data) loadIntoEditor(m.data, { hideSol: true, communityId: null, communityRating: null, pvp: true });
+      }
+      showPvpRaceBar(room);
+    }
+    if (room.state === 'build' && !pvpLocal.buildStarted) {
+      pvpLocal.buildStarted = true;
+      App.closeModal('modal-pvp');
+      Editor.newLevel();
+      const b = room.build || {};
+      const lv = Editor.getLevel();
+      lv.rows = Math.min(20, Math.max(3, Number(b.rows) || 6));
+      lv.cols = Math.min(20, Math.max(3, Number(b.cols) || 6));
+      buildDeadlineLocal = Number(b.deadline) || 0;
+      try { Editor.render(); } catch (e) { /* 忽略 */ }
+      App.switchMode('editor', true);
+      App.toast('⏳ 开始作图！' + (Number(b.timeLimit) || 5) + ' 分钟内完成并交卷');
+    }
+    if (room.state === 'over' && !pvpLocal.overShown) {
+      pvpLocal.overShown = true;
+      const iWon = room.winner === pvpRoom.myKey;
+      const msg = room.draw ? '🤝 平局（双方同意）' : (room.winner ? (iWon ? '🏆 你赢了！' : '😢 你输了') : '平局');
+      App.toast((msg + (room.overMsg ? ' · ' + room.overMsg : '')));
+      if (typeof Player !== 'undefined' && Player.stop) Player.stop();
+      App.switchMode('editor', true);
+      hidePvpRaceBar();
+      renderPvp();
+    }
+  }
+
+  /* 轮询 */
+  function startPvpPoll() {
+    stopPvpPoll();
+    pvpHeartbeatTick = 0;
+    pvpTimer = setInterval(pvpPoll, PVP_POLL_MS);
+    startPvpCountdown();
+  }
+  function stopPvpPoll() {
+    if (pvpTimer) { clearInterval(pvpTimer); pvpTimer = null; }
+    stopPvpCountdown();
+  }
+  let pvpCountdownInt = null;
+  function startPvpCountdown() {
+    stopPvpCountdown();
+    pvpCountdownInt = setInterval(() => {
+      const t = $('pvp-timer');
+      if (!t) return;
+      if (inPvpBuild() && buildDeadlineLocal > 0) {
+        const left = Math.max(0, buildDeadlineLocal - Date.now());
+        t.classList.remove('hidden');
+        t.textContent = '⏳ 作图剩余 ' + Math.ceil(left / 1000) + 's';
+        if (left <= 0) { try { pvpCheckDeadline(); } catch (e) { /* 忽略 */ } }
+      } else if (inPvpRace()) {
+        t.classList.remove('hidden');
+        t.textContent = '⚔️ 对战中…';
+      } else {
+        t.classList.add('hidden');
+      }
+    }, 1000);
+  }
+  function stopPvpCountdown() { if (pvpCountdownInt) { clearInterval(pvpCountdownInt); pvpCountdownInt = null; } }
+  async function pvpPoll() {
+    if (!pvpRoom) return;
+    try {
+      const d = await pvpRead();
+      const room = d.rooms.find(r => r.id === pvpRoom.id);
+      if (!room) {
+        stopPvpPoll();
+        pvpRoom = null;
+        App.toast('房间已被清理');
+        renderPvp();
+        return;
+      }
+      if (!pvpRoomMe(room)) {
+        stopPvpPoll();
+        pvpRoom = null;
+        App.toast('你已被移出房间');
+        if (typeof Player !== 'undefined' && Player.stop) Player.stop();
+        App.switchMode('editor', true);
+        hidePvpRaceBar();
+        renderPvp();
+        return;
+      }
+      handleRoomTransitions(room);
+      pvpRoom.state = room.state;
+      pvpHeartbeatTick++;
+      if (pvpHeartbeatTick % 3 === 0) await pvpHeartbeat();   // 约12s一次心跳写
+      renderPvp();
+    } catch (e) { /* 网络抖动忽略 */ }
+  }
+
+  /* 房主发起开始：mode1 带 levelId，mode2 带 build 配置 */
+  async function pvpRequestStart(mode, cfg) {
+    if (!pvpRoom) throw new Error('未在房间内');
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room) throw new Error('房间不存在');
+    if (room.hostKey !== pvpRoom.myKey) throw new Error('仅房主可发起');
+    if (room.players.length < 2) throw new Error('需要2名玩家');
+    if (mode === 'race') {
+      const lv = (lastLevels || []).find(x => x.id === cfg);
+      if (!lv || !lv.data) throw new Error('关卡数据缺失，请先刷新社区列表');
+      room.startVote = { by: room.hostKey, mode, cfg, level: { id: lv.id, name: lv.name, data: lv.data, rating: lv.rating } };
+    } else {
+      room.startVote = { by: room.hostKey, mode, cfg: cfg || null };
+    }
+    room.lastActiveAt = Date.now();
+    await pvpWrite(d);
+    renderPvp();
+  }
+
+  /* 对方回应开始请求 */
+  async function pvpRespondStart(agree) {
+    if (!pvpRoom) return;
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room || !room.startVote) return;
+    if (!agree) { room.startVote = null; room.lastActiveAt = Date.now(); await pvpWrite(d); renderPvp(); return; }
+    const vote = room.startVote;
+    room.startVote = null;
+    if (vote.mode === 'race') {
+      const lv = vote.level;
+      if (!lv || !lv.data) throw new Error('关卡数据缺失');
+      room.mode = 'race';
+      room.level = { id: lv.id, name: lv.name, data: lv.data, rating: lv.rating };
+      room.state = 'race';
+      room.startedAt = Date.now();
+      room.winner = null; room.draw = false; room.overMsg = ''; room.finishedAt = 0;
+    } else if (vote.mode === 'build') {
+      room.mode = 'build';
+      room.build = {
+        rows: Number(vote.cfg.rows) || 6, cols: Number(vote.cfg.cols) || 6,
+        timeLimit: Number(vote.cfg.timeLimit) || 5,
+        deadline: Date.now() + (Number(vote.cfg.timeLimit) || 5) * 60 * 1000,
+        maps: {}, submitted: [], startedAt: Date.now()
+      };
+      room.state = 'build';
+      room.winner = null; room.draw = false; room.overMsg = ''; room.finishedAt = 0;
+    }
+    room.lastActiveAt = Date.now();
+    await pvpWrite(d);
+    renderPvp();
+  }
+
+  /* mode2 交卷 */
+  async function pvpSubmitMap() {
+    if (!pvpRoom) throw new Error('未在房间内');
+    const lv = Editor.getLevel();
+    if (!lv.solutionValid()) throw new Error('地图答案无效，无法交卷（先画好答案路径）');
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room || room.state !== 'build') throw new Error('当前不在作图阶段');
+    room.build.maps[pvpRoom.myKey] = { name: lv.name || '我的地图', data: lv.toJSON(), submittedAt: Date.now() };
+    room.build.submitted = room.build.submitted || [];
+    if (!room.build.submitted.includes(pvpRoom.myKey)) room.build.submitted.push(pvpRoom.myKey);
+    /* 双方都交卷 → 直接开赛 */
+    if (room.build.submitted.length >= 2 && !room.winner) {
+      room.state = 'race';
+      room.startedAt = Date.now();
+    }
+    room.lastActiveAt = Date.now();
+    await pvpWrite(d);
+    pvpLocal.submitted = true;
+    renderPvp();
+  }
+
+  /* 交卷超时判定：到 deadline 未交卷者判负 */
+  async function pvpCheckDeadline() {
+    if (!pvpRoom || pvpRoom.state !== 'build') return;
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room || room.state !== 'build') return;
+    const now = Date.now();
+    if (now >= (room.build.deadline || 0) && !room.winner) {
+      const subs = room.build.submitted || [];
+      if (subs.length >= 2) {
+        room.state = 'race';
+        room.startedAt = now;
+      } else if (subs.length === 1) {
+        room.winner = subs[0];
+        room.overMsg = '对方作图超时未交卷';
+        room.state = 'over';
+        room.finishedAt = now;
+      } else {
+        room.state = 'over';
+        room.draw = true;
+        room.overMsg = '双方都未交卷';
+        room.finishedAt = now;
+      }
+      room.lastActiveAt = now;
+      await pvpWrite(d);
+    }
+  }
+
+  /* 比赛完成上报 */
+  async function pvpReportDone() {
+    if (!pvpRoom) return;
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room || room.state !== 'race' || room.winner) return;
+    room.winner = pvpRoom.myKey;
+    room.finishedAt = Date.now();
+    room.overMsg = '用时 ' + ((room.finishedAt - room.startedAt) / 1000).toFixed(1) + ' 秒';
+    room.state = 'over';
+    room.lastActiveAt = Date.now();
+    await pvpWrite(d);
+  }
+
+  /* 求和（平局需双方同意） */
+  async function pvpDrawRequest() {
+    if (!pvpRoom) return;
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room || room.state !== 'race') return;
+    room.drawReq = { by: pvpRoom.myKey };
+    room.lastActiveAt = Date.now();
+    await pvpWrite(d);
+  }
+  async function pvpDrawRespond(agree) {
+    if (!pvpRoom) return;
+    const d = await pvpRead();
+    const room = d.rooms.find(r => r.id === pvpRoom.id);
+    if (!room || !room.drawReq) return;
+    if (agree && room.drawReq.by !== pvpRoom.myKey) {
+      room.state = 'over';
+      room.draw = true;
+      room.winner = null;
+      room.overMsg = '双方同意平局';
+      room.finishedAt = Date.now();
+      room.drawReq = null;
+    } else {
+      room.drawReq = null;
+    }
+    room.lastActiveAt = Date.now();
+    await pvpWrite(d);
+  }
+
+  /* ---------- PVP UI ---------- */
+  function renderPvp() {
+    if (!currentUser()) { App.toast('请先登录后再对战'); return; }
+    const modal = $('modal-pvp');
+    if (!modal) return;
+    if (pvpRoom) renderPvpRoom();
+    else renderPvpList();
+  }
+  async function renderPvpList() {
+    const view = $('pvp-list-view');
+    const rv = $('pvp-room-view');
+    if (view) view.classList.remove('hidden');
+    if (rv) rv.classList.add('hidden');
+    const box = $('pvp-list');
+    if (!box) return;
+    box.innerHTML = '<div class="lib-empty">正在获取房间…</div>';
+    let rooms = [];
+    try { rooms = await pvpList(); } catch (e) {
+      box.innerHTML = '<div class="lib-empty">⚠ ' + netHint('获取房间失败', e) + '</div>';
+      return;
+    }
+    box.innerHTML = '';
+    if (!rooms.length) {
+      box.appendChild(el('div', 'lib-empty', '暂无房间，点「➕ 开房间」创建第一个！'));
+      return;
+    }
+    const now = Date.now();
+    rooms.forEach(r => {
+      const row = el('div', 'lib-item');
+      const main = el('div', 'lib-item-main');
+      const title = el('div', 'lib-item-title');
+      title.appendChild(el('span', '', '🛖 ' + r.id + ' · ' + r.name));
+      const sub = el('div', 'lib-item-sub');
+      const st = r.state === 'waiting' ? '等待对手' : (r.state === 'ready' ? '已就绪' : (r.state === 'race' ? '对战中' : (r.state === 'build' ? '作图阶段' : '已结束')));
+      sub.textContent = '房主 ' + (r.hostName || '?') +
+        (r.hostSkill != null ? ' · 💪 ' + r.hostSkill : '') +
+        ' · ' + (r.players || []).length + '/2 · ' + st +
+        (r.password ? ' · 🔒' : '') +
+        ' · ' + fmtTime(now) + ' 活跃';
+      main.appendChild(title);
+      main.appendChild(sub);
+      row.appendChild(main);
+      const btns = el('div', 'lib-item-btns');
+      const b = el('button', 'act primary', '进入');
+      b.addEventListener('click', async () => {
+        const pw = r.password ? (window.prompt('该房间有密码，请输入：') || '') : '';
+        try { await pvpJoin(r.id, pw); App.openModal('modal-pvp'); renderPvp(); }
+        catch (e) { App.toast('❌ ' + e.message); }
+      });
+      btns.appendChild(b);
+      row.appendChild(btns);
+      box.appendChild(row);
+    });
+  }
+  function pvpRoomRow(player, isHost) {
+    const row = el('div', 'lib-item');
+    const main = el('div', 'lib-item-main');
+    const title = el('div', 'lib-item-title');
+    title.appendChild(el('span', '', (isHost ? '👑 ' : '👤 ') + (player.name || '?') + (isHost ? '（房主）' : '')));
+    const sub = el('div', 'lib-item-sub');
+    sub.textContent = player.skill != null ? '💪 实力 ' + player.skill : '💪 实力：暂无';
+    main.appendChild(title);
+    main.appendChild(sub);
+    row.appendChild(main);
+    return row;
+  }
+  async function renderPvpRoom() {
+    const view = $('pvp-list-view');
+    const rv = $('pvp-room-view');
+    if (view) view.classList.add('hidden');
+    if (rv) rv.classList.remove('hidden');
+    const box = $('pvp-room-status');
+    const ctrl = $('pvp-room-controls');
+    const msg = $('pvp-room-msg');
+    let room = null;
+    try {
+      const d = await pvpRead();
+      room = d.rooms.find(r => r.id === pvpRoom.id);
+    } catch (e) { /* 忽略 */ }
+    if (!room) {
+      if (msg) msg.textContent = '房间不存在';
+      return;
+    }
+    const me = pvpRoomMe(room);
+    const isHost = room.hostKey === pvpRoom.myKey;
+    const opp = room.players.find(p => p.key !== pvpRoom.myKey);
+    const title = $('pvp-room-title');
+    if (title) title.textContent = '🛖 房间 ' + room.id + ' · ' + room.name + (room.password ? ' 🔒' : '');
+    const players = $('pvp-room-players');
+    if (players) {
+      players.innerHTML = '';
+      room.players.forEach(p => players.appendChild(pvpRoomRow(p, p.key === room.hostKey)));
+    }
+    if (box) {
+      const st = room.state === 'waiting' ? '⏳ 等待对手加入…（房间号 ' + room.id + '）'
+        : room.state === 'ready' ? '✅ 两人就绪，等待房主选择模式'
+        : room.state === 'build' ? '🛠️ 作图阶段（' + (room.build ? room.build.timeLimit : '?') + ' 分钟）'
+        : room.state === 'race' ? '⚔️ 对战中！'
+        : '🏁 已结束';
+      box.textContent = st;
+    }
+    /* 操作区 */
+    if (ctrl) {
+      ctrl.innerHTML = '';
+      if (room.state === 'ready' && isHost) {
+        /* 模式选择 */
+        const sel = el('select', '', '');
+        const o1 = el('option', '', '模式1：竞速现有关卡');
+        o1.value = 'race';
+        const o2 = el('option', '', '模式2：限时作图互比');
+        o2.value = 'build';
+        sel.appendChild(o1); sel.appendChild(o2);
+        const c2 = el('div', 'lib-actions', '');
+        c2.appendChild(el('span', 'lib-status', '模式：'));
+        c2.appendChild(sel);
+        const startBtn = el('button', 'act primary', '开始');
+        ctrl.appendChild(c2);
+        /* mode1 关卡选择 */
+        const pickBox = el('div', 'lib-list', '');
+        const eligible = (lastLevels || []).filter(lv => !((lv.completions || []).some(c => c.key === room.players[0].key || c.key === room.players[1].key)));
+        if (!eligible.length) pickBox.appendChild(el('div', 'lib-empty', '没有双方都未完成的关卡（需双方未通关）'));
+        eligible.slice(0, 10).forEach(lv => {
+          const r2 = el('div', 'lib-item');
+          const b2 = el('button', 'act', '⚡ ' + lv.name + (lv.rating != null ? '（难度 ' + fmtDifficulty(lv.rating) + '）' : ''));
+          b2.addEventListener('click', async () => {
+            try {
+              await pvpRequestStart('race', lv.id);
+              App.toast('已发起挑战：' + lv.name + '，等待对方同意');
+            } catch (e) { App.toast('❌ ' + e.message); }
+          });
+          r2.appendChild(b2);
+          pickBox.appendChild(r2);
+        });
+        ctrl.appendChild(pickBox);
+        /* mode2 配置 */
+        const c3 = el('div', 'lib-actions', '');
+        c3.appendChild(el('label', 'field', '行 <input id="pvp-rows" type="number" min="3" max="20" value="6" style="width:56px">'));
+        c3.appendChild(el('label', 'field', '列 <input id="pvp-cols" type="number" min="3" max="20" value="6" style="width:56px">'));
+        c3.appendChild(el('label', 'field', '作图分钟 <input id="pvp-min" type="number" min="1" max="30" value="5" style="width:56px">'));
+        const b3 = el('button', 'act primary', '发起模式2');
+        b3.addEventListener('click', async () => {
+          try {
+            const rows = Number(window.document.getElementById('pvp-rows').value) || 6;
+            const cols = Number(window.document.getElementById('pvp-cols').value) || 6;
+            const timeLimit = Number(window.document.getElementById('pvp-min').value) || 5;
+            await pvpRequestStart('build', { rows, cols, timeLimit });
+            App.toast('已发起模式2（' + rows + '×' + cols + '，' + timeLimit + '分钟），等待对方同意');
+          } catch (e) { App.toast('❌ ' + e.message); }
+        });
+        c3.appendChild(b3);
+        ctrl.appendChild(c3);
+      } else if (room.state === 'ready' && !isHost && room.startVote) {
+        const v = room.startVote;
+        const info = v.mode === 'race'
+          ? ('房主发起挑战：' + ((lastLevels || []).find(l => l.id === v.cfg) || {}).name || '未知关卡')
+          : ('房主发起模式2：' + v.cfg.rows + '×' + v.cfg.cols + '，' + v.cfg.timeLimit + '分钟作图');
+        ctrl.appendChild(el('div', 'lib-status', '📨 ' + info));
+        const yes = el('button', 'act primary', '✅ 同意');
+        const no = el('button', 'act', '❌ 拒绝');
+        yes.addEventListener('click', async () => { try { await pvpRespondStart(true); } catch (e) { App.toast('❌ ' + e.message); } });
+        no.addEventListener('click', async () => { try { await pvpRespondStart(false); App.toast('已拒绝'); } catch (e) { App.toast('❌ ' + e.message); } });
+        ctrl.appendChild(yes);
+        ctrl.appendChild(no);
+      } else if (room.state === 'ready' && !isHost && !room.startVote) {
+        ctrl.appendChild(el('div', 'lib-status', '⏳ 等待房主选择模式…'));
+      } else if (room.state === 'build' && !isHost) {
+        ctrl.appendChild(el('div', 'lib-status', pvpLocal.submitted ? '📮 已交卷，等待对方…' : '⏳ 对方作图进度未知'));
+      }
+    }
+    /* 对战结束结果 */
+    if (msg) {
+      if (room.state === 'over') {
+        const iWon = room.winner === pvpRoom.myKey;
+        msg.textContent = (room.draw ? '🤝 平局' : (room.winner ? (iWon ? '🏆 你赢了！' : '😢 你输了') : '平局')) +
+          (room.overMsg ? ' · ' + room.overMsg : '');
+      } else {
+        msg.textContent = '';
+      }
+    }
+  }
+  /* 对战中的浮动状态条（选手面板上方） */
+  function showPvpRaceBar(room) {
+    const bar = $('pvp-racebar');
+    if (!bar) return;
+    bar.classList.remove('hidden');
+    const opp = room.players.find(p => p.key !== pvpRoom.myKey);
+    const info = $('pvp-race-info');
+    if (info) info.textContent = '⚔️ 对战 · 对手 ' + (opp ? opp.name : '?') + ' 解题中';
+    const drawBtn = $('pvp-draw-btn');
+    if (drawBtn) drawBtn.addEventListener('click', async () => {
+      try { await pvpDrawRequest(); App.toast('🤝 已向对方求和，等待回应'); } catch (e) { App.toast('❌ ' + e.message); }
+    });
+  }
+  function hidePvpRaceBar() {
+    const bar = $('pvp-racebar');
+    if (bar) bar.classList.add('hidden');
+  }
+
   /* ★ 玩家实力排行视图 */
   function renderRanking() {
     const box = $('lib-rank-box');
@@ -4258,6 +4988,7 @@ const Library = (function () {
     $('lib-register-btn').addEventListener('click', () => doAuth('register'));
     $('lib-login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth('login'); });
     $('lib-logout').addEventListener('click', () => {
+      if (pvpRoom) { try { pvpLeave(); } catch (e) { /* 忽略 */ } }
       logoutUser();
       setDevMode(false);
       syncLoginUI();
@@ -4412,6 +5143,54 @@ const Library = (function () {
         App.toast('❌ ' + e.message);
       }
     });
+    /* ⚔️ 双人对战 */
+    $('lib-pvp').addEventListener('click', () => {
+      if (!currentUser()) { App.toast('请先登录后再对战'); return; }
+      App.openModal('modal-pvp');
+      renderPvp();
+    });
+    $('pvp-close').addEventListener('click', () => App.closeModal('modal-pvp'));
+    $('pvp-refresh-btn').addEventListener('click', () => renderPvpList());
+    $('pvp-create-btn').addEventListener('click', async () => {
+      const name = window.prompt('房间名称（可空）：') || '';
+      const pw = window.prompt('房间密码（可空；设置后进入需密码）：') || '';
+      try {
+        const room = await pvpCreate(name, pw);
+        App.toast('✅ 房间已开，房间号：' + room.id);
+        renderPvp();
+      } catch (e) { App.toast('❌ ' + e.message); }
+    });
+    $('pvp-join-btn').addEventListener('click', async () => {
+      const id = String($('pvp-join-id').value || '').trim();
+      const pw = window.prompt('房间密码（无密码直接确定）：') || '';
+      try {
+        if (pvpRoom) await pvpLeave();
+        await pvpJoin(id, pw);
+        App.toast('✅ 已进入房间 ' + id);
+        renderPvp();
+      } catch (e) { App.toast('❌ ' + e.message); }
+    });
+    $('pvp-leave-btn').addEventListener('click', async () => {
+      const inMatch = pvpRoom && (pvpRoom.state === 'race' || pvpRoom.state === 'build');
+      if (inMatch && !window.confirm('对战中退出房间 = 认输，确定吗？')) return;
+      try {
+        await pvpLeave();
+        App.toast('已退出房间');
+        renderPvp();
+      } catch (e) { App.toast('❌ ' + e.message); }
+    });
+    /* 跳转第N关 */
+    $('lib-jump-btn').addEventListener('click', () => {
+      const n = Number($('lib-jump').value);
+      const list = $('lib-community-list');
+      const items = list ? list.querySelectorAll('.lib-item') : [];
+      if (!(n >= 1 && n <= items.length)) { App.toast('共 ' + items.length + ' 关，没有第 ' + n + ' 关'); return; }
+      const it = items[n - 1];
+      list.scrollTop = it.offsetTop - list.offsetTop;
+      it.classList.add('jump-flash');
+      setTimeout(() => it.classList.remove('jump-flash'), 1300);
+    });
+
     /* ★ 注销账号 */
     const delBtn = $('lib-delete-account');
     if (delBtn) delBtn.addEventListener('click', async () => {
@@ -4453,11 +5232,16 @@ const Library = (function () {
     levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser, isDevUser, setDevMode,
     changePassword, deleteAccount, markViewed, viewedMap, markEdited, editedMap, skillRanking,
     snapshotEditorOnLoad, restoreEditorAfterExit, openProfile, searchPlayers, showView, backToList, previewLevel, effDifficulty,
+    toggleDislike, netLikes,
+    pvpCreate, pvpJoin, pvpLeave, pvpList, pvpKickPlayer, pvpRequestStart, pvpRespondStart,
+    pvpSubmitMap, pvpReportDone, pvpDrawRequest, pvpDrawRespond, pvpPoll, renderPvp,
+    renderPvpList, renderPvpRoom, inPvpRoom, inPvpRace, inPvpBuild, startPvpPoll, stopPvpPoll,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
 
 </script>
+  <div id="pvp-timer" class="hidden"></div>
   <script>
 'use strict';
 /* =========================================================
@@ -4526,6 +5310,10 @@ const App = (function () {
     if (m === mode) { renderActive(); return; }
     /* ★ force：退出/恢复等场景绕过确认与密码门（返回编辑/查看答案仍走确认） */
     if (force) { doSwitch(m); return; }
+    if (m === 'editor' && typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) {
+      toast('⚔️ 对战中不可进入编辑器');
+      return;
+    }
     if (m === 'editor' && !Editor.isUnlocked()) {
       /* 密码门：进入编辑器需先验证 */
       $('pass-hint').textContent = '关卡「' + (Editor.getLevel().name || '未命名') + '」已加密，请输入密码进入编辑器。';
