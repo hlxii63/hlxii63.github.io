@@ -363,6 +363,34 @@ select {
   color: #eaf2fb;
   white-space: pre-line;
 }
+/* ---------- 画布缩放/平移控件 ---------- */
+#zoom-controls {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.zoom-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.94);
+  border: 1px solid #cfd8dc;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  font-size: 17px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.zoom-btn:hover { background: #fff; }
+.zoom-btn.zoom-active { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+.tutorial-jump { min-width: 124px; padding: 5px 6px; border-radius: 8px; font-size: 12px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.16); color: #fff; }
+.tutorial-jump option { color: #263238; background: #fff; }
 /* 跳转高亮闪烁 */
 @keyframes libFlash { 0% { background: #fff59d; } 100% { background: transparent; } }
 .lib-item.flash { animation: libFlash 1.2s ease 2; }
@@ -549,6 +577,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
     <div class="tutorial-head">
       <span id="tutorial-bar-title" class="tutorial-title">📖 新手教程</span>
       <div class="lib-actions">
+        <select id="tutorial-bar-jump" title="跳关" class="tutorial-jump"></select>
         <button id="tutorial-bar-prev" class="act">← 上一关</button>
         <button id="tutorial-bar-next" class="act primary">下一关 →</button>
         <button id="tutorial-bar-exit" class="act">✖ 退出</button>
@@ -652,6 +681,12 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
   <!-- ================= 画布 ================= -->
   <div id="canvas-wrap">
     <canvas id="game"></canvas>
+    <div id="zoom-controls">
+      <button id="zoom-pan" class="zoom-btn" title="切换：拖动棋盘 / 画线">✋</button>
+      <button id="zoom-out" class="zoom-btn" title="缩小">−</button>
+      <button id="zoom-in" class="zoom-btn" title="放大">＋</button>
+      <button id="zoom-reset" class="zoom-btn" title="复位">⤢</button>
+    </div>
 
     <div id="win-overlay">
       <div class="win-card">
@@ -1758,12 +1793,14 @@ const Render = (function () {
     return Math.max(8, Math.floor(Math.min(cw, ch)));
   }
 
-  function metrics(level, w, h) {
-    const cs = cellSize(level, w, h);
+  function metrics(level, w, h, view) {
+    view = view || { scale: 1, x: 0, y: 0 };
+    const cs = Math.max(4, Math.round(cellSize(level, w, h) * view.scale));
     return {
       cs,
-      ox: (w - cs * level.cols) / 2,
-      oy: (h - cs * level.rows) / 2
+      ox: (w - cs * level.cols) / 2 + (view.x || 0),
+      oy: (h - cs * level.rows) / 2 + (view.y || 0),
+      scale: view.scale || 1
     };
   }
 
@@ -1787,8 +1824,9 @@ const Render = (function () {
    *         highlights:{hover, sel, errors:[keys]},
    *         preview:{color, from, to} }
    */
-  function draw(canvas, level, opts) {
+  function draw(canvas, level, opts, view) {
     opts = opts || {};
+    view = view || { scale: 1, x: 0, y: 0 };
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     const W = rect.width, H = rect.height;
@@ -1805,9 +1843,9 @@ const Render = (function () {
     ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, W, H);
 
-    const m = metrics(level, W, H);
+    const m = metrics(level, W, H, view);
     const cs = m.cs;
-    if (cs < 6) return;
+    if (cs < 5) return;
 
     drawChecker(ctx, m, level);
     drawFeatures(ctx, m, level);
@@ -2135,9 +2173,9 @@ const Render = (function () {
   }
 
   /* 事件坐标 → 格子 */
-  function cellAt(canvas, level, clientX, clientY) {
+  function cellAt(canvas, level, clientX, clientY, view) {
     const rect = canvas.getBoundingClientRect();
-    const m = metrics(level, rect.width, rect.height);
+    const m = metrics(level, rect.width, rect.height, view);
     const c = Math.floor((clientX - rect.left - m.ox) / m.cs);
     const r = Math.floor((clientY - rect.top - m.oy) / m.cs);
     return (r >= 0 && r < level.rows && c >= 0 && c < level.cols) ? [r, c] : null;
@@ -2163,6 +2201,61 @@ const Editor = (function () {
   let edgeFrom = null;
   let hover = null;
   let solDrawing = false;   // 答案路径绘制中
+  /* ★ PVP 作图数量限制（房主规定，空/0=不限） */
+  let itemLimits = null;
+  const LIMIT_NAMES = { obstacles: '障碍', hubs: '枢纽', diagonals: '斜向格', numbers: '数字格', redEdges: '红边', greenEdges: '绿边' };
+  function setItemLimits(limits) { itemLimits = limits || null; }
+  function countItem(key) {
+    switch (key) {
+      case 'obstacles': return level.obstacles.size;
+      case 'hubs': return level.hubs.size;
+      case 'diagonals': return level.diagonals.size;
+      case 'numbers': return level.numbers.size;
+      case 'redEdges': return level.redEdges.size;
+      case 'greenEdges': return level.greenEdges.size;
+    }
+    return 0;
+  }
+  /* 放置前校验：超限则提示并拦截 */
+  function checkItemLimit(key) {
+    if (!itemLimits) return true;
+    const lim = Number(itemLimits[key]);
+    if (!(lim > 0)) return true;   // 空/0 = 不限
+    if (countItem(key) >= lim) {
+      App.toast('⛔ ' + (LIMIT_NAMES[key] || key) + '最多只能放 ' + lim + ' 个（房主规定）');
+      return false;
+    }
+    return true;
+  }
+
+  /* ★ 棋盘缩放/平移（大棋盘编辑） */
+  let view = { scale: 1, x: 0, y: 0 };
+  let panMode = false;
+  let panning = false;
+  let panLast = null;
+  function clampView() {
+    view.scale = Math.min(4, Math.max(0.4, view.scale));
+    const rect = canvas ? canvas.getBoundingClientRect() : { width: 600, height: 400 };
+    const m = Render.metrics(level, rect.width, rect.height, { scale: view.scale, x: 0, y: 0 });
+    const maxX = Math.max(0, (rect.width - m.cs * level.cols) / 2 + 160);
+    const maxY = Math.max(0, (rect.height - m.cs * level.rows) / 2 + 160);
+    view.x = Math.min(maxX, Math.max(-maxX, view.x));
+    view.y = Math.min(maxY, Math.max(-maxY, view.y));
+  }
+  /* 以光标为中心缩放（保持光标下的格子不动） */
+  function zoomAt(cx, cy, factor) {
+    const rect = canvas ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
+    const px = cx - rect.left, py = cy - rect.top;
+    const cell = Render.cellAt(canvas, level, cx, cy, view);
+    view.scale = Math.min(4, Math.max(0.4, view.scale * factor));
+    if (cell) {
+      const m = Render.metrics(level, rect.width, rect.height, { scale: view.scale, x: 0, y: 0 });
+      view.x = px - (m.ox + cell[1] * m.cs + m.cs / 2);
+      view.y = py - (m.oy + cell[0] * m.cs + m.cs / 2);
+    }
+    clampView();
+    render();
+  }
   let unlocked = true;      // 密码解锁状态（导入带密码关卡后为 false）
   let solNumbers = true;    // 答案路径显示序号（★ 默认勾选）
   let hideSol = false;      // ★ 隐藏答案路径（示例/导入载入时默认隐藏，防止偷看答案）
@@ -2192,6 +2285,29 @@ const Editor = (function () {
     canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointercancel', onPointerUp);
     canvas.addEventListener('pointerleave', onPointerLeave);
+    /* ★ 缩放/平移 */
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.18 : 1 / 1.18);
+    }, { passive: false });
+    const zi = $('zoom-in');
+    if (zi) zi.addEventListener('click', e => { e.stopPropagation(); const rc = canvas.getBoundingClientRect(); zoomAt(rc.width / 2, rc.height / 2, 1.25); });
+    const zo = $('zoom-out');
+    if (zo) zo.addEventListener('click', e => { e.stopPropagation(); const rc = canvas.getBoundingClientRect(); zoomAt(rc.width / 2, rc.height / 2, 0.8); });
+    const zr = $('zoom-reset');
+    if (zr) zr.addEventListener('click', e => {
+      e.stopPropagation();
+      view = { scale: 1, x: 0, y: 0 };
+      render();
+    });
+    const zp = $('zoom-pan');
+    if (zp) zp.addEventListener('click', e => {
+      e.stopPropagation();
+      panMode = !panMode;
+      zp.textContent = panMode ? '✏️' : '✋';
+      zp.classList.toggle('zoom-active', panMode);
+      canvas.style.cursor = panMode ? 'grab' : '';
+    });
 
     document.querySelectorAll('#editor-panel .tool').forEach(btn => {
       btn.addEventListener('click', () => setTool(btn.dataset.tool));
@@ -2317,12 +2433,19 @@ const Editor = (function () {
   function onPointerDown(e) {
     if (App.getMode() !== 'editor') return;
     e.preventDefault();
+    /* ★ 拖动棋盘模式 */
+    if (panMode) {
+      panning = true;
+      panLast = { x: e.clientX, y: e.clientY };
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
+      return;
+    }
     if (!unlocked) {
       App.toast('该关卡已加密，请输入密码解锁编辑器');
       App.openModal('modal-pass');
       return;
     }
-    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY);
+    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY, view);
     if (!cell) return;
     if (tool === 'solution') {
       solDrawing = true;
@@ -2338,7 +2461,16 @@ const Editor = (function () {
 
   function onPointerMove(e) {
     if (App.getMode() !== 'editor') return;
-    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY);
+    /* ★ 平移 */
+    if (panning && panLast) {
+      view.x += e.clientX - panLast.x;
+      view.y += e.clientY - panLast.y;
+      panLast = { x: e.clientX, y: e.clientY };
+      clampView();
+      render();
+      return;
+    }
+    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY, view);
     if (cell !== hover) { hover = cell; render(); }
     if (tool === 'solution' && solDrawing && cell) {
       const last = level.solution && level.solution.length ? level.solution[level.solution.length - 1] : null;
@@ -2348,6 +2480,8 @@ const Editor = (function () {
 
   function onPointerUp() {
     solDrawing = false;
+    panning = false;
+    panLast = null;
   }
 
   function onPointerLeave() {
@@ -2383,7 +2517,10 @@ const Editor = (function () {
         if (level.isStart(r, c) || level.isEnd(r, c)) { App.toast('该格是起点/终点，请先用擦除工具移除'); return; }
         const k = KEY(r, c);
         if (level.obstacles.has(k)) level.obstacles.delete(k);
-        else { level.obstacles.add(k); level.hubs.delete(k); level.diagonals.delete(k); level.numbers.delete(k); }
+        else {
+          if (!checkItemLimit('obstacles')) return;
+          level.obstacles.add(k); level.hubs.delete(k); level.diagonals.delete(k); level.numbers.delete(k);
+        }
         snapshot();
         break;
       }
@@ -2392,7 +2529,11 @@ const Editor = (function () {
         if (level.isObstacle(r, c)) { App.toast('该格是障碍，请先擦除'); return; }
         if (level.getNumber(r, c) !== undefined) { App.toast('数字格不能与枢纽重合（请先移除数字）'); return; }
         const k = KEY(r, c);
-        if (level.hubs.has(k)) level.hubs.delete(k); else level.hubs.add(k);
+        if (level.hubs.has(k)) level.hubs.delete(k);
+        else {
+          if (!checkItemLimit('hubs')) return;
+          level.hubs.add(k);
+        }
         snapshot();
         break;
       }
@@ -2400,7 +2541,11 @@ const Editor = (function () {
         if (level.isStart(r, c) || level.isEnd(r, c)) { App.toast('该格是起点/终点，请先用擦除工具移除'); return; }
         if (level.isObstacle(r, c)) { App.toast('该格是障碍，请先擦除'); return; }
         const k = KEY(r, c);
-        if (level.diagonals.has(k)) level.diagonals.delete(k); else level.diagonals.add(k);
+        if (level.diagonals.has(k)) level.diagonals.delete(k);
+        else {
+          if (!checkItemLimit('diagonals')) return;
+          level.diagonals.add(k);
+        }
         snapshot();
         break;
       }
@@ -2414,6 +2559,7 @@ const Editor = (function () {
         } else {
           let x = parseInt(raw, 10);
           if (!Number.isInteger(x) || x < 1) { App.toast('请输入 ≥1 的步数'); return; }
+          if (level.getNumber(r, c) === undefined && !checkItemLimit('numbers')) return;   // 新增数字格才计数
           level.setNumber(r, c, Math.min(x, 999));
         }
         snapshot();
@@ -2452,6 +2598,11 @@ const Editor = (function () {
           const exists = level.hasEdge(color, edgeFrom, cell);
           if (!exists && (level.isObstacle(edgeFrom[0], edgeFrom[1]) || level.isObstacle(r, c))) {
             App.toast('障碍格不能连接边');
+            edgeFrom = null;
+            return;
+          }
+          if (!exists && !checkItemLimit(tool === 'redEdge' ? 'redEdges' : 'greenEdges')) {
+            edgeFrom = null;
             return;
           }
           level.toggleEdge(color, edgeFrom, cell);
@@ -2744,7 +2895,7 @@ const Editor = (function () {
         level.isAdjacent(edgeFrom, hover)) {
       opts.preview = { color: tool === 'redEdge' ? 'red' : 'green', from: edgeFrom, to: hover };
     }
-    Render.draw(canvas, level, opts);
+    Render.draw(canvas, level, opts, view);
   }
 
   function solText() {
@@ -2794,6 +2945,8 @@ const Editor = (function () {
   return {
     init, render, setTool, undo, redo, clearLevel, newLevel,
     exportLevel, play, getLevel, getTool, snapshot, loadSample,
+    getView: () => ({ scale: view.scale, x: view.x, y: view.y }), panMode: () => panMode,
+    setItemLimits, getItemLimits: () => itemLimits ? JSON.parse(JSON.stringify(itemLimits)) : null,
     isUnlocked, unlock, verifyPassword, loadLevelData, undoSolutionStep,
     isHideSol, setHideSol
   };
@@ -4444,6 +4597,7 @@ const Library = (function () {
   let pvpHeartbeatTick = 0;
   let pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
   let buildDeadlineLocal = 0;
+  let buildLimitsLocal = null;   // ★ 作图数量限制（房主规定）
   let pvpModeSel = 'race';   // ★ 房主当前选择的模式（轮询重渲染时保持）
 
   function inPvpRoom() { return !!pvpRoom; }
@@ -4588,6 +4742,8 @@ const Library = (function () {
     pvpRoom = null;
     pvpLocal = { raceLoaded: false, buildStarted: false, overShown: false, submitted: false };
     pvpSetSizeLock(false);
+    buildLimitsLocal = null;
+    if (typeof Editor !== 'undefined' && Editor.setItemLimits) Editor.setItemLimits(null);
     try { localStorage.removeItem(PVP_SESSION_KEY); localStorage.removeItem(pvpBuildKey(room.id)); } catch (e) { /* 忽略 */ }
   }
 
@@ -4688,6 +4844,8 @@ const Library = (function () {
       hidePvpRaceBar();
       showPvpBuildBar();
       pvpSetSizeLock(false);
+      buildLimitsLocal = null;
+      if (typeof Editor !== 'undefined' && Editor.setItemLimits) Editor.setItemLimits(null);
     }
     if (tutorialActive) exitTutorial();   // ★ 对战中自动退出教程
     if (room.state === 'race' && pvpLocal.raceFor !== room.startedAt) {
@@ -4737,12 +4895,16 @@ const Library = (function () {
       buildDeadlineLocal = Number(b.deadline) || 0;   // ★ 倒计时从房间恢复
       App.switchMode('editor', true);
       pvpSetSizeLock(true);                       // ★ 锁定行列
+      buildLimitsLocal = b.limits || null;
+      if (typeof Editor !== 'undefined' && Editor.setItemLimits) Editor.setItemLimits(buildLimitsLocal);   // ★ 数量限制
       showPvpBuildBar(false);
       App.toast(restored ? '↩ 已恢复作图进度' : '⏳ 开始作图！' + (Number(b.timeLimit) || 5) + ' 分钟内完成并交卷');
     }
     if (room.state === 'over' && !pvpLocal.overShown) {
       pvpLocal.overShown = true;
       pvpSetSizeLock(false);
+      buildLimitsLocal = null;
+      if (typeof Editor !== 'undefined' && Editor.setItemLimits) Editor.setItemLimits(null);
       const iWon = room.winner === pvpRoom.myKey;
       const msg = room.draw ? '🤝 平局（双方同意）' : (room.winner ? (iWon ? '🏆 你赢了！' : '😢 你输了') : '平局');
       App.toast(msg + (room.overMsg ? ' · ' + room.overMsg : ''));
@@ -4887,6 +5049,7 @@ const Library = (function () {
       room.build = {
         rows: Number(vote.cfg.rows) || 6, cols: Number(vote.cfg.cols) || 6,
         timeLimit: Number(vote.cfg.timeLimit) || 5,
+        limits: vote.cfg.limits || null,        // ★ 数量限制（房主规定）
         deadline: Date.now() + (Number(vote.cfg.timeLimit) || 5) * 60 * 1000,
         maps: {}, submitted: [], startedAt: Date.now()
       };
@@ -4909,6 +5072,16 @@ const Library = (function () {
     /* ★ 尺寸必须与房主规定一致 */
     if (lv.rows !== Number(room.build.rows) || lv.cols !== Number(room.build.cols)) {
       throw new Error('地图尺寸必须为 ' + room.build.rows + '×' + room.build.cols + '（当前 ' + lv.rows + '×' + lv.cols + '）');
+    }
+    /* ★ 数量限制校验（与编辑器一致的双保险） */
+    const limits = room.build.limits || {};
+    const limNames = { obstacles: '障碍', hubs: '枢纽', diagonals: '斜向格', numbers: '数字格', redEdges: '红边', greenEdges: '绿边' };
+    const counts = { obstacles: lv.obstacles.size, hubs: lv.hubs.size, diagonals: lv.diagonals.size, numbers: lv.numbers.size, redEdges: lv.redEdges.size, greenEdges: lv.greenEdges.size };
+    for (const k in limNames) {
+      const lim = Number(limits[k]);
+      if (lim > 0 && counts[k] > lim) {
+        throw new Error(limNames[k] + '数量超限：最多 ' + lim + ' 个（当前 ' + counts[k] + '）');
+      }
     }
     room.build.maps[pvpRoom.myKey] = { name: lv.name || '我的地图', data: lv.toJSON(), submittedAt: Date.now() };
     room.build.submitted = room.build.submitted || [];
@@ -5121,7 +5294,7 @@ const Library = (function () {
     if (ctrl) {
       /* ★ 重建前记录输入框当前值，重建后恢复（双重保险防输入被清） */
       const prevVals = {};
-      ['pvp-rows', 'pvp-cols', 'pvp-min'].forEach(id => { const e = $(id); if (e) prevVals[id] = e.value; });
+      ['pvp-rows', 'pvp-cols', 'pvp-min', 'pvp-lim-obstacles', 'pvp-lim-hubs', 'pvp-lim-diagonals', 'pvp-lim-numbers', 'pvp-lim-redEdges', 'pvp-lim-greenEdges'].forEach(id => { const e2 = $(id); if (e2) prevVals[id] = e2.value; });
       const activeEl = document.activeElement;
       const userTyping = activeEl && ctrl.contains(activeEl);
       if (userTyping) {
@@ -5177,13 +5350,38 @@ const Library = (function () {
         c3.appendChild(mkNum('行 ', 'pvp-rows', 6, 3, 20));
         c3.appendChild(mkNum('列 ', 'pvp-cols', 6, 3, 20));
         c3.appendChild(mkNum('作图分钟 ', 'pvp-min', 5, 1, 30));
+        /* ★ 数量限制（空=不限） */
+        const limC = el('div', 'lib-actions', '');
+        limC.appendChild(el('span', 'lib-status', '🔢 数量限制（空=不限）：'));
+        const mkLim = (label, key) => {
+          const lab = el('label', 'field', label);
+          const inp = el('input', '');
+          inp.type = 'number'; inp.min = '0'; inp.max = '300'; inp.placeholder = '不限';
+          inp.id = 'pvp-lim-' + key;
+          inp.style.width = '58px';
+          lab.appendChild(inp);
+          limC.appendChild(lab);
+        };
+        mkLim('障碍', 'obstacles');
+        mkLim('枢纽', 'hubs');
+        mkLim('斜向', 'diagonals');
+        mkLim('数字', 'numbers');
+        mkLim('红边', 'redEdges');
+        mkLim('绿边', 'greenEdges');
+        c3.appendChild(limC);
         const b3 = el('button', 'act primary', '发起模式2');
         b3.addEventListener('click', async () => {
           try {
             const rows = Number(window.document.getElementById('pvp-rows').value) || 6;
             const cols = Number(window.document.getElementById('pvp-cols').value) || 6;
             const timeLimit = Number(window.document.getElementById('pvp-min').value) || 5;
-            await pvpRequestStart('build', { rows, cols, timeLimit });
+            const limits = {};
+            ['obstacles', 'hubs', 'diagonals', 'numbers', 'redEdges', 'greenEdges'].forEach(k => {
+              const elInp = window.document.getElementById('pvp-lim-' + k);
+              const v = elInp && elInp.value !== '' ? parseInt(elInp.value, 10) : 0;
+              limits[k] = (v > 0) ? v : 0;
+            });
+            await pvpRequestStart('build', { rows, cols, timeLimit, limits });
             App.toast('已发起模式2（' + rows + '×' + cols + '，' + timeLimit + '分钟），等待对方同意');
           } catch (e) { App.toast('❌ ' + e.message); }
         });
@@ -5231,7 +5429,7 @@ const Library = (function () {
       }
       }
       /* ★ 重建后恢复输入框值（轮询重建不再清空用户输入） */
-      ['pvp-rows', 'pvp-cols', 'pvp-min'].forEach(id => {
+      ['pvp-rows', 'pvp-cols', 'pvp-min', 'pvp-lim-obstacles', 'pvp-lim-hubs', 'pvp-lim-diagonals', 'pvp-lim-numbers', 'pvp-lim-redEdges', 'pvp-lim-greenEdges'].forEach(id => {
         const e = $(id);
         if (e && prevVals[id] != null) e.value = prevVals[id];
       });
@@ -5278,7 +5476,19 @@ const Library = (function () {
       bar.classList.remove('hidden');
       const done = submitted || pvpLocal.submitted;
       const info = $('pvp-build-info');
-      if (info) info.textContent = done ? '📮 已交卷，等待对方…' : '🛠️ 作图阶段：画好地图（含答案路径）后点「交卷」';
+      if (info) {
+        let limTxt = '';
+        if (buildLimitsLocal) {
+          const limNames = { obstacles: '障碍', hubs: '枢纽', diagonals: '斜向', numbers: '数字', redEdges: '红边', greenEdges: '绿边' };
+          const parts = [];
+          for (const k in limNames) {
+            const v = Number(buildLimitsLocal[k]);
+            if (v > 0) parts.push(limNames[k] + '≤' + v);
+          }
+          if (parts.length) limTxt = ' · 🔢 ' + parts.join(' ');
+        }
+        info.textContent = (done ? '📮 已交卷，等待对方…' : '🛠️ 作图阶段：画好地图（含答案路径）后点「交卷」') + limTxt;
+      }
       const btn = $('pvp-submit-btn');
       if (btn) btn.style.display = done ? 'none' : 'inline-block';
     } else {
@@ -5330,16 +5540,16 @@ const Library = (function () {
 
   /* ================= 📖 新手教程（5 关，讲解即简介） ================= */
   const TUTORIALS = [
-    { sample: 'sample1', title: '起点 · 终点 · 普通格',
-      text: '🟦 起点 S：路径的第一个格子（蓝色）。\n🟪 终点 E：路径的最后一个格子（紫色）。\n⬜ 普通格：路径必须经过每个普通格恰好一次。\n\n目标：从 S 画一条连续路径，覆盖所有普通格，到达 E。' },
-    { sample: 'sample2', title: '障碍 · 答案路径',
-      text: '⬛ 障碍格：不能进入，需要绕开它。\n┅ 答案路径：编辑器中用「答案路径」工具画官方解，试玩时隐藏。\n\n关卡必须有有效答案才能保存 / 上传 / 对战。' },
-    { sample: 'sample3', title: '枢纽',
-      text: '◎ 枢纽格：路径至少经过一次，可以多次经过（普通格只能一次）。\n\n枢纽让路径可以「回头」，是设计长路径的关键。' },
-    { sample: 'sample4', title: '斜向 · 数字',
-      text: '╳ 斜向格：可以从斜角进入 / 离开。\n数字格（如 5）：路径的第 5 个格子必须是它，用来固定路线。' },
-    { sample: 'sample5', title: '红边 · 绿边',
-      text: '— 红边：路径禁止跨越这条边（封路）。\n— 绿边：路径必须跨越这条边至少一次（强制过桥）。\n\n用它们可以做出精妙的迷宫设计。' }
+    { id: 'sample1', title: '起点终点训练',
+      text: '🟦 起点 S：路径的第一个格子（蓝色）。\n🟪 终点 E：路径的最后一个格子（紫色）。\n⬜ 普通格：路径必须经过每个普通格恰好一次。\n\n试试在画布上从 S 画一条连续路径，覆盖所有格子到达 E。' },
+    { data: {"name": "障碍训练", "difficulty": 2.5, "rows": 5, "cols": 5, "start": [0, 0], "end": [4, 0], "obstacles": [[3, 0], [3, 3]], "hubs": [], "diagonals": [], "redEdges": [], "greenEdges": [], "numbers": {}, "solution": [[0, 0], [1, 0], [2, 0], [2, 1], [3, 1], [3, 2], [2, 2], [1, 2], [1, 1], [0, 1], [0, 2], [0, 3], [0, 4], [1, 4], [1, 3], [2, 3], [2, 4], [3, 4], [4, 4], [4, 3], [4, 2], [4, 1], [4, 0]]}, title: '障碍训练',
+      text: '⬛ 障碍格（深色）：不能进入，要绕开它。\n\n画出路径：从 S 出发，绕过障碍，经过所有格子到达 E。' },
+    { id: 'sample3', title: '枢纽训练',
+      text: '◎ 枢纽格（金色）：路径至少经过一次，可以多次经过。\n\n找到经过每个格子（枢纽可重复）的完整路径。' },
+    { data: {"name": "斜向枢纽训练", "difficulty": 2, "rows": 5, "cols": 5, "start": [0, 0], "end": [4, 0], "obstacles": [], "hubs": [[1, 1], [2, 2]], "diagonals": [[1, 1], [1, 3], [3, 1], [3, 3]], "redEdges": [], "greenEdges": [], "numbers": {}, "solution": [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1], [2, 1], [1, 1], [0, 1], [0, 2], [1, 2], [2, 2], [3, 2], [3, 3], [2, 3], [1, 3], [0, 3], [0, 4], [1, 4], [2, 4], [3, 4], [4, 4], [4, 3], [4, 2], [4, 1], [4, 0]]}, title: '斜向枢纽训练',
+      text: '╳ 斜向格（青色）：可以从斜角进入/离开，转弯更自由。\n\n画出覆盖所有格子的路径（斜向格处允许斜着走）。' },
+    { data: {"name": "数字训练", "difficulty": 3.5, "rows": 5, "cols": 5, "start": [0, 0], "end": [4, 4], "obstacles": [], "hubs": [], "diagonals": [], "redEdges": [], "greenEdges": [], "numbers": {"0,4": 5, "2,2": 17, "4,0": 13, "4,4": 25}, "solution": [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 4], [1, 3], [1, 2], [1, 1], [1, 0], [2, 0], [3, 0], [4, 0], [4, 1], [3, 1], [2, 1], [2, 2], [3, 2], [4, 2], [4, 3], [3, 3], [2, 3], [2, 4], [3, 4], [4, 4]]}, title: '数字训练',
+      text: '数字格：路径的第 N 个格子必须是它（如「5」= 路径第 5 格）。\n\n按数字顺序规划路线：第5格、第13格、第17格、第25格（终点）。' }
   ];
   let tutorialStep = 0;
   let tutorialActive = false;
@@ -5359,12 +5569,28 @@ const Library = (function () {
     if (i < 0 || i >= TUTORIALS.length) { exitTutorial(); return; }
     tutorialStep = i;
     const t = TUTORIALS[i];
-    const sample = (typeof SAMPLE_LEVELS !== 'undefined' ? SAMPLE_LEVELS : []).find(s => s.id === t.sample);
-    if (!sample) { App.toast('教学关缺失'); return; }
+    let data = null;
+    if (t.data) {
+      data = t.data;
+    } else if (t.id) {
+      const sample = (typeof SAMPLE_LEVELS !== 'undefined' ? SAMPLE_LEVELS : []).find(s => s.id === t.id);
+      if (sample) {
+        data = JSON.parse(JSON.stringify(sample));
+        data.name = t.title;
+        if (!data.desc) data.desc = t.text;
+      }
+    }
+    if (!data) { App.toast('教学关缺失'); return; }
     App.closeModal('modal-guide');
     App.closeModal('modal-pvp');
     setCurrentCommunity(null);   // ★ 教程关不是社区关（防误记录）
-    Editor.loadLevelData(sample, { unlocked: true });
+    const r = Editor.loadLevelData(data, { unlocked: true });
+    if (!r.ok) { App.toast('教学关载入失败'); return; }
+    /* ★ 教程讲解即简介（编辑器/游玩面板都能看到） */
+    Editor.getLevel().name = t.title;
+    const ne = $('in-name'); if (ne) ne.value = t.title;
+    const de = $('in-desc'); if (de) de.value = t.text.slice(0, 100);
+    try { Editor.render(); } catch (e) { /* 忽略 */ }
     App.switchMode('player', true);
     updateTutorialBar();
     App.toast('📖 第 ' + (i + 1) + ' 关：' + t.title + ' —— 在画布上画线试试！');
@@ -5375,6 +5601,20 @@ const Library = (function () {
     if (!tutorialActive) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
     const t = TUTORIALS[tutorialStep];
+    /* ★ 跳关选择器 */
+    const jump = $('tutorial-bar-jump');
+    if (jump) {
+      const prev = jump.value;
+      jump.innerHTML = '';
+      TUTORIALS.forEach((tt, i2) => {
+        const o = document.createElement('option');
+        o.value = String(i2);
+        o.textContent = '第 ' + (i2 + 1) + ' 关 · ' + tt.title;
+        jump.appendChild(o);
+      });
+      jump.value = String(tutorialStep);
+      if (prev === '') jump.value = String(tutorialStep);
+    }
     const title = $('tutorial-bar-title');
     if (title) title.textContent = '📖 第 ' + (tutorialStep + 1) + '/' + TUTORIALS.length + ' 关 · ' + t.title +
       (tutorialDone[tutorialStep] ? ' ✅ 已完成' : '（在画布上画出答案路径）');
@@ -5883,6 +6123,11 @@ const Library = (function () {
     /* 📖 新手教程（实操条） */
     const btut = $('btn-tutorial');
     if (btut) btut.addEventListener('click', openTutorial);
+    const tbj = $('tutorial-bar-jump');
+    if (tbj) tbj.addEventListener('change', () => {
+      const n = parseInt(tbj.value, 10);
+      if (!isNaN(n) && n >= 0 && n < TUTORIALS.length) startTutorialStep(n);
+    });
     $('tutorial-bar-prev').addEventListener('click', () => { if (tutorialStep > 0) startTutorialStep(tutorialStep - 1); });
     $('tutorial-bar-next').addEventListener('click', () => {
       if (tutorialStep < TUTORIALS.length - 1) startTutorialStep(tutorialStep + 1);
@@ -6135,6 +6380,8 @@ const App = (function () {
     $('player-panel').classList.toggle('hidden', m !== 'player');
     $('tab-editor').classList.toggle('active', m === 'editor');
     $('tab-player').classList.toggle('active', m === 'player');
+    const zc = $('zoom-controls');
+    if (zc) zc.style.display = m === 'editor' ? '' : 'none';   // ★ 缩放控件仅编辑器可见
     renderActive();
   }
 
