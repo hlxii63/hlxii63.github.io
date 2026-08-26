@@ -165,6 +165,8 @@ select {
   color: #263238;
 }
 
+.leveldesc { color: #607d8b; font-size: 12px; margin-left: 12px; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#p-leveldesc.leveldesc { display: inline-block; vertical-align: middle; }
 .levelname { font-size: 13px; color: #455a64; font-weight: 600; }
 
 /* ---------- 画布 ---------- */
@@ -523,6 +525,9 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
         <label class="field">名称
           <input id="in-name" type="text" maxlength="40" placeholder="关卡名称">
         </label>
+        <label class="field">简介
+          <input id="in-desc" type="text" maxlength="100" placeholder="一句话简介（可选，最多100字）">
+        </label>
         <label class="field">难度
           <input id="in-difficulty" type="number" min="0" max="999" step="0.1" value="0" title="难度等级（默认 0，可填小数如 15.2）">
         </label>
@@ -540,6 +545,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
             <option value="">— 载入示例 —</option>
           </select>
         </label>
+        <button id="btn-tutorial" class="act" title="新手教程（对战不可进入）">📖 教程</button>
         <button id="btn-pvp" class="act" title="双人对战（需登录）">⚔️ 对战</button>
         <button id="btn-community" class="act" title="共享社区（码云，可上传/玩别人的关卡）">🌐 社区</button>
         <button id="btn-library" class="act" title="本地存档">🗂️ 关卡库</button>
@@ -571,6 +577,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
         <button id="p-exit" class="act" title="退出并保存当前作答进度">⏏ 退出</button>
         <button id="p-back" class="act">✏️ 返回编辑</button>
         <span id="p-levelname" class="levelname"></span>
+        <span id="p-leveldesc" class="leveldesc"></span>
       </div>
     </section>
   </main>
@@ -793,6 +800,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
     <div class="modal-box">
       <div class="modal-title">👁 关卡预览</div>
       <p id="preview-info" class="modal-tip"></p>
+      <p id="preview-desc" class="modal-tip"></p>
       <canvas id="preview-canvas" width="320" height="320"></canvas>
       <div class="modal-btns">
         <button id="preview-play" class="act primary">▶ 载入并试玩</button>
@@ -842,7 +850,25 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
         <p>3️⃣ <b>开玩</b>：「▶ 试玩当前关卡」验证 → 「🌐 社区」玩别人的关 / 上传自己的关 → 「⚔️ 对战」双人比拼</p>
       </div>
       <div class="modal-btns">
-        <button id="guide-start" class="act primary">开始游戏</button>
+        <button id="guide-tutorial" class="act primary">📖 进入新手教程</button>
+        <button id="guide-start" class="act">开始游戏</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 新手教程弹窗 ================= -->
+  <div id="modal-tutorial" class="modal">
+    <div class="modal-box">
+      <div class="modal-title" id="tutorial-title">📖 新手教程</div>
+      <canvas id="tutorial-canvas" width="320" height="320"></canvas>
+      <p id="tutorial-text" class="modal-tip" style="white-space:pre-line"></p>
+      <div class="lib-actions">
+        <button id="tutorial-prev" class="act">← 上一关</button>
+        <span id="tutorial-count" class="lib-status"></span>
+        <button id="tutorial-next" class="act primary">下一关 →</button>
+      </div>
+      <div class="modal-btns">
+        <button id="tutorial-exit" class="act">✖ 退出教程</button>
       </div>
     </div>
   </div>
@@ -1070,6 +1096,7 @@ class Level {
     this.greenEdges = new Set();  // "r1,c1|r2,c2"
     this.solution = null;   // 答案路径 [[r,c],...] 或 null（内存中明文，导出时加密）
     this.password = null;   // { salt, hash } 或 null
+    this.desc = '';         // 简介（最多100字，预览/游玩时显示）
     this.numbers = new Map(); // "r,c" -> x（数字格：要求第 x 步到达）
     this.difficulty = 0;      // 难度等级（默认 0，可填小数如 1.5 / 15.2）
   }
@@ -1174,6 +1201,7 @@ class Level {
     return {
       version: 2,
       name: this.name,
+      desc: String(this.desc || '').trim().slice(0, 100),
       rows: this.rows,
       cols: this.cols,
       start: this.start ? this.start.slice() : null,
@@ -1204,6 +1232,7 @@ class Level {
       lv.rows = rows; lv.cols = cols;
     }
     lv.name = (typeof obj.name === 'string' && obj.name.trim()) ? obj.name.trim().slice(0, 40) : '未命名关卡';
+    lv.desc = (typeof obj.desc === 'string' && obj.desc.trim()) ? obj.desc.trim().slice(0, 100) : '';
 
     /* 难度等级（默认 0，0~999，保留 1 位小数） */
     if (obj.difficulty != null) {
@@ -2536,6 +2565,8 @@ const Editor = (function () {
 
   function refreshNameInput() {
     $('in-name').value = level.name === '未命名关卡' ? '' : level.name;
+    const de = $('in-desc');
+    if (de) de.value = level.desc || '';
   }
 
   /* ---------- 难度等级（默认 0，保留 1 位小数） ---------- */
@@ -2703,7 +2734,11 @@ const Editor = (function () {
 
   function setStatus(html) { App.setStatus(html); }
 
-  function getLevel() { return level; }
+  function getLevel() {
+    const de = $('in-desc');
+    if (de) level.desc = String(de.value || '').trim().slice(0, 100);
+    return level;
+  }
   function getTool() { return tool; }
 
   return {
@@ -2773,6 +2808,11 @@ const Player = (function () {
     level = r.level;
     reset();
     $('p-levelname').textContent = '关卡：' + level.name + ' · 难度 ' + fmtDifficulty(level.difficulty);
+    const dEl = $('p-leveldesc');
+    if (dEl) {
+      dEl.textContent = level.desc || '';
+      dEl.style.display = level.desc ? '' : 'none';
+    }
     /* ★ 退出按钮只在对战（竞速阶段）/社区关卡显示（本地试玩、作图期试玩隐藏） */
     try {
       const inCom = typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity();
@@ -3867,6 +3907,7 @@ const Library = (function () {
       const item = {
         id: uid(),
         name: level.name,
+        desc: String(level.desc || '').trim().slice(0, 100),
         difficulty: level.difficulty,
         rows: level.rows, cols: level.cols,
         author: authorName(),
@@ -3886,6 +3927,7 @@ const Library = (function () {
       const item = {
         id: uid(),
         name: level.name,
+        desc: String(level.desc || '').trim().slice(0, 100),
         difficulty: level.difficulty,
         rows: level.rows, cols: level.cols,
         author: authorName(),
@@ -4000,6 +4042,7 @@ const Library = (function () {
     }
     App.closeModal('modal-library');
     const lv = Editor.getLevel();
+    if (lv.desc) { const de = $('in-desc'); if (de) de.value = lv.desc; }
     setCurrentCommunity(opts.communityId || null);   // ★ 记录当前社区关卡（通关后上榜）
     if (opts.hideSol) Editor.setHideSol(true);   // 社区关卡默认隐藏答案
     /* ★ 载入社区关卡计一次游玩 */
@@ -4313,6 +4356,12 @@ const Library = (function () {
         (eff > 0 ? ' · 难度 ' + fmtDifficulty(eff) : '') +
         ' · ' + (data.rows || meta.rows || '?') + '×' + (data.cols || meta.cols || '?') +
         (meta.author ? ' · ' + meta.author : '');
+      const descEl = $('preview-desc');
+      if (descEl) {
+        const d = meta.desc || data.desc || '';
+        descEl.textContent = d ? '📝 ' + d : '';
+        descEl.style.display = d ? '' : 'none';
+      }
       App.openModal('modal-preview');
       setTimeout(() => {
         const canvas = $('preview-canvas');
@@ -5222,6 +5271,44 @@ const Library = (function () {
     if (bar) bar.classList.add('hidden');
   }
 
+  /* ================= 📖 新手教程（5 关，讲解即简介） ================= */
+  const TUTORIALS = [
+    { sample: 'sample1', title: '起点 · 终点 · 普通格',
+      text: '🟦 起点 S：路径的第一个格子（蓝色）。\n🟪 终点 E：路径的最后一个格子（紫色）。\n⬜ 普通格：路径必须经过每个普通格恰好一次。\n\n目标：从 S 画一条连续路径，覆盖所有普通格，到达 E。' },
+    { sample: 'sample2', title: '障碍 · 答案路径',
+      text: '⬛ 障碍格：不能进入，需要绕开它。\n┅ 答案路径：编辑器中用「答案路径」工具画官方解，试玩时隐藏。\n\n关卡必须有有效答案才能保存 / 上传 / 对战。' },
+    { sample: 'sample3', title: '枢纽',
+      text: '◎ 枢纽格：路径至少经过一次，可以多次经过（普通格只能一次）。\n\n枢纽让路径可以「回头」，是设计长路径的关键。' },
+    { sample: 'sample4', title: '斜向 · 数字',
+      text: '╳ 斜向格：可以从斜角进入 / 离开。\n数字格（如 5）：路径的第 5 个格子必须是它，用来固定路线。' },
+    { sample: 'sample5', title: '红边 · 绿边',
+      text: '— 红边：路径禁止跨越这条边（封路）。\n— 绿边：路径必须跨越这条边至少一次（强制过桥）。\n\n用它们可以做出精妙的迷宫设计。' }
+  ];
+  let tutorialIdx = 0;
+  function renderTutorial() {
+    const t = TUTORIALS[tutorialIdx];
+    $('tutorial-title').textContent = '📖 新手教程 第 ' + (tutorialIdx + 1) + '/' + TUTORIALS.length + ' 关 · ' + t.title;
+    $('tutorial-count').textContent = (tutorialIdx + 1) + ' / ' + TUTORIALS.length;
+    $('tutorial-prev').style.visibility = tutorialIdx === 0 ? 'hidden' : 'visible';
+    $('tutorial-next').textContent = tutorialIdx === TUTORIALS.length - 1 ? '✅ 完成' : '下一关 →';
+    $('tutorial-text').textContent = t.text;
+    const sample = (typeof SAMPLE_LEVELS !== 'undefined' ? SAMPLE_LEVELS : []).find(s => s.id === t.sample);
+    const canvas = $('tutorial-canvas');
+    if (canvas && sample) {
+      setTimeout(() => {
+        try {
+          const r = Level.fromJSON(sample);
+          if (r.level) Render.draw(canvas, r.level, {});
+        } catch (e) { /* 忽略 */ }
+      }, 60);
+    }
+  }
+  function openTutorial() {
+    tutorialIdx = 0;
+    renderTutorial();
+    App.openModal('modal-tutorial');
+  }
+
   /* ---------- 评论系统 ---------- */
   function levelById(id) { return (lastLevels || []).find(x => String(x.id) === String(id)) || null; }
   /* 发表评论（需登录；写回社区存储） */
@@ -5695,7 +5782,25 @@ const Library = (function () {
       } catch (e) { App.toast('❌ ' + e.message); }
     });
     $('comment-close').addEventListener('click', () => App.closeModal('modal-comment'));
+    /* 📖 新手教程 */
+    const btut = $('btn-tutorial');
+    if (btut) btut.addEventListener('click', () => {
+      if (inPvpMatch()) { App.toast('⚔️ 对战中不可进入教程'); return; }
+      openTutorial();
+    });
+    $('tutorial-prev').addEventListener('click', () => { if (tutorialIdx > 0) { tutorialIdx--; renderTutorial(); } });
+    $('tutorial-next').addEventListener('click', () => {
+      if (tutorialIdx < TUTORIALS.length - 1) { tutorialIdx++; renderTutorial(); }
+      else { App.closeModal('modal-tutorial'); App.toast('🎉 教程完成，去编辑器试试吧！'); }
+    });
+    $('tutorial-exit').addEventListener('click', () => App.closeModal('modal-tutorial'));
     /* 🧭 快速上手 */
+    const gt = $('guide-tutorial');
+    if (gt) gt.addEventListener('click', () => {
+      try { localStorage.setItem('path-game:guided', '1'); } catch (e) { /* 忽略 */ }
+      App.closeModal('modal-guide');
+      openTutorial();
+    });
     const gs = $('guide-start');
     if (gs) gs.addEventListener('click', () => {
       try { localStorage.setItem('path-game:guided', '1'); } catch (e) { /* 忽略 */ }
@@ -5818,6 +5923,7 @@ const Library = (function () {
     showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch, pvpSetSizeLock,
     pvpTryResume, creationPointsOf, pvpTransferHost,
     addComment, deleteComment, openCommentModal, renderCommentList,
+    openTutorial, renderTutorial, TUTORIALS,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
