@@ -23,7 +23,7 @@ body {
   display: flex;
   flex-direction: column;
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  background: #eef1f5;
+  background: linear-gradient(160deg, #eef3f9 0%, #e2ebf3 100%);
   color: #263238;
   -webkit-user-select: none;
   user-select: none;
@@ -46,6 +46,17 @@ header {
 
 .brand { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
 .brand .sub { font-size: 12px; font-weight: 400; opacity: .7; margin-left: 6px; }
+.head-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.head-actions .act {
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.25);
+  color: #fff;
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-weight: 600;
+}
+.head-actions .act:hover { background: rgba(255,255,255,.26); }
+.head-actions .act:active { transform: scale(.95); }
 
 .tabs { display: flex; gap: 6px; }
 .tab {
@@ -70,9 +81,9 @@ header {
   flex-direction: column;
   gap: 6px;
   padding: 8px 10px;
-  background: #fff;
+  background: rgba(255,255,255,.96);
   border-bottom: 1px solid #dde3ea;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  box-shadow: 0 2px 8px rgba(30,60,90,.08);
   /* ★ 修复：小屏/横屏下第三排工具栏被挤出屏幕。
    * 限制工具栏高度、内部可滚动，保证下方状态栏（当前工具）始终可见 */
   max-height: 42vh;
@@ -92,17 +103,17 @@ header {
 button {
   font-family: inherit;
   font-size: 13px;
-  border: 1px solid #cfd8dc;
-  background: #f7fafc;
+  border: 1px solid #c9d6e0;
+  background: #f8fbfd;
   color: #263238;
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 7px 12px;
   cursor: pointer;
   min-height: 36px;
-  transition: background .12s, border-color .12s, transform .05s;
+  transition: background .12s, border-color .12s, transform .05s, box-shadow .12s;
   touch-action: manipulation;
 }
-button:hover { background: #eef3f7; }
+button:hover { background: #eef3f7; border-color: #aebfcc; }
 button:active { transform: scale(.96); }
 
 button.primary {
@@ -186,6 +197,7 @@ select {
   touch-action: none;
   cursor: crosshair;
 }
+#canvas-wrap { filter: drop-shadow(0 2px 6px rgba(30,60,90,.10)); }
 
 /* ---------- 状态栏 ---------- */
 #status {
@@ -245,15 +257,16 @@ select {
 
 .modal-box {
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   width: min(560px, 94vw);
   max-height: 86vh;
   display: flex;
   flex-direction: column;
-  padding: 18px;
-  box-shadow: 0 10px 36px rgba(0,0,0,.3);
+  padding: 20px 22px;
+  box-shadow: 0 14px 44px rgba(15,30,50,.28);
+  border: 1px solid #e3ebf2;
 }
-.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 12px; color: #1f2d3d; }
 .modal-tip { font-size: 13px; color: #607d8b; margin-bottom: 10px; }
 .modal-box textarea {
   flex: 1 1 auto;
@@ -315,6 +328,41 @@ select {
 .lib-pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .lib-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .pvp-racebar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #263238; color: #fff; border-radius: 10px; margin-bottom: 10px; }
+/* ★ 新手教程实操条（悬浮顶部） */
+#tutorial-bar {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, 94vw);
+  z-index: 36;
+  background: linear-gradient(135deg, #1565c0, #1e88e5);
+  color: #fff;
+  border-radius: 12px;
+  padding: 8px 14px;
+  box-shadow: 0 8px 26px rgba(21,101,192,.35);
+  border: 1px solid rgba(255,255,255,.2);
+}
+#tutorial-bar .tutorial-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+#tutorial-bar .tutorial-title { font-size: 14px; font-weight: 700; }
+#tutorial-bar .lib-actions button {
+  background: rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.3);
+  color: #fff;
+  border-radius: 16px;
+  padding: 5px 12px;
+  min-height: 30px;
+  font-size: 12.5px;
+}
+#tutorial-bar .lib-actions button.primary { background: #ffca28; border-color: #ffca28; color: #4e342e; font-weight: 700; }
+#tutorial-bar .lib-actions button:disabled { opacity: .45; cursor: not-allowed; }
+#tutorial-bar .tutorial-text {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #eaf2fb;
+  white-space: pre-line;
+}
 /* 跳转高亮闪烁 */
 @keyframes libFlash { 0% { background: #fff59d; } 100% { background: transparent; } }
 .lib-item.flash { animation: libFlash 1.2s ease 2; }
@@ -348,9 +396,10 @@ select {
   flex: 1 1 auto;
   overflow-y: auto;
   max-height: 34vh;
-  border: 1px solid #eceff1;
-  border-radius: 8px;
-  background: #fbfdff;
+  border: 1px solid #e3ebf2;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: inset 0 1px 3px rgba(30,60,90,.04);
 }
 .lib-item {
   display: flex;
@@ -358,9 +407,11 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 9px 10px;
-  border-bottom: 1px solid #eceff1;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f6;
+  transition: background .1s;
 }
+.lib-item:hover { background: #f4f9fd; }
 .lib-item:last-child { border-bottom: none; }
 .lib-item-main { min-width: 0; }
 .lib-item-title { font-size: 13.5px; font-weight: 600; color: #263238; }
@@ -454,6 +505,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 
 /* ---------- 窄屏适配 ---------- */
 @media (max-width: 480px) {
+  #tutorial-bar { top: 50px; }
   .brand .sub { display: none; }
   .tab { padding: 6px 12px; font-size: 13px; }
   button { font-size: 12.5px; padding: 6px 9px; min-height: 34px; }
@@ -484,7 +536,26 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
       <button id="tab-editor" class="tab active">🛠️ 编辑器</button>
       <button id="tab-player" class="tab">🎮 试玩</button>
     </nav>
+    <nav class="head-actions">
+      <button id="btn-tutorial" class="act" title="新手教程（对战不可进入）">📖 教程</button>
+      <button id="btn-pvp" class="act" title="双人对战（需登录）">⚔️ 对战</button>
+      <button id="btn-community" class="act" title="共享社区（码云，可上传/玩别人的关卡）">🌐 社区</button>
+      <button id="btn-library" class="act" title="本地存档">🗂️ 关卡库</button>
+    </nav>
   </header>
+
+  <!-- ================= 新手教程实操条（悬浮，编辑器/试玩均可见） ================= -->
+  <div id="tutorial-bar" class="hidden tutorial-bar">
+    <div class="tutorial-head">
+      <span id="tutorial-bar-title" class="tutorial-title">📖 新手教程</span>
+      <div class="lib-actions">
+        <button id="tutorial-bar-prev" class="act">← 上一关</button>
+        <button id="tutorial-bar-next" class="act primary">下一关 →</button>
+        <button id="tutorial-bar-exit" class="act">✖ 退出</button>
+      </div>
+    </div>
+    <div id="tutorial-bar-text" class="tutorial-text"></div>
+  </div>
 
   <!-- ================= 编辑器面板 ================= -->
   <main id="editor-panel" class="panel">
@@ -545,10 +616,6 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
             <option value="">— 载入示例 —</option>
           </select>
         </label>
-        <button id="btn-tutorial" class="act" title="新手教程（对战不可进入）">📖 教程</button>
-        <button id="btn-pvp" class="act" title="双人对战（需登录）">⚔️ 对战</button>
-        <button id="btn-community" class="act" title="共享社区（码云，可上传/玩别人的关卡）">🌐 社区</button>
-        <button id="btn-library" class="act" title="本地存档">🗂️ 关卡库</button>
         <button id="btn-export" class="act">📤 导出关卡</button>
         <button id="btn-import" class="act">📥 导入关卡</button>
         <button id="btn-play" class="act primary">▶ 试玩当前关卡</button>
@@ -850,25 +917,8 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
         <p>3️⃣ <b>开玩</b>：「▶ 试玩当前关卡」验证 → 「🌐 社区」玩别人的关 / 上传自己的关 → 「⚔️ 对战」双人比拼</p>
       </div>
       <div class="modal-btns">
-        <button id="guide-tutorial" class="act primary">📖 进入新手教程</button>
+        <button id="guide-tutorial" class="act primary">📖 进入新手教程（可动手画）</button>
         <button id="guide-start" class="act">开始游戏</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= 新手教程弹窗 ================= -->
-  <div id="modal-tutorial" class="modal">
-    <div class="modal-box">
-      <div class="modal-title" id="tutorial-title">📖 新手教程</div>
-      <canvas id="tutorial-canvas" width="320" height="320"></canvas>
-      <p id="tutorial-text" class="modal-tip" style="white-space:pre-line"></p>
-      <div class="lib-actions">
-        <button id="tutorial-prev" class="act">← 上一关</button>
-        <span id="tutorial-count" class="lib-status"></span>
-        <button id="tutorial-next" class="act primary">下一关 →</button>
-      </div>
-      <div class="modal-btns">
-        <button id="tutorial-exit" class="act">✖ 退出教程</button>
       </div>
     </div>
   </div>
@@ -2927,8 +2977,14 @@ const Player = (function () {
     $('win-stats').textContent =
       '用时 ' + secs + ' 秒 · 步数 ' + (path.length - 1) + ' · 难度 ' + fmtDifficulty(level.difficulty) +
       ' · 覆盖 ' + an.totalNormal + ' 个普通格 + ' + level.hubs.size + ' 个枢纽';
-    showWin();
+    /* ★ 教程模式：不弹胜利浮层，改由教程条提示完成 */
+    const inTutorial = typeof Library !== 'undefined' && Library.isTutorialActive && Library.isTutorialActive();
+    if (!inTutorial) showWin();
     App.setStatus('🎉 通关成功！');
+    /* ★ 教程：通知教程条更新（不记录任何成绩） */
+    if (inTutorial) {
+      try { Library.onTutorialWin(); } catch (e) { /* 静默 */ }
+    }
     /* ★ 社区关卡：自动记录完成时间（进排行榜）；看过答案则不计入 */
     if (typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) {
       /* ⚔️ 对战中：上报完成，等对方 */
@@ -4633,6 +4689,7 @@ const Library = (function () {
       showPvpBuildBar();
       pvpSetSizeLock(false);
     }
+    if (tutorialActive) exitTutorial();   // ★ 对战中自动退出教程
     if (room.state === 'race' && pvpLocal.raceFor !== room.startedAt) {
       pvpLocal.raceFor = room.startedAt;
       pvpLocal.buildStarted = false;   // 上一局是 build 的话重置
@@ -5284,29 +5341,69 @@ const Library = (function () {
     { sample: 'sample5', title: '红边 · 绿边',
       text: '— 红边：路径禁止跨越这条边（封路）。\n— 绿边：路径必须跨越这条边至少一次（强制过桥）。\n\n用它们可以做出精妙的迷宫设计。' }
   ];
-  let tutorialIdx = 0;
-  function renderTutorial() {
-    const t = TUTORIALS[tutorialIdx];
-    $('tutorial-title').textContent = '📖 新手教程 第 ' + (tutorialIdx + 1) + '/' + TUTORIALS.length + ' 关 · ' + t.title;
-    $('tutorial-count').textContent = (tutorialIdx + 1) + ' / ' + TUTORIALS.length;
-    $('tutorial-prev').style.visibility = tutorialIdx === 0 ? 'hidden' : 'visible';
-    $('tutorial-next').textContent = tutorialIdx === TUTORIALS.length - 1 ? '✅ 完成' : '下一关 →';
-    $('tutorial-text').textContent = t.text;
+  let tutorialStep = 0;
+  let tutorialActive = false;
+  let tutorialDone = [];
+  function isTutorialActive() { return tutorialActive; }
+  /* ★ 实操教程：把教学关载入试玩，新手直接在上面画线 */
+  function openTutorial() {
+    if (inPvpMatch()) { App.toast('⚔️ 对战中不可进入教程'); return; }
+    tutorialActive = true;
+    tutorialStep = 0;
+    tutorialDone = [];
+    try { snapshotEditorOnLoad(); } catch (e) { /* 忽略 */ }   // ★ 记住进入教程前的编辑器，退出后还原
+    startTutorialStep(0);
+  }
+  function startTutorialStep(i) {
+    if (!tutorialActive) return;
+    if (i < 0 || i >= TUTORIALS.length) { exitTutorial(); return; }
+    tutorialStep = i;
+    const t = TUTORIALS[i];
     const sample = (typeof SAMPLE_LEVELS !== 'undefined' ? SAMPLE_LEVELS : []).find(s => s.id === t.sample);
-    const canvas = $('tutorial-canvas');
-    if (canvas && sample) {
-      setTimeout(() => {
-        try {
-          const r = Level.fromJSON(sample);
-          if (r.level) Render.draw(canvas, r.level, {});
-        } catch (e) { /* 忽略 */ }
-      }, 60);
+    if (!sample) { App.toast('教学关缺失'); return; }
+    App.closeModal('modal-guide');
+    App.closeModal('modal-pvp');
+    setCurrentCommunity(null);   // ★ 教程关不是社区关（防误记录）
+    Editor.loadLevelData(sample, { unlocked: true });
+    App.switchMode('player', true);
+    updateTutorialBar();
+    App.toast('📖 第 ' + (i + 1) + ' 关：' + t.title + ' —— 在画布上画线试试！');
+  }
+  function updateTutorialBar() {
+    const bar = $('tutorial-bar');
+    if (!bar) return;
+    if (!tutorialActive) { bar.classList.add('hidden'); return; }
+    bar.classList.remove('hidden');
+    const t = TUTORIALS[tutorialStep];
+    const title = $('tutorial-bar-title');
+    if (title) title.textContent = '📖 第 ' + (tutorialStep + 1) + '/' + TUTORIALS.length + ' 关 · ' + t.title +
+      (tutorialDone[tutorialStep] ? ' ✅ 已完成' : '（在画布上画出答案路径）');
+    const text = $('tutorial-bar-text');
+    if (text) text.textContent = t.text;
+    const prev = $('tutorial-bar-prev');
+    if (prev) prev.disabled = tutorialStep === 0;
+    const next = $('tutorial-bar-next');
+    if (next) {
+      const isLast = tutorialStep === TUTORIALS.length - 1;
+      next.textContent = isLast ? (tutorialDone[tutorialStep] ? '✅ 完成教程' : '下一关 →') : '下一关 →';
+      next.disabled = !isLast && !tutorialDone[tutorialStep];
     }
   }
-  function openTutorial() {
-    tutorialIdx = 0;
-    renderTutorial();
-    App.openModal('modal-tutorial');
+  /* ★ 教程关通关回调（player.js 调用） */
+  function onTutorialWin() {
+    if (!tutorialActive) return;
+    tutorialDone[tutorialStep] = true;
+    updateTutorialBar();
+    App.toast('🎉 本关完成！点「下一关」继续');
+  }
+  function exitTutorial() {
+    tutorialActive = false;
+    tutorialStep = 0;
+    tutorialDone = [];
+    const bar = $('tutorial-bar');
+    if (bar) bar.classList.add('hidden');
+    try { restoreEditorAfterExit(); } catch (e) { /* 忽略 */ }
+    App.switchMode('editor', true);
   }
 
   /* ---------- 评论系统 ---------- */
@@ -5764,6 +5861,7 @@ const Library = (function () {
     if (pvpTimerEl) pvpTimerEl.addEventListener('click', showPvpRoomView);
     $('lib-pvp').addEventListener('click', () => {
       if (!currentUser()) { App.toast('请先登录后再对战'); return; }
+      if (tutorialActive) exitTutorial();
       App.openModal('modal-pvp');
       renderPvp();
     });
@@ -5782,18 +5880,15 @@ const Library = (function () {
       } catch (e) { App.toast('❌ ' + e.message); }
     });
     $('comment-close').addEventListener('click', () => App.closeModal('modal-comment'));
-    /* 📖 新手教程 */
+    /* 📖 新手教程（实操条） */
     const btut = $('btn-tutorial');
-    if (btut) btut.addEventListener('click', () => {
-      if (inPvpMatch()) { App.toast('⚔️ 对战中不可进入教程'); return; }
-      openTutorial();
+    if (btut) btut.addEventListener('click', openTutorial);
+    $('tutorial-bar-prev').addEventListener('click', () => { if (tutorialStep > 0) startTutorialStep(tutorialStep - 1); });
+    $('tutorial-bar-next').addEventListener('click', () => {
+      if (tutorialStep < TUTORIALS.length - 1) startTutorialStep(tutorialStep + 1);
+      else { App.toast('🎉 教程完成，去编辑器试试吧！'); exitTutorial(); }
     });
-    $('tutorial-prev').addEventListener('click', () => { if (tutorialIdx > 0) { tutorialIdx--; renderTutorial(); } });
-    $('tutorial-next').addEventListener('click', () => {
-      if (tutorialIdx < TUTORIALS.length - 1) { tutorialIdx++; renderTutorial(); }
-      else { App.closeModal('modal-tutorial'); App.toast('🎉 教程完成，去编辑器试试吧！'); }
-    });
-    $('tutorial-exit').addEventListener('click', () => App.closeModal('modal-tutorial'));
+    $('tutorial-bar-exit').addEventListener('click', exitTutorial);
     /* 🧭 快速上手 */
     const gt = $('guide-tutorial');
     if (gt) gt.addEventListener('click', () => {
@@ -5923,7 +6018,7 @@ const Library = (function () {
     showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch, pvpSetSizeLock,
     pvpTryResume, creationPointsOf, pvpTransferHost,
     addComment, deleteComment, openCommentModal, renderCommentList,
-    openTutorial, renderTutorial, TUTORIALS,
+    openTutorial, isTutorialActive, onTutorialWin, exitTutorial, updateTutorialBar, TUTORIALS,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
