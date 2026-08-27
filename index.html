@@ -328,13 +328,14 @@ select {
 .lib-pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .lib-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .pvp-racebar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #263238; color: #fff; border-radius: 10px; margin-bottom: 10px; }
-/* ★ 新手教程实操条（悬浮顶部） */
+/* ★ 新手教程实操条（悬浮底部，避免遮挡顶部的撤销/清空工具栏） */
 #tutorial-bar {
   position: fixed;
-  top: 56px;
+  top: auto;
+  bottom: 58px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(720px, 94vw);
+  width: min(760px, 94vw);
   z-index: 36;
   background: linear-gradient(135deg, #1565c0, #1e88e5);
   color: #fff;
@@ -342,6 +343,19 @@ select {
   padding: 8px 14px;
   box-shadow: 0 8px 26px rgba(21,101,192,.35);
   border: 1px solid rgba(255,255,255,.2);
+}
+.tutorial-jump-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 16px;
+  padding: 4px 10px;
+  cursor: pointer;
 }
 #tutorial-bar .tutorial-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
 #tutorial-bar .tutorial-title { font-size: 14px; font-weight: 700; }
@@ -389,7 +403,7 @@ select {
 }
 .zoom-btn:hover { background: #fff; }
 .zoom-btn.zoom-active { background: #1a73e8; color: #fff; border-color: #1a73e8; }
-.tutorial-jump { min-width: 124px; padding: 5px 6px; border-radius: 8px; font-size: 12px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.16); color: #fff; }
+.tutorial-jump { min-width: 132px; padding: 3px 6px; border-radius: 12px; font-size: 12px; border: 1px solid rgba(255,255,255,.45); background: rgba(255,255,255,.22); color: #fff; font-weight: 700; }
 .tutorial-jump option { color: #263238; background: #fff; }
 /* 跳转高亮闪烁 */
 @keyframes libFlash { 0% { background: #fff59d; } 100% { background: transparent; } }
@@ -533,7 +547,8 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 
 /* ---------- 窄屏适配 ---------- */
 @media (max-width: 480px) {
-  #tutorial-bar { top: 50px; }
+  #tutorial-bar { bottom: 54px; }
+  .tutorial-jump-label { font-size: 11.5px; padding: 3px 8px; }
   .brand .sub { display: none; }
   .tab { padding: 6px 12px; font-size: 13px; }
   button { font-size: 12.5px; padding: 6px 9px; min-height: 34px; }
@@ -577,7 +592,10 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
     <div class="tutorial-head">
       <span id="tutorial-bar-title" class="tutorial-title">📖 新手教程</span>
       <div class="lib-actions">
-        <select id="tutorial-bar-jump" title="跳关" class="tutorial-jump"></select>
+        <label class="tutorial-jump-label" title="跳关：直接跳到任意一关">📍 跳关
+          <select id="tutorial-bar-jump" class="tutorial-jump"></select>
+        </label>
+        <button id="tutorial-bar-play" class="act primary" title="回到试玩继续画线">▶ 返回试玩</button>
         <button id="tutorial-bar-prev" class="act">← 上一关</button>
         <button id="tutorial-bar-next" class="act primary">下一关 →</button>
         <button id="tutorial-bar-exit" class="act">✖ 退出</button>
@@ -2244,6 +2262,12 @@ const Editor = (function () {
   let panMode = false;
   let panning = false;
   let panLast = null;
+  function togglePan() {
+    panMode = !panMode;
+    if (canvas) canvas.style.cursor = panMode ? 'grab' : '';
+    return panMode;
+  }
+  function resetView() { view = { scale: 1, x: 0, y: 0 }; render(); }
   function clampView() {
     view.scale = Math.min(4, Math.max(0.4, view.scale));
     const rect = canvas ? canvas.getBoundingClientRect() : { width: 600, height: 400 };
@@ -2296,29 +2320,7 @@ const Editor = (function () {
     canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointercancel', onPointerUp);
     canvas.addEventListener('pointerleave', onPointerLeave);
-    /* ★ 缩放/平移 */
-    canvas.addEventListener('wheel', e => {
-      e.preventDefault();
-      zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.18 : 1 / 1.18);
-    }, { passive: false });
-    const zi = $('zoom-in');
-    if (zi) zi.addEventListener('click', e => { e.stopPropagation(); const rc = canvas.getBoundingClientRect(); zoomAt(rc.width / 2, rc.height / 2, 1.25); });
-    const zo = $('zoom-out');
-    if (zo) zo.addEventListener('click', e => { e.stopPropagation(); const rc = canvas.getBoundingClientRect(); zoomAt(rc.width / 2, rc.height / 2, 0.8); });
-    const zr = $('zoom-reset');
-    if (zr) zr.addEventListener('click', e => {
-      e.stopPropagation();
-      view = { scale: 1, x: 0, y: 0 };
-      render();
-    });
-    const zp = $('zoom-pan');
-    if (zp) zp.addEventListener('click', e => {
-      e.stopPropagation();
-      panMode = !panMode;
-      zp.textContent = panMode ? '✏️' : '✋';
-      zp.classList.toggle('zoom-active', panMode);
-      canvas.style.cursor = panMode ? 'grab' : '';
-    });
+    /* ★ 缩放/平移：绑定统一在 App（按模式分发到编辑器/试玩） */
 
     document.querySelectorAll('#editor-panel .tool').forEach(btn => {
       btn.addEventListener('click', () => setTool(btn.dataset.tool));
@@ -2727,7 +2729,15 @@ const Editor = (function () {
     App.toast('已清空，可重新设计');
   }
 
+  /* ★ 教程中新建/载入其他关卡 → 自动退出教程 */
+  function exitTutorialIfActive() {
+    if (typeof Library !== 'undefined' && Library.exitTutorialIfActive) {
+      try { Library.exitTutorialIfActive(); } catch (err) { /* 忽略 */ }
+    }
+  }
+
   function newLevel() {
+    exitTutorialIfActive();
     const rows = clampInt($('in-rows').value, 2, 30, 6);
     const cols = clampInt($('in-cols').value, 2, 30, 6);
     level = new Level(rows, cols, nameValue());
@@ -2742,6 +2752,7 @@ const Editor = (function () {
   }
 
   function loadSample(id) {
+    exitTutorialIfActive();
     const s = SAMPLE_LEVELS.find(x => x.id === id);
     if (!s) return;
     loadLevelData(s, { unlocked: true });
@@ -2852,6 +2863,7 @@ const Editor = (function () {
   function onImportText() { applyImportText(); }
 
   function applyImportText() {
+    exitTutorialIfActive();
     let obj;
     try {
       obj = JSON.parse($('import-text').value);
@@ -2957,6 +2969,7 @@ const Editor = (function () {
     init, render, setTool, undo, redo, clearLevel, newLevel,
     exportLevel, play, getLevel, getTool, snapshot, loadSample,
     getView: () => ({ scale: view.scale, x: view.x, y: view.y }), panMode: () => panMode,
+    zoomAt, resetView, togglePan,
     setItemLimits, getItemLimits: () => itemLimits ? JSON.parse(JSON.stringify(itemLimits)) : null,
     isUnlocked, unlock, verifyPassword, loadLevelData, undoSolutionStep,
     isHideSol, setHideSol
@@ -2985,6 +2998,40 @@ const Player = (function () {
   let showAnswer = false;   // ★ 查看答案（显示官方解）
   let viewedAnswer = false; // ★ 看过答案后不计入排行榜/实力
   let startTime = 0;
+  /* ★ 解题放大镜：缩放/平移（与编辑器同款） */
+  let pview = { scale: 1, x: 0, y: 0 };
+  let ppanMode = false;
+  let ppanning = false;
+  let ppanLast = null;
+  function clampPView() {
+    pview.scale = Math.min(4, Math.max(0.4, pview.scale));
+    const rect = canvas ? canvas.getBoundingClientRect() : { width: 600, height: 400 };
+    const m = Render.metrics(level, rect.width, rect.height, { scale: pview.scale, x: 0, y: 0 });
+    const maxX = Math.max(0, (rect.width - m.cs * level.cols) / 2 + 160);
+    const maxY = Math.max(0, (rect.height - m.cs * level.rows) / 2 + 160);
+    pview.x = Math.min(maxX, Math.max(-maxX, pview.x));
+    pview.y = Math.min(maxY, Math.max(-maxY, pview.y));
+  }
+  function zoomAt(cx, cy, factor) {
+    if (!level) return;
+    const rect = canvas ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
+    const px = cx - rect.left, py = cy - rect.top;
+    const cell = Render.cellAt(canvas, level, cx, cy, pview);
+    pview.scale = Math.min(4, Math.max(0.4, pview.scale * factor));
+    if (cell) {
+      const m = Render.metrics(level, rect.width, rect.height, { scale: pview.scale, x: 0, y: 0 });
+      pview.x = px - (m.ox + cell[1] * m.cs + m.cs / 2);
+      pview.y = py - (m.oy + cell[0] * m.cs + m.cs / 2);
+    }
+    clampPView();
+    render();
+  }
+  function resetView() { pview = { scale: 1, x: 0, y: 0 }; render(); }
+  function togglePan() {
+    ppanMode = !ppanMode;
+    if (canvas) canvas.style.cursor = ppanMode ? 'grab' : '';
+    return ppanMode;
+  }
 
   function $(id) { return document.getElementById(id); }
 
@@ -3070,7 +3117,14 @@ const Player = (function () {
   function onDown(e) {
     if (App.getMode() !== 'player' || !level) return;
     e.preventDefault();
-    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY);
+    /* ★ 拖动棋盘 */
+    if (ppanMode) {
+      ppanning = true;
+      ppanLast = { x: e.clientX, y: e.clientY };
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
+      return;
+    }
+    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY, pview);
     if (!cell) return;
     drawing = true;
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
@@ -3081,8 +3135,18 @@ const Player = (function () {
   }
 
   function onMove(e) {
-    if (!drawing || App.getMode() !== 'player' || !level) return;
-    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY);
+    if (App.getMode() !== 'player' || !level) return;
+    /* ★ 平移 */
+    if (ppanning && ppanLast) {
+      pview.x += e.clientX - ppanLast.x;
+      pview.y += e.clientY - ppanLast.y;
+      ppanLast = { x: e.clientX, y: e.clientY };
+      clampPView();
+      render();
+      return;
+    }
+    if (!drawing) return;
+    const cell = Render.cellAt(canvas, level, e.clientX, e.clientY, pview);
     if (!cell) return;
     const last = path[path.length - 1];
     if (!last || (last[0] === cell[0] && last[1] === cell[1])) return;
@@ -3091,6 +3155,8 @@ const Player = (function () {
 
   function onUp() {
     drawing = false;
+    ppanning = false;
+    ppanLast = null;
     /* ★ 修复：松手时强制重绘一次，避免最后一步未显示 */
     render();
   }
@@ -3205,7 +3271,7 @@ const Player = (function () {
     if (showAnswer && level.solution && level.solution.length) {
       opts.solution = { path: level.solution, showNumbers: true };
     }
-    Render.draw(canvas, level, opts);
+    Render.draw(canvas, level, opts, pview);
   }
 
   function updateStatus() {
@@ -3314,7 +3380,8 @@ const Player = (function () {
 
   return {
     init, loadLevel, undoStep, undoSteps, clearPath, reset, render, stop,
-    viewAnswer, exitSave, getPath: () => path.slice(), hasViewed: () => viewedAnswer
+    viewAnswer, exitSave, getPath: () => path.slice(), hasViewed: () => viewedAnswer,
+    zoomAt, resetView, togglePan, getView: () => ({ scale: pview.scale, x: pview.x, y: pview.y }), panMode: () => ppanMode
   };
 })();
 
@@ -3565,6 +3632,14 @@ const Library = (function () {
   function clearDraft() {
     const k = draftKey();
     if (k) localStorage.removeItem(k);
+  }
+  /* ★ 把当前作答进度存为草稿（返回编辑前调用，防游玩记录丢失） */
+  function saveDraftIfPlaying() {
+    if (!currentCommunity || typeof Player === 'undefined' || !Player.getPath) return;
+    try {
+      const pp = Player.getPath();
+      if (pp && pp.length) saveDraft(pp, Player.hasViewed ? Player.hasViewed() : false);
+    } catch (e) { /* 忽略 */ }
   }
 
   /* 通关回调：查看过答案的不记录；记录只写第一次（作者本人记录也会写入，
@@ -4242,6 +4317,7 @@ const Library = (function () {
   /* ---------- 载入到编辑器（本地=自己关卡直接解锁；社区=与导入同规则） ---------- */
   function loadIntoEditor(levelData, opts) {
     opts = opts || {};
+    exitTutorialIfActive();   // ★ 教程中载入其他关卡 → 退出教程
     /* ★ 载入前：若正在玩社区关卡且有路径，先存为草稿（防止预览/载入清空游玩路径） */
     if (currentCommunity && typeof Player !== 'undefined' && Player.getPath) {
       try {
@@ -4615,6 +4691,14 @@ const Library = (function () {
   function inPvpRace() { return !!pvpRoom && pvpRoom.state === 'race'; }
   function inPvpBuild() { return !!pvpRoom && pvpRoom.state === 'build'; }
   function inPvpMatch() { return inPvpRace() || inPvpBuild(); }
+  /* ★ 解题中（试玩模式且非对战、非教程）拦截顶部入口，防状态错乱 */
+  function playingGuard() {
+    if (typeof App !== 'undefined' && App.getMode && App.getMode() === 'player' && !inPvpMatch() && !tutorialActive) {
+      App.toast('⏸ 正在解题：请先点「✏️ 返回编辑」再使用该功能');
+      return false;
+    }
+    return true;
+  }
 
   async function pvpRead() {
     const d = await giteeReadFile(PVP_FILE);
@@ -5612,6 +5696,8 @@ const Library = (function () {
     if (!tutorialActive) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
     const t = TUTORIALS[tutorialStep];
+    /* ★ 模式感知：返回编辑器时给出明确提示（防迷失） */
+    const inEd = typeof App !== 'undefined' && App.getMode && App.getMode() === 'editor';
     /* ★ 跳关选择器 */
     const jump = $('tutorial-bar-jump');
     if (jump) {
@@ -5628,7 +5714,7 @@ const Library = (function () {
     }
     const title = $('tutorial-bar-title');
     if (title) title.textContent = '📖 第 ' + (tutorialStep + 1) + '/' + TUTORIALS.length + ' 关 · ' + t.title +
-      (tutorialDone[tutorialStep] ? ' ✅ 已完成' : '（在画布上画出答案路径）');
+      (tutorialDone[tutorialStep] ? ' ✅ 已完成' : (inEd ? ' ✏️ 已返回编辑器（教学关在编辑器中）' : '（在画布上画出答案路径）'));
     const text = $('tutorial-bar-text');
     if (text) text.textContent = t.text;
     const prev = $('tutorial-bar-prev');
@@ -5655,6 +5741,10 @@ const Library = (function () {
     if (bar) bar.classList.add('hidden');
     try { restoreEditorAfterExit(); } catch (e) { /* 忽略 */ }
     App.switchMode('editor', true);
+  }
+  /* ★ 载入其他关卡时自动退出教程（防止误标记完成/状态混乱） */
+  function exitTutorialIfActive() {
+    if (tutorialActive) exitTutorial();
   }
 
   /* ---------- 评论系统 ---------- */
@@ -5885,8 +5975,12 @@ const Library = (function () {
       syncLoginUI();
       App.openModal('modal-library');
     };
-    $('btn-library').addEventListener('click', openModal);
+    $('btn-library').addEventListener('click', () => {
+      if (!playingGuard()) return;
+      openModal();
+    });
     const openCommunity = () => {
+      if (!playingGuard()) return;
       if (inPvpMatch()) { App.toast('⚔️ 对战中不可打开社区'); return; }
       switchTab('community');
       syncLoginUI();              // ★ 先同步登录态（防首次打开显示登录表单）
@@ -6133,7 +6227,12 @@ const Library = (function () {
     $('comment-close').addEventListener('click', () => App.closeModal('modal-comment'));
     /* 📖 新手教程（实操条） */
     const btut = $('btn-tutorial');
-    if (btut) btut.addEventListener('click', openTutorial);
+    if (btut) btut.addEventListener('click', () => {
+      if (!playingGuard()) return;
+      openTutorial();
+    });
+    const tbp = $('tutorial-bar-play');
+    if (tbp) tbp.addEventListener('click', () => { if (tutorialActive) startTutorialStep(tutorialStep); });
     const tbj = $('tutorial-bar-jump');
     if (tbj) tbj.addEventListener('change', () => {
       const n = parseInt(tbj.value, 10);
@@ -6165,6 +6264,7 @@ const Library = (function () {
     if (cpb) cpb.addEventListener('click', () => $('lib-changepw-row').classList.toggle('hidden'));
     const bpvp = $('btn-pvp');
     if (bpvp) bpvp.addEventListener('click', () => {
+      if (!playingGuard()) return;                       // ★ 解题中不可进对战（对战中可进房间）
       if (!currentUser()) { App.toast('请先登录后再对战'); return; }
       App.closeModal('modal-library');
       App.openModal('modal-pvp');
@@ -6260,7 +6360,7 @@ const Library = (function () {
     repoUrl, repoToken, setRepo, repoInfo, repoReadUrl, repoReadData, repoWriteData, repoCheck,
     giteeInfo, giteeToken, giteeReadData, giteeWriteData, isGitee, setGitee,
     devKey, unlockDev, lockDev, toggleLike, bumpPlays, myLikedIds,
-    saveDraft, getDraft, clearDraft,
+    saveDraft, getDraft, clearDraft, saveDraftIfPlaying,
     setCurrentCommunity, getCurrentCommunity, recordCompletion, onWin, openCommunityTab,
     currentUser, registerUser, loginUser, logoutUser,
     levelLeaderboard, mySkill, adminSetLevel, communitySort, isAdminUser, isDevUser, setDevMode,
@@ -6274,7 +6374,7 @@ const Library = (function () {
     showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch, pvpSetSizeLock,
     pvpTryResume, creationPointsOf, pvpTransferHost,
     addComment, deleteComment, openCommentModal, renderCommentList,
-    openTutorial, isTutorialActive, onTutorialWin, exitTutorial, updateTutorialBar, TUTORIALS,
+    openTutorial, isTutorialActive, onTutorialWin, exitTutorial, exitTutorialIfActive, updateTutorialBar, TUTORIALS,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
 })();
@@ -6298,6 +6398,29 @@ const App = (function () {
 
     $('tab-editor').addEventListener('click', () => switchMode('editor'));
     $('tab-player').addEventListener('click', () => switchMode('player'));
+
+    /* ★ 缩放/平移：同一套按钮，按当前模式分发到编辑器或试玩 */
+    const zoomApi = (fn, ...args) => {
+      if (mode === 'editor' && Editor[fn]) return Editor[fn](...args);
+      if (mode === 'player' && Player[fn]) return Player[fn](...args);
+      return undefined;
+    };
+    const zc2 = $('zoom-controls');
+    if (zc2) {
+      const cvs = $('game');
+      cvs.addEventListener('wheel', e => {
+        e.preventDefault();
+        zoomApi('zoomAt', e.clientX, e.clientY, e.deltaY < 0 ? 1.18 : 1 / 1.18);
+      }, { passive: false });
+      $('zoom-in').addEventListener('click', e => { e.stopPropagation(); const rc = cvs.getBoundingClientRect(); zoomApi('zoomAt', rc.width / 2, rc.height / 2, 1.25); });
+      $('zoom-out').addEventListener('click', e => { e.stopPropagation(); const rc = cvs.getBoundingClientRect(); zoomApi('zoomAt', rc.width / 2, rc.height / 2, 0.8); });
+      $('zoom-reset').addEventListener('click', e => { e.stopPropagation(); zoomApi('resetView'); });
+      $('zoom-pan').addEventListener('click', e => {
+        e.stopPropagation();
+        const on = zoomApi('togglePan');
+        setPanButton(!!on);
+      });
+    }
 
     document.querySelectorAll('.modal').forEach(m => {
       m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
@@ -6384,15 +6507,25 @@ const App = (function () {
   }
 
   function doSwitch(m) {
-    /* ★ 修复：从试玩返回编辑器时清理玩家路径并隐藏通关浮层 */
-    if (mode === 'player' && m === 'editor') Player.stop();
+    /* ★ 修复：从试玩返回编辑器时，先把作答进度存为草稿再清空（防游玩记录丢失） */
+    if (mode === 'player' && m === 'editor') {
+      if (typeof Library !== 'undefined' && Library.saveDraftIfPlaying) {
+        try { Library.saveDraftIfPlaying(); } catch (e) { /* 忽略 */ }
+      }
+      Player.stop();
+    }
     mode = m;
     $('editor-panel').classList.toggle('hidden', m !== 'editor');
     $('player-panel').classList.toggle('hidden', m !== 'player');
     $('tab-editor').classList.toggle('active', m === 'editor');
     $('tab-player').classList.toggle('active', m === 'player');
     const zc = $('zoom-controls');
-    if (zc) zc.style.display = m === 'editor' ? '' : 'none';   // ★ 缩放控件仅编辑器可见
+    if (zc) zc.style.display = (m === 'editor' || m === 'player') ? '' : 'none';   // ★ 编辑器/解题均可放大
+    syncPanButton();
+    /* ★ 教程中切换模式时刷新教程条（模式感知提示） */
+    if (typeof Library !== 'undefined' && Library.isTutorialActive && Library.isTutorialActive() && Library.updateTutorialBar) {
+      try { Library.updateTutorialBar(); } catch (e2) { /* 忽略 */ }
+    }
     renderActive();
   }
 
@@ -6428,6 +6561,17 @@ const App = (function () {
     el._t = setTimeout(() => el.classList.remove('show'), 2400);
   }
 
+  function setPanButton(active) {
+    const zp = $('zoom-pan');
+    if (!zp) return;
+    zp.textContent = active ? '✏️' : '✋';
+    zp.classList.toggle('zoom-active', !!active);
+  }
+  function syncPanButton() {
+    const on = mode === 'editor' ? (Editor.panMode ? Editor.panMode() : false)
+      : mode === 'player' ? (Player.panMode ? Player.panMode() : false) : false;
+    setPanButton(on);
+  }
   function setStatus(html) {
     $('status').innerHTML = html;
   }
