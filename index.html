@@ -1888,6 +1888,9 @@ const Render = (function () {
    *         highlights:{hover, sel, errors:[keys]},
    *         preview:{color, from, to} }
    */
+  /* ★ 棋盘首屏自愈：canvas 尺寸未就绪（如手机慢布局/字体加载）时不丢帧，
+   * 稍后自动重绘，避免打开即空白 */
+  const retryCv = new Set();
   function draw(canvas, level, opts, view) {
     opts = opts || {};
     view = view || { scale: 1, x: 0, y: 0 };
@@ -1895,7 +1898,22 @@ const Render = (function () {
     const rect = canvas.getBoundingClientRect();
     const W = rect.width, H = rect.height;
     /* 极小尺寸保护：布局抖动（如触屏键盘/地址栏伸缩）时不清屏、不绘制 */
-    if (W < 40 || H < 40) return;
+    if (W < 40 || H < 40) {
+      if (!retryCv.has(canvas)) {
+        retryCv.add(canvas);
+        let tries = 0;
+        const iv = setInterval(() => {
+          tries++;
+          const rc = canvas.getBoundingClientRect();
+          if (tries >= 16 || (rc.width >= 40 && rc.height >= 40)) {
+            clearInterval(iv);
+            retryCv.delete(canvas);
+            draw(canvas, level, opts, view);   // 尺寸就绪后再画
+          }
+        }, 150);
+      }
+      return;
+    }
     const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
     if (canvas.width !== pw || canvas.height !== ph) {
       canvas.width = pw;
@@ -2268,7 +2286,20 @@ const Render = (function () {
     return (r >= 0 && r < level.rows && c >= 0 && c < level.cols) ? [r, c] : null;
   }
 
-  return { draw, cellAt, metrics, center, PAD, C };
+  /* ★ 首屏自愈：棋盘 canvas 尺寸未就绪（慢布局/字体加载）时自动稍后重绘，
+   * 由编辑器/试玩各自传入 render 闭包 → 始终绘制当前状态，避免打开即空白 */
+  const sizeRetry = new WeakMap();
+  function safeRender(canvas, fn) {
+    if (!canvas) return;
+    const rc = canvas.getBoundingClientRect();
+    if (rc.width >= 40 && rc.height >= 40) { fn(); return; }
+    let st = sizeRetry.get(canvas);
+    if (!st) { st = { n: 0 }; sizeRetry.set(canvas, st); }
+    if (st.n >= 14) return;                       // 最多尝试 ~2s
+    st.n++;
+    setTimeout(() => { st.n--; safeRender(canvas, fn); }, 150);
+  }
+  return { draw, safeRender, cellAt, metrics, center, PAD, C };
 })();
 
 </script>
@@ -2976,7 +3007,8 @@ const Editor = (function () {
         level.isAdjacent(edgeFrom, hover)) {
       opts.preview = { color: tool === 'redEdge' ? 'red' : 'green', from: edgeFrom, to: hover };
     }
-    Render.draw(canvas, level, opts, view);
+    /* ★ 首屏自愈：画布尺寸未就绪时自动稍后重绘当前状态 */
+    Render.safeRender(canvas, () => Render.draw(canvas, level, opts, view));
   }
 
   function solText() {
@@ -3401,7 +3433,7 @@ const Player = (function () {
     if (showAnswer && level.solution && level.solution.length) {
       opts.solution = { path: level.solution, showNumbers: true };
     }
-    Render.draw(canvas, level, opts, pview);
+    Render.safeRender(canvas, () => Render.draw(canvas, level, opts, pview));
   }
 
   function updateStatus() {
@@ -6712,6 +6744,31 @@ const App = (function () {
     Library.init();
     Editor.render();
     setStatus('💡 在编辑器中设计关卡（含答案路径），然后点击「▶ 试玩当前关卡」');
+    /* ★ 出错显形：未捕获异常自动弹红条（手机上看不到控制台也能看到报错文字） */
+    window.addEventListener('error', function (ev) {
+      try {
+        const msg = '⚠ ' + (ev.message || '脚本出错') + (ev.filename ? ' @' + (ev.filename.split('/').pop() || '') + ':' + ev.lineno : '');
+        if (window.__errShown) return;
+        window.__errShown = true;
+        const b = document.createElement('div');
+        b.textContent = msg;
+        b.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:9999;background:#c62828;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;word-break:break-all;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+        b.addEventListener('click', () => b.remove());
+        document.body.appendChild(b);
+        console.error('[路径测验]', ev.error || ev.message);
+      } catch (e2) { /* 忽略 */ }
+    }, true);
+    /* ★ 版本标记（便于核对线上是否为最新构建） */
+    try {
+      const ver = 'v1.13.5';
+      window.__ver = ver;
+      console.info('[路径测验] 版本 ' + ver + ' 加载完成');
+      const vEl = document.createElement('span');
+      vEl.id = 'app-version';
+      vEl.textContent = ver;
+      vEl.style.cssText = 'position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;';
+      document.body.appendChild(vEl);
+    } catch (e) { /* 忽略 */ }
   }
 
   /* 关卡可玩性检查：起点/终点 + 有效答案路径 */
@@ -6846,79 +6903,7 @@ document.addEventListener('DOMContentLoaded', App.init);
 </script>
 </body>
 </html>
-Race && Library.inPvpRace()) {
-      toast('⚔️ 对战中不可进入编辑器');
-      return;
-    }
-    if (m === 'editor' && !Editor.isUnlocked()) {
-      /* 密码门：进入编辑器需先验证 */
-      $('pass-hint').textContent = '关卡「' + (Editor.getLevel().name || '未命名') + '」已加密，请输入密码进入编辑器。';
-      $('pass-input').value = '';
-      openModal('modal-pass');
-      setTimeout(() => { try { $('pass-input').focus(); } catch (err) { /* 忽略 */ } }, 60);
-      return;
-    }
-    if (m === 'editor' && typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity()) {
-      /* ★ 二次确认：社区关卡进入编辑器 = 可偷看答案，通关将不计成绩 */
-      if (!window.confirm('进入编辑器后将不能记录本关成绩（排行榜/实力不计入）。确定进入吗？')) return;
-      if (Library.markEdited) Library.markEdited(Library.getCurrentCommunity().id);
-    }
-    doSwitch(m);
-  }
-
-  function doSwitch(m) {
-    /* ★ 修复：从试玩返回编辑器时，先把作答进度存为草稿再清空（防游玩记录丢失） */
-    if (mode === 'player' && m === 'editor') {
-      if (typeof Library !== 'undefined' && Library.saveDraftIfPlaying) {
-        try { Library.saveDraftIfPlaying(); } catch (e) { /* 忽略 */ }
-      }
-      Player.stop();
-    }
-    mode = m;
-    $('editor-panel').classList.toggle('hidden', m !== 'editor');
-    $('player-panel').classList.toggle('hidden', m !== 'player');
-    $('tab-editor').classList.toggle('active', m === 'editor');
-    $('tab-player').classList.toggle('active', m === 'player');
-    const zc = $('zoom-controls');
-    if (zc) zc.style.display = (m === 'editor' || m === 'player') ? '' : 'none';   // ★ 编辑器/解题均可放大
-    syncPanButton();
-    /* ★ 教程中切换模式时刷新教程条（模式感知提示） */
-    if (typeof Library !== 'undefined' && Library.isTutorialActive && Library.isTutorialActive() && Library.updateTutorialBar) {
-      try { Library.updateTutorialBar(); } catch (e2) { /* 忽略 */ }
-    }
-    renderActive();
-  }
-
-  function onPassOk() {
-    if (Editor.verifyPassword($('pass-input').value)) {
-      Editor.unlock();
-      closeModal('modal-pass');
-      $('pass-input').value = '';
-      toast('密码正确，已解锁编辑器');
-      doSwitch('editor');
-    } else {
-      toast('密码错误');
-    }
-  }
-
-  function playCurrentLevel() {
-    const problem = levelPlayable(Editor.getLevel());
-    if (problem) { toast(problem); return; }
-    switchMode('player');
-  }
-
-  function renderActive() {
-    setTimeout(() => {
-      if (mode === 'editor') Editor.render(); else Player.render();
-    }, 30);
-  }
-
-  function toast(msg) {
-    const el = $('toast');
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(el._t);
-    el._t = setTimeout(() => el.classList.remove('show'), 2400);
+lassList.remove('show'), 2400);
   }
 
   function setPanButton(active) {
