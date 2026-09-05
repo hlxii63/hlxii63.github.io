@@ -403,6 +403,8 @@ select {
 }
 .zoom-btn:hover { background: #fff; }
 .zoom-btn.zoom-active { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+button.zoom-active { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 600; }
+button.zoom-active:hover { background: #1765c9; color: #fff; }
 .tutorial-jump { min-width: 132px; padding: 3px 6px; border-radius: 12px; font-size: 12px; border: 1px solid rgba(255,255,255,.45); background: rgba(255,255,255,.22); color: #fff; font-weight: 700; }
 .tutorial-jump option { color: #263238; background: #fff; }
 /* 跳转高亮闪烁 */
@@ -684,6 +686,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
         <button id="p-undo" class="act">↩ 撤销一步</button>
         <button id="p-undo10" class="act" title="一次撤销最近 10 步">↩↩ 撤销十步</button>
         <button id="p-clear" class="act">🧹 清空路径</button>
+        <button id="p-draft" class="act" title="打草稿：灰色自由划线，不参与判定（对战中也可用）">📝 打草稿</button>
         <label class="field check">
           <input id="p-numbers" type="checkbox" checked> 显示序号
         </label>
@@ -821,9 +824,9 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
             <input id="lib-search" type="search" placeholder="🔍 搜索关卡名称…" spellcheck="false">
             <input id="lib-player-search" type="search" placeholder="🔍 搜玩家…" spellcheck="false" style="max-width:120px" title="按玩家名搜索，点开可看主页">
             <select id="lib-sort">
-              <option value="">排序：精选优先</option>
+              <option value="time">排序：最新上传（默认）</option>
+              <option value="featured">排序：精选优先</option>
               <option value="difficulty">排序：难度高→低</option>
-              <option value="time">排序：最新上传</option>
               <option value="plays">排序：游玩最多</option>
               <option value="likes">排序：点赞最多</option>
             </select>
@@ -925,6 +928,20 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
       <div class="modal-btns">
         <button id="preview-play" class="act primary">▶ 载入并试玩</button>
         <button id="preview-close" class="act">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 过程回放弹窗 ================= -->
+  <div id="modal-replay" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">🎬 玩家解题过程</div>
+      <p id="replay-info" class="modal-tip"></p>
+      <canvas id="replay-canvas" width="320" height="320"></canvas>
+      <p id="replay-status" class="modal-tip"></p>
+      <div class="modal-btns">
+        <button id="replay-restart" class="act">▶ 重新回放</button>
+        <button id="replay-close" class="act">关闭</button>
       </div>
     </div>
   </div>
@@ -1885,6 +1902,25 @@ const Render = (function () {
     }
     if (opts.path && opts.path.length) drawPath(ctx, m, level, opts);
     drawHighlights(ctx, m, level, opts.highlights || {});
+    /* ★ 打草稿灰线（opts.draft，画在最上层，半透明） */
+    if (opts.draft && opts.draft.length) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(96, 116, 136, .5)';
+      ctx.lineWidth = Math.max(1.5, m.cs * 0.10);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (const stroke of opts.draft) {
+        if (!stroke || stroke.length < 2) continue;
+        ctx.beginPath();
+        stroke.forEach((pt, i) => {
+          const px = m.ox + pt[1] * m.cs + m.cs / 2;
+          const py = m.oy + pt[0] * m.cs + m.cs / 2;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     if (opts.preview && opts.preview.from && opts.preview.to) drawPreview(ctx, m, level, opts.preview);
     drawBorder(ctx, m, level);
   }
@@ -2998,11 +3034,38 @@ const Player = (function () {
   let showAnswer = false;   // ★ 查看答案（显示官方解）
   let viewedAnswer = false; // ★ 看过答案后不计入排行榜/实力
   let startTime = 0;
+  let wonMsVal = 0;      // ★ 本次通关用时（毫秒，供排行榜过程回放）
   /* ★ 解题放大镜：缩放/平移（与编辑器同款） */
   let pview = { scale: 1, x: 0, y: 0 };
   let ppanMode = false;
   let ppanning = false;
   let ppanLast = null;
+  /* ★ 打草稿：灰色自由划线（不影响路径/判定），对战解题同样可用 */
+  let draftMode = false;
+  let draftStrokes = [];    // 每笔 = 格子坐标浮点数组 [[r,c],...]
+  let curStroke = null;
+  function clientToCell(x, y) {
+    const rect = canvas ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
+    const m = Render.metrics(level, rect.width, rect.height, pview);
+    return [(y - rect.top - m.oy) / m.cs, (x - rect.left - m.ox) / m.cs];
+  }
+  function syncDraftBtn() {
+    const b = $('p-draft');
+    if (!b) return;
+    b.classList.toggle('zoom-active', draftMode);
+    b.textContent = draftMode ? '📝 草稿中(灰线)' : '📝 打草稿';
+  }
+  function toggleDraft() {
+    draftMode = !draftMode;
+    if (draftMode && ppanMode) { ppanMode = false; syncPanAppBtn(); }   // 与拖动互斥
+    if (canvas) canvas.style.cursor = draftMode ? 'crosshair' : (ppanMode ? 'grab' : '');
+    syncDraftBtn();
+    return draftMode;
+  }
+  function syncPanAppBtn() {
+    if (typeof App !== 'undefined' && App.syncPanButton) { try { App.syncPanButton(); } catch (e) { /* 忽略 */ } }
+  }
+  function clearDraftStrokes() { draftStrokes = []; curStroke = null; }
   function clampPView() {
     pview.scale = Math.min(4, Math.max(0.4, pview.scale));
     const rect = canvas ? canvas.getBoundingClientRect() : { width: 600, height: 400 };
@@ -3029,7 +3092,8 @@ const Player = (function () {
   function resetView() { pview = { scale: 1, x: 0, y: 0 }; render(); }
   function togglePan() {
     ppanMode = !ppanMode;
-    if (canvas) canvas.style.cursor = ppanMode ? 'grab' : '';
+    if (ppanMode && draftMode) { draftMode = false; syncDraftBtn(); }   // 与草稿互斥
+    if (canvas) canvas.style.cursor = ppanMode ? 'grab' : (draftMode ? 'crosshair' : '');
     return ppanMode;
   }
 
@@ -3045,6 +3109,10 @@ const Player = (function () {
     $('p-undo').addEventListener('click', () => undoSteps(1));
     $('p-undo10').addEventListener('click', () => undoSteps(10));
     $('p-clear').addEventListener('click', clearPath);
+    $('p-draft').addEventListener('click', () => {
+      const on = toggleDraft();
+      if (!on) App.toast('草稿保留在画面上，可用「🧹 清空路径」一起清除');
+    });
     $('p-numbers').addEventListener('change', e => { showNumbers = e.target.checked; render(); });
     $('p-back').addEventListener('click', () => {
       if (typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) { App.toast('⚔️ 对战中不可返回编辑器'); return; }
@@ -3106,6 +3174,8 @@ const Player = (function () {
   function reset() {
     path = [];
     won = false;
+    draftStrokes = [];
+    curStroke = null;
     startTime = Date.now();
     analysis = analyzePath(level, path);
     hideWin();
@@ -3117,6 +3187,12 @@ const Player = (function () {
   function onDown(e) {
     if (App.getMode() !== 'player' || !level) return;
     e.preventDefault();
+    /* ★ 打草稿：灰色自由划线 */
+    if (draftMode) {
+      curStroke = [clientToCell(e.clientX, e.clientY)];
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
+      return;
+    }
     /* ★ 拖动棋盘 */
     if (ppanMode) {
       ppanning = true;
@@ -3136,6 +3212,12 @@ const Player = (function () {
 
   function onMove(e) {
     if (App.getMode() !== 'player' || !level) return;
+    /* ★ 草稿描点 */
+    if (draftMode && curStroke) {
+      curStroke.push(clientToCell(e.clientX, e.clientY));
+      render();
+      return;
+    }
     /* ★ 平移 */
     if (ppanning && ppanLast) {
       pview.x += e.clientX - ppanLast.x;
@@ -3157,6 +3239,8 @@ const Player = (function () {
     drawing = false;
     ppanning = false;
     ppanLast = null;
+    if (curStroke && curStroke.length >= 2) draftStrokes.push(curStroke.map(pt => [+pt[0].toFixed(3), +pt[1].toFixed(3)]));
+    curStroke = null;
     /* ★ 修复：松手时强制重绘一次，避免最后一步未显示 */
     render();
   }
@@ -3202,6 +3286,7 @@ const Player = (function () {
   function finish(an) {
     won = true;
     analysis = an;
+    wonMsVal = Math.max(1, Math.round((Date.now() - startTime) * 10) / 10);
     render();
     const secs = ((Date.now() - startTime) / 1000).toFixed(1);
     $('win-stats').textContent =
@@ -3248,6 +3333,8 @@ const Player = (function () {
   function clearPath() {
     path = [];
     won = false;
+    draftStrokes = [];
+    curStroke = null;
     startTime = Date.now();
     analysis = analyzePath(level, path);
     render();
@@ -3264,6 +3351,7 @@ const Player = (function () {
     }
     const opts = {
       path,
+      draft: draftStrokes,   // ★ 草稿灰线
       showNumbers,
       highlights: h
     };
@@ -3375,13 +3463,16 @@ const Player = (function () {
     analysis = null;
     showAnswer = false;
     viewedAnswer = false;
+    draftStrokes = [];
+    curStroke = null;
     hideWin();
   }
 
   return {
     init, loadLevel, undoStep, undoSteps, clearPath, reset, render, stop,
     viewAnswer, exitSave, getPath: () => path.slice(), hasViewed: () => viewedAnswer,
-    zoomAt, resetView, togglePan, getView: () => ({ scale: pview.scale, x: pview.x, y: pview.y }), panMode: () => ppanMode
+    zoomAt, resetView, togglePan, getView: () => ({ scale: pview.scale, x: pview.x, y: pview.y }), panMode: () => ppanMode,
+    toggleDraft, draftMode: () => draftMode, draftCount: () => draftStrokes.length, clearDraftStrokes, syncDraftBtn, wonMs: () => wonMsVal, hasWon: () => won
   };
 })();
 
@@ -3571,14 +3662,15 @@ const Library = (function () {
     const fa = x => FEATURED_ORDER[x.featured] || 0;
     switch (mode) {
       case 'difficulty': return arr.sort((a, b) => (Number(b.rating) || Number(b.difficulty) || 0) - (Number(a.rating) || Number(a.difficulty) || 0));
-      case 'time': return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      case 'featured': return arr.sort((a, b) => {
+        const d = fa(b) - fa(a);
+        return d !== 0 ? d : (b.createdAt || 0) - (a.createdAt || 0);
+      });
       case 'plays': return arr.sort((a, b) => (Number(b.plays) || 0) - (Number(a.plays) || 0));
       case 'likes': return arr.sort((a, b) => netLikes(b) - netLikes(a));
+      case 'time':
       default:
-        return arr.sort((a, b) => {
-          const d = fa(b) - fa(a);
-          return d !== 0 ? d : (b.createdAt || 0) - (a.createdAt || 0);
-        });
+        return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));   // ★ 默认：最新上传
     }
   }
 
@@ -3637,6 +3729,7 @@ const Library = (function () {
   function saveDraftIfPlaying() {
     if (!currentCommunity || typeof Player === 'undefined' || !Player.getPath) return;
     try {
+      if (Player.hasWon && Player.hasWon()) return;   // ★ 已通关的路径不算「进行中进度」，不存草稿
       const pp = Player.getPath();
       if (pp && pp.length) saveDraft(pp, Player.hasViewed ? Player.hasViewed() : false);
     } catch (e) { /* 忽略 */ }
@@ -3644,7 +3737,7 @@ const Library = (function () {
 
   /* 通关回调：查看过答案的不记录；记录只写第一次（作者本人记录也会写入，
    * 但展示排行榜时不计入自己关卡的榜） */
-  async function recordCompletion(levelId, playerName) {
+  async function recordCompletion(levelId, playerName, extra) {
     if (!levelId) return;
     const myKey = ownerKey();
     const data = await readData();
@@ -3652,7 +3745,14 @@ const Library = (function () {
     if (!lv) return;
     lv.completions = lv.completions || [];
     if (lv.completions.some(c => c.key === myKey)) return;   // 重复通关不重复记录
-    lv.completions.push({ key: myKey, name: String(playerName || '匿名').slice(0, 20), at: Date.now() });
+    extra = extra || {};
+    /* ★ 保存过程：用时(ms) + 通关路径（供排行榜「▶ 过程」回放） */
+    const rec = { key: myKey, name: String(playerName || '匿名').slice(0, 20), at: Date.now() };
+    if (extra.ms > 0) rec.ms = Math.round(extra.ms);
+    if (Array.isArray(extra.path) && extra.path.length >= 2) {
+      rec.path = extra.path.slice(0, 1500).map(p => [p[0], p[1]]);
+    }
+    lv.completions.push(rec);
     await writeData(data);
   }
   function onWin(viewedAnswer) {
@@ -3663,7 +3763,15 @@ const Library = (function () {
       App.toast('👁 查看过答案或进入过编辑器，本次通关不计入排行榜');
       return;
     }
-    recordCompletion(cid, authorName())
+    let extra = {};
+    try {
+      if (typeof Player !== 'undefined' && Player.getPath) {
+        const pp = Player.getPath();
+        if (pp && pp.length) extra.path = pp.slice();
+      }
+      if (typeof Player !== 'undefined' && Player.wonMs) extra.ms = Player.wonMs();
+    } catch (e) { /* 忽略 */ }
+    recordCompletion(cid, authorName(), extra)
       .then(() => App.toast('🏆 已记录完成，看看这关的排行榜！'))
       .catch(() => { /* 静默 */ });
   }
@@ -3729,7 +3837,11 @@ const Library = (function () {
     const list = ((lv && lv.completions) || [])
       .filter(c => c && c.key && String(c.key) !== String(lv.ownerKey))
       .sort((a, b) => (a.at || 0) - (b.at || 0));
-    return list.map((c, i) => ({ rank: i + 1, name: c.name || '匿名', at: c.at || 0 }));
+    return list.map((c, i) => ({
+      rank: i + 1, name: c.name || '匿名', at: c.at || 0,
+      ms: c.ms || 0, key: c.key,
+      hasPath: !!(c.path && c.path.length >= 2)
+    }));
   }
 
   /* 玩家实力：完成过的、带开发者难度评级的最难 5 关的平均难度 */
@@ -3772,6 +3884,70 @@ const Library = (function () {
     return list;
   }
 
+  function fmtMs(ms) {
+    if (!(ms > 0)) return '';
+    return ms < 1000 ? Math.round(ms) + 'ms' : (ms / 1000).toFixed(1) + 's';
+  }
+  /* ★ 能否看某人的通关过程：已通关 / 已查看答案 / 作者（或该记录本人） */
+  function canViewRun(lv, recKey) {
+    const myKey = ownerKey();
+    if (recKey && String(recKey) === String(myKey)) return true;      // 自己的记录
+    if (String(lv.ownerKey) === String(myKey)) return true;           // 作者
+    const done = ((lv.completions || []).some(c => c && c.key && String(c.key) === String(myKey)));
+    if (done) return true;                                            // 已通关
+    if (lv.id && viewedMap()[lv.id]) return true;                     // 已查看答案
+    return false;
+  }
+  /* ★ 回放：弹出弹窗并逐格动画绘制玩家过程 */
+  let replayTimer = null;
+  async function openReplay(levelId, rec) {
+    try {
+      if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+      const full = await communityGet(levelId);
+      const meta = full.level || {};
+      const data = meta.data || {};
+      const r = Level.fromJSON(data);
+      if (!r.level) { App.toast('关卡数据无效'); return; }
+      const lv = r.level;
+      window.__replayLevelId = levelId; window.__replayRec = rec;
+      const infoEl = $('replay-info');
+      if (infoEl) infoEl.textContent = '🎬 ' + (meta.name || data.name || '未命名') + ' · 玩家：' + (rec.name || '匿名') +
+        (rec.ms > 0 ? ' · 用时 ' + fmtMs(rec.ms) : '') + ' · 步数 ' + ((rec.path || []).length - 1);
+      App.openModal('modal-replay');
+      const canvas = $('replay-canvas');
+      const drawN = n => {
+        if (!canvas) return;
+        try {
+          const pathSoFar = (rec.path || []).slice(0, n);
+          const pEl = $('replay-status');
+          if (pEl) pEl.textContent = '回放中：第 ' + pathSoFar.length + ' / ' + (rec.path || []).length + ' 格';
+          Render.draw(canvas, lv, { path: pathSoFar.length >= 2 ? pathSoFar : [], showNumbers: false });
+        } catch (e2) { /* 忽略 */ }
+      };
+      drawN(1);
+      const path = rec.path || [];
+      if (path.length < 2) {
+        const pEl = $('replay-status');
+        if (pEl) pEl.textContent = '⚠ 该记录未保存过程';
+        return;
+      }
+      const totalMs = Math.max(800, Math.min(8000, (rec.ms > 0 ? rec.ms : 0) || 4000));
+      const per = Math.max(25, Math.min(300, Math.floor(totalMs / path.length)));
+      let n = 1;
+      replayTimer = setInterval(() => {
+        n += 1;
+        drawN(n);
+        if (n >= path.length) {
+          clearInterval(replayTimer);
+          replayTimer = null;
+          const pEl = $('replay-status');
+          if (pEl) pEl.textContent = '✅ 回放完毕';
+        }
+      }, per);
+    } catch (e) {
+      App.toast('回放失败：' + e.message);
+    }
+  }
   /* ★ 社区关卡载入前快照编辑器，退出后还原（回到导入前界面） */
   let editorSnapshot = null;
   function snapshotEditorOnLoad() {
@@ -4439,7 +4615,16 @@ const Library = (function () {
       }
       board.slice(0, 20).forEach(c => {
         const line = el('div', 'lib-rank' + (c.rank <= 3 ? ' top' + c.rank : ''));
-        line.textContent = '第' + c.rank + '名  ' + c.name + '  ·  ' + fmtTime(c.at);
+        const txt = el('span', '', '第' + c.rank + '名  ' + c.name + ' · ' + fmtTime(c.at) + (c.ms > 0 ? ' · ' + fmtMs(c.ms) : ''));
+        line.appendChild(txt);
+        /* ★ 查看玩家过程：需已通关/已看答案/作者（含本人） */
+        if (c.hasPath && canViewRun(it, c.key)) {
+          const rb = el('button', 'act replay-run-btn', '▶ 过程');
+          rb.title = '查看该玩家的解题过程（回放）';
+          rb.style.marginLeft = '8px';
+          rb.addEventListener('click', () => openReplay(it.id, c));
+          line.appendChild(rb);
+        }
         panel.appendChild(line);
       });
     };
@@ -5989,6 +6174,14 @@ const Library = (function () {
     };
     const bc = $('btn-community');
     if (bc) bc.addEventListener('click', openCommunity);
+    /* 🎬 过程回放弹窗 */
+    $('replay-close').addEventListener('click', () => {
+      App.closeModal('modal-replay');
+      if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+    });
+    $('replay-restart').addEventListener('click', () => {
+      if (window.__replayRec && window.__replayLevelId) openReplay(window.__replayLevelId, window.__replayRec);
+    });
     $('lib-close').addEventListener('click', () => App.closeModal('modal-library'));
     $('lib-tab-local').addEventListener('click', () => switchTab('local'));
     $('lib-tab-community').addEventListener('click', () => { switchTab('community'); renderCommunityList(); });
@@ -6374,6 +6567,7 @@ const Library = (function () {
     showPvpRaceBar, hidePvpRaceBar, showPvpBuildBar, showPvpRoomView, inPvpMatch, pvpSetSizeLock,
     pvpTryResume, creationPointsOf, pvpTransferHost,
     addComment, deleteComment, openCommentModal, renderCommentList,
+    canViewRun, openReplay, fmtMs,
     openTutorial, isTutorialActive, onTutorialWin, exitTutorial, exitTutorialIfActive, updateTutorialBar, TUTORIALS,
     communityUpload, communityList, communityGet, communityDelete, loadIntoEditor
   };
@@ -6419,6 +6613,7 @@ const App = (function () {
         e.stopPropagation();
         const on = zoomApi('togglePan');
         setPanButton(!!on);
+        if (mode === 'player' && Player.syncDraftBtn) { try { Player.syncDraftBtn(); } catch (e3) { /* 忽略 */ } }
       });
     }
 
@@ -6582,7 +6777,7 @@ const App = (function () {
   function getMode() { return mode; }
 
   return {
-    init, switchMode, playCurrentLevel, toast, setStatus, openModal, closeModal, getMode, levelPlayable
+    init, switchMode, playCurrentLevel, toast, setStatus, syncPanButton, openModal, closeModal, getMode, levelPlayable
   };
 })();
 
