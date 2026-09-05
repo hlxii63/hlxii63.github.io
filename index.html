@@ -686,7 +686,7 @@ button.liked { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
         <button id="p-undo" class="act">↩ 撤销一步</button>
         <button id="p-undo10" class="act" title="一次撤销最近 10 步">↩↩ 撤销十步</button>
         <button id="p-clear" class="act">🧹 清空路径</button>
-        <button id="p-draft" class="act" title="打草稿：点相邻格连成一条灰色草稿路（像画解答路径），提醒自己某处只有一种走法；点末端=回删一段，与解答独立不判定（对战也可用）">📝 打草稿</button>
+        <button id="p-draft" class="act" title="打草稿：点两个相邻格（正交或斜向，长1或√2）画一条灰色短线段，像红绿边一样再点一次可擦除；多段可相邻、并排、分支，连成草稿路做提示；与解答独立不判定（对战也可用）">📝 打草稿</button>
         <button id="p-draft-clear" class="act" style="display:none" title="一键清空全部草稿（不影响解答路径）">🧹 清草稿</button>
         <label class="field check">
           <input id="p-numbers" type="checkbox" checked> 显示序号
@@ -1920,34 +1920,26 @@ const Render = (function () {
     }
     if (opts.path && opts.path.length) drawPath(ctx, m, level, opts);
     drawHighlights(ctx, m, level, opts.highlights || {});
-    /* ★ 草稿路径（opts.draftPaths）：可多段，每段=一条灰线沿格子中心走 */
-    if (opts.draftPaths && opts.draftPaths.length) {
+    /* ★ 草稿线段（opts.draftSegs）：每条短线段画在两端格心之间，
+     * 相邻线段自然连成一条条灰色草稿路 */
+    if (opts.draftSegs && opts.draftSegs.size) {
       ctx.save();
       ctx.strokeStyle = 'rgba(120, 140, 160, .8)';
       ctx.fillStyle = 'rgba(120, 140, 160, .8)';
       ctx.lineWidth = Math.max(2.5, m.cs * 0.15);
       ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      for (const stroke of opts.draftPaths) {
-        if (!stroke || stroke.length < 2) continue;
+      ctx.setLineDash([Math.max(4, m.cs * 0.2), Math.max(3, m.cs * 0.13)]);
+      for (const k of opts.draftSegs) {
+        const parts = k.split('|');
+        if (parts.length !== 2) continue;
+        const a = parts[0].split(',').map(Number), b = parts[1].split(',').map(Number);
+        if (a.length !== 2 || b.length !== 2) continue;
         ctx.beginPath();
-        stroke.forEach((dp2, i) => {
-          const px = m.ox + dp2[1] * m.cs + m.cs / 2;
-          const py = m.oy + dp2[0] * m.cs + m.cs / 2;
-          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-        });
-        ctx.setLineDash([Math.max(4, m.cs * 0.2), Math.max(3, m.cs * 0.13)]);
+        ctx.moveTo(m.ox + a[1] * m.cs + m.cs / 2, m.oy + a[0] * m.cs + m.cs / 2);
+        ctx.lineTo(m.ox + b[1] * m.cs + m.cs / 2, m.oy + b[0] * m.cs + m.cs / 2);
         ctx.stroke();
       }
       ctx.setLineDash([]);
-      for (const stroke of opts.draftPaths) {   // 关节圆点（看清每段经过哪些格）
-        if (!stroke) continue;
-        for (const dp2 of stroke) {
-          ctx.beginPath();
-          ctx.arc(m.ox + dp2[1] * m.cs + m.cs / 2, m.oy + dp2[0] * m.cs + m.cs / 2, Math.max(2, m.cs * 0.09), 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
       ctx.restore();
     }
     if (opts.preview && opts.preview.from && opts.preview.to) drawPreview(ctx, m, level, opts.preview);
@@ -3070,31 +3062,27 @@ const Player = (function () {
   let ppanMode = false;
   let ppanning = false;
   let ppanLast = null;
-  /* ★ 打草稿：可画「多段」草稿路——每段像画解答路径一样连成一条连续的
-   * 灰线（沿格子中心走），用来在多个地方分别标记「只有一种走法」的提示；
-   * 草稿与解答完全独立、不影响判定，对战解题同样可用。
-   * 操作：点空处 = 开始新的一段；点某段的末端旁 = 延伸该段；
-   *      点某段的末端 = 回删该段最后一步；「🧹 清草稿」一键全清。 */
+  /* ★ 打草稿：草稿 = 多条「长度 1 或 √2 的短线段」（相邻两格，正交/斜向皆可），
+   * 生成与擦除同红/绿边：点第 1 格 → 点相邻第 2 格 → 生成/擦除该段。
+   * 短线段彼此独立：可相邻、可并排、可分支；多段连起来在视觉上就是一条条
+   * 灰色草稿路（提醒某处只有一种走法）。与解答独立、不影响判定，对战可用。 */
   let draftMode = false;
-  let draftPaths = [];       // 多段草稿：每段 = 格子坐标链 [[[r,c],...], ...]
-  let draftPress = null;     // 按下时的格（松开未移动=点按）
-  let draftDragging = false;
-  let draftActive = -1;      // 当前按下/拖动关联的段索引
-  let draftFresh = false;    // 本次按下是否刚新开了一段（新段不再被点按误删）
+  let draftSegs = new Set();   // 短线段集合（Level.edgeKey，双向同 key）
+  let draftPick = null;        // 待连的第 1 格
   function syncDraftBtn() {
     const b = $('p-draft');
     if (!b) return;
     b.classList.toggle('zoom-active', draftMode);
-    b.textContent = draftMode ? '📝 草稿中(点相邻格连成路·可多段)' : '📝 打草稿';
+    b.textContent = draftMode ? '📝 草稿中(点相邻两格划线)' : '📝 打草稿';
   }
   function syncDraftClearBtn() {
     const b = $('p-draft-clear');
     if (!b) return;
-    b.style.display = draftPaths.length ? '' : 'none';
+    b.style.display = draftSegs.size ? '' : 'none';
   }
   function toggleDraft() {
     draftMode = !draftMode;
-    draftPress = null; draftDragging = false; draftActive = -1;
+    draftPick = null;
     if (draftMode && ppanMode) { ppanMode = false; syncPanAppBtn(); }   // 与拖动互斥
     if (canvas) canvas.style.cursor = draftMode ? 'crosshair' : (ppanMode ? 'grab' : '');
     syncDraftBtn();
@@ -3105,76 +3093,23 @@ const Player = (function () {
     if (typeof App !== 'undefined' && App.syncPanButton) { try { App.syncPanButton(); } catch (e) { /* 忽略 */ } }
   }
   function clearDraftPath() {
-    draftPaths = [];
-    draftActive = -1;
+    draftSegs = new Set();
+    draftPick = null;
     syncDraftClearBtn();
     render();
   }
-  function sameCell(a, b) { return a && b && a[0] === b[0] && a[1] === b[1]; }
-  function inStroke(s, cell) { return s.some(x => sameCell(x, cell)); }
-  function strokeEnd(s) { return s[s.length - 1]; }
-  function strokeHas(s, cell) { return inStroke(s, cell); }
-  /* 找到「末端为 cell 或 cell 相邻其末端」的段；找不到返回 -1 */
-  function strokeNearEnd(cell, includeEqual) {
-    for (let i = draftPaths.length - 1; i >= 0; i--) {
-      const s = draftPaths[i];
-      if (!s.length) continue;
-      const end = strokeEnd(s);
-      if (sameCell(end, cell)) { return includeEqual ? i : -1; }   // 是端点 → 特判
-      if (level.isAdjacent(end, cell)) return i;
+  function draftClick(cell) {
+    if (!draftPick) { draftPick = cell.slice(); render(); return; }        // 选第 1 格
+    if (draftPick[0] === cell[0] && draftPick[1] === cell[1]) { draftPick = null; render(); return; }  // 同格=取消
+    if (!level.isAdjacent(draftPick, cell)) {                             // 必须相邻（长度1或√2）
+      App.toast('只能连接相邻（正交或斜向）的两格，像红/绿边一样');
+      draftPick = null; render(); return;
     }
-    return -1;
-  }
-  /* 按下：决定关联段 */
-  function draftDown(cell) {
-    draftPress = cell; draftDragging = false;
-    const onEnd = (() => { for (let i = 0; i < draftPaths.length; i++) if (sameCell(strokeEnd(draftPaths[i]), cell)) return i; return -1; })();
-    if (onEnd >= 0) { draftActive = onEnd; draftFresh = false; return; }   // 从端点按下：可能是点按回删，也可能是拖动延续
-    const j = strokeNearEnd(cell, false);
-    if (j >= 0) { draftActive = j; draftFresh = false; return; }           // 从某段末端旁按下：点按=延伸 / 拖动=延续
-    draftPaths.push([cell.slice()]);                        // 新开一段
-    draftActive = draftPaths.length - 1;
-    draftFresh = true;                                      // ★ 刚新开的段，点按不再回删
+    const ek = Level.edgeKey(draftPick, cell);                            // 生成/擦除该短线段
+    if (draftSegs.has(ek)) draftSegs.delete(ek); else draftSegs.add(ek);
+    draftPick = null;
     syncDraftClearBtn();
     render();
-  }
-  /* 拖动：沿直线给当前段补相邻格 */
-  function draftMove(cell) {
-    if (draftActive < 0 || !draftPaths[draftActive]) return;
-    const s = draftPaths[draftActive];
-    const end = strokeEnd(s);
-    if (sameCell(end, cell)) return;
-    if (!level.isAdjacent(end, cell)) {
-      let r = end[0], c = end[1];
-      while (r !== cell[0] || c !== cell[1]) {
-        if (r !== cell[0]) r += (cell[0] > r) ? 1 : -1;
-        if (c !== cell[1]) c += (cell[1] > c) ? 1 : -1;
-        if (!inStroke(s, [r, c])) s.push([r, c]);
-      }
-      syncDraftClearBtn(); render(); return;
-    }
-    if (!inStroke(s, cell)) { s.push(cell.slice()); syncDraftClearBtn(); render(); }
-  }
-  /* 点按（按下后未移动）：末端=回删（刚新开的不删）；末端旁=延伸；否则保持单点段 */
-  function draftUpTap(cell) {
-    if (!draftFresh) {
-      for (let i = draftPaths.length - 1; i >= 0; i--) {
-        const s = draftPaths[i];
-        if (s.length && sameCell(strokeEnd(s), cell)) {
-          s.pop();
-          if (!s.length) draftPaths.splice(i, 1);
-          syncDraftClearBtn(); render(); return;
-        }
-      }
-      const j = strokeNearEnd(cell, false);
-      if (j >= 0) {
-        const s = draftPaths[j];
-        if (inStroke(s, cell)) { App.toast('草稿该段已含此格'); return; }
-        s.push(cell.slice());
-        syncDraftClearBtn(); render();
-      }
-    }
-    /* 新开段的场景：按下已建好单点段，保持原样（下次点相邻格继续延伸） */
   }
   function clampPView() {
     pview.scale = Math.min(4, Math.max(0.4, pview.scale));
@@ -3221,7 +3156,7 @@ const Player = (function () {
     $('p-clear').addEventListener('click', clearPath);
     $('p-draft').addEventListener('click', () => {
       const on = toggleDraft();
-      if (!on) App.toast('已退出草稿模式（灰色草稿边保留）');
+      if (!on) App.toast('已退出草稿模式（灰色草稿保留在画面上）');
     });
     $('p-draft-clear').addEventListener('click', () => {
       clearDraftPath();
@@ -3288,11 +3223,8 @@ const Player = (function () {
   function reset() {
     path = [];
     won = false;
-    draftPaths = [];
-    draftPress = null;
-    draftDragging = false;
-    draftActive = -1;
-    draftFresh = false;
+    draftSegs = new Set();
+    draftPick = null;
     startTime = Date.now();
     analysis = analyzePath(level, path);
     syncDraftClearBtn();
@@ -3305,10 +3237,10 @@ const Player = (function () {
   function onDown(e) {
     if (App.getMode() !== 'player' || !level) return;
     e.preventDefault();
-    /* ★ 打草稿（多段）：按下决定关联段 */
+    /* ★ 打草稿：点第 1 格 → 点相邻第 2 格 → 生成/擦除一条短线段 */
     if (draftMode) {
       const cellD = Render.cellAt(canvas, level, e.clientX, e.clientY, pview);
-      if (cellD) draftDown(cellD);
+      if (cellD) draftClick(cellD);
       return;
     }
     /* ★ 拖动棋盘 */
@@ -3339,19 +3271,6 @@ const Player = (function () {
       render();
       return;
     }
-    /* ★ 草稿拖动：按住滑过相邻格 → 延伸当前段 */
-    if (draftMode) {
-      const cellM = Render.cellAt(canvas, level, e.clientX, e.clientY, pview);
-      if (!cellM) return;
-      if (draftPress && !sameCell(cellM, draftPress)) {
-        if (!draftDragging) draftMove(draftPress);   // 拖动第一格：先补上按下格
-        draftDragging = true;   // 移动过 → 拖动（不会误触发点按回删）
-        draftMove(cellM);
-      } else {
-        render();
-      }
-      return;
-    }
     if (!drawing) return;
     const cell = Render.cellAt(canvas, level, e.clientX, e.clientY, pview);
     if (!cell) return;
@@ -3364,12 +3283,6 @@ const Player = (function () {
     drawing = false;
     ppanning = false;
     ppanLast = null;
-    /* ★ 草稿点按（按下后未移动 = 点按：回删/延伸/新段） */
-    if (draftPress && !draftDragging && draftMode) draftUpTap(draftPress);
-    draftPress = null;
-    draftDragging = false;
-    draftActive = -1;
-    draftFresh = false;
     /* ★ 修复：松手时强制重绘一次，避免最后一步未显示 */
     render();
   }
@@ -3462,8 +3375,6 @@ const Player = (function () {
   function clearPath() {
     path = [];
     won = false;
-    draftPress = null;
-    draftDragging = false;
     startTime = Date.now();
     analysis = analyzePath(level, path);
     render();
@@ -3480,15 +3391,12 @@ const Player = (function () {
     }
     const opts = {
       path,
-      draftPaths,            // ★ 草稿：多段路（每段灰线沿格子中心）
+      draftSegs,             // ★ 草稿：短线段集（灰色）
       showNumbers,
       highlights: h
     };
-    /* ★ 草稿末端高亮（提示继续延伸的位置） */
-    if (draftMode && draftPaths.length) {
-      const lastS = draftPaths[draftPaths.length - 1];
-      if (lastS && lastS.length) h.sel = lastS[lastS.length - 1];
-    }
+    /* ★ 草稿待连的第 1 格高亮 */
+    if (draftMode && draftPick) h.sel = draftPick;
     /* ★ 查看答案：显示官方解（灰色虚线） */
     if (showAnswer && level.solution && level.solution.length) {
       opts.solution = { path: level.solution, showNumbers: true };
@@ -3597,11 +3505,8 @@ const Player = (function () {
     analysis = null;
     showAnswer = false;
     viewedAnswer = false;
-    draftPaths = [];
-    draftPress = null;
-    draftDragging = false;
-    draftActive = -1;
-    draftFresh = false;
+    draftSegs = new Set();
+    draftPick = null;
     syncDraftClearBtn();
     hideWin();
   }
@@ -3610,10 +3515,10 @@ const Player = (function () {
     init, loadLevel, undoStep, undoSteps, clearPath, reset, render, stop,
     viewAnswer, exitSave, getPath: () => path.slice(), hasViewed: () => viewedAnswer,
     zoomAt, resetView, togglePan, getView: () => ({ scale: pview.scale, x: pview.x, y: pview.y }), panMode: () => ppanMode,
-    toggleDraft, draftMode: () => draftMode, draftCount: () => draftPaths.length,
+    toggleDraft, draftMode: () => draftMode, draftCount: () => draftSegs.size,
     clearDraftPath, syncDraftBtn, syncDraftClearBtn,
-    getDraftPaths: () => draftPaths.map(s => s.map(x => x.slice())),
-    draftCells: () => draftPaths.reduce((n, s) => n + s.length, 0),
+    getDraftSegs: () => Array.from(draftSegs).map(k => k.split('|').map(x => x.split(',').map(Number))),
+    draftPickCell: () => (draftPick ? draftPick.slice() : null),
     wonMs: () => wonMsVal, hasWon: () => won
   };
 })();
@@ -3994,7 +3899,8 @@ const Library = (function () {
     return list.map((c, i) => ({
       rank: i + 1, name: c.name || '匿名', at: c.at || 0,
       ms: c.ms || 0, key: c.key,
-      hasPath: !!(c.path && c.path.length >= 2)
+      hasPath: !!(c.path && c.path.length >= 2),
+      path: c.path || null    // ★ 保留路径供「▶ 过程」回放（勿删！）
     }));
   }
 
@@ -6836,6 +6742,111 @@ const App = (function () {
     /* ★ force：退出/恢复等场景绕过确认与密码门（返回编辑/查看答案仍走确认） */
     if (force) { doSwitch(m); return; }
     if (m === 'editor' && typeof Library !== 'undefined' && Library.inPvpRace && Library.inPvpRace()) {
+      toast('⚔️ 对战中不可进入编辑器');
+      return;
+    }
+    if (m === 'editor' && !Editor.isUnlocked()) {
+      /* 密码门：进入编辑器需先验证 */
+      $('pass-hint').textContent = '关卡「' + (Editor.getLevel().name || '未命名') + '」已加密，请输入密码进入编辑器。';
+      $('pass-input').value = '';
+      openModal('modal-pass');
+      setTimeout(() => { try { $('pass-input').focus(); } catch (err) { /* 忽略 */ } }, 60);
+      return;
+    }
+    if (m === 'editor' && typeof Library !== 'undefined' && Library.getCurrentCommunity && Library.getCurrentCommunity()) {
+      /* ★ 二次确认：社区关卡进入编辑器 = 可偷看答案，通关将不计成绩 */
+      if (!window.confirm('进入编辑器后将不能记录本关成绩（排行榜/实力不计入）。确定进入吗？')) return;
+      if (Library.markEdited) Library.markEdited(Library.getCurrentCommunity().id);
+    }
+    doSwitch(m);
+  }
+
+  function doSwitch(m) {
+    /* ★ 修复：从试玩返回编辑器时，先把作答进度存为草稿再清空（防游玩记录丢失） */
+    if (mode === 'player' && m === 'editor') {
+      if (typeof Library !== 'undefined' && Library.saveDraftIfPlaying) {
+        try { Library.saveDraftIfPlaying(); } catch (e) { /* 忽略 */ }
+      }
+      Player.stop();
+    }
+    mode = m;
+    $('editor-panel').classList.toggle('hidden', m !== 'editor');
+    $('player-panel').classList.toggle('hidden', m !== 'player');
+    $('tab-editor').classList.toggle('active', m === 'editor');
+    $('tab-player').classList.toggle('active', m === 'player');
+    const zc = $('zoom-controls');
+    if (zc) zc.style.display = (m === 'editor' || m === 'player') ? '' : 'none';   // ★ 编辑器/解题均可放大
+    syncPanButton();
+    /* ★ 教程中切换模式时刷新教程条（模式感知提示） */
+    if (typeof Library !== 'undefined' && Library.isTutorialActive && Library.isTutorialActive() && Library.updateTutorialBar) {
+      try { Library.updateTutorialBar(); } catch (e2) { /* 忽略 */ }
+    }
+    renderActive();
+  }
+
+  function onPassOk() {
+    if (Editor.verifyPassword($('pass-input').value)) {
+      Editor.unlock();
+      closeModal('modal-pass');
+      $('pass-input').value = '';
+      toast('密码正确，已解锁编辑器');
+      doSwitch('editor');
+    } else {
+      toast('密码错误');
+    }
+  }
+
+  function playCurrentLevel() {
+    const problem = levelPlayable(Editor.getLevel());
+    if (problem) { toast(problem); return; }
+    switchMode('player');
+  }
+
+  function renderActive() {
+    setTimeout(() => {
+      if (mode === 'editor') Editor.render(); else Player.render();
+    }, 30);
+  }
+
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 2400);
+  }
+
+  function setPanButton(active) {
+    const zp = $('zoom-pan');
+    if (!zp) return;
+    zp.textContent = active ? '✏️' : '✋';
+    zp.classList.toggle('zoom-active', !!active);
+  }
+  function syncPanButton() {
+    const on = mode === 'editor' ? (Editor.panMode ? Editor.panMode() : false)
+      : mode === 'player' ? (Player.panMode ? Player.panMode() : false) : false;
+    setPanButton(on);
+  }
+  function setStatus(html) {
+    $('status').innerHTML = html;
+  }
+
+  function openModal(id) { $(id).classList.add('show'); }
+  function closeModal(id) { $(id).classList.remove('show'); }
+
+  function getMode() { return mode; }
+
+  return {
+    init, switchMode, playCurrentLevel, toast, setStatus, syncPanButton, openModal, closeModal, getMode, levelPlayable
+  };
+})();
+
+document.addEventListener('DOMContentLoaded', App.init);
+
+</script>
+</body>
+</html>
+Race && Library.inPvpRace()) {
       toast('⚔️ 对战中不可进入编辑器');
       return;
     }
