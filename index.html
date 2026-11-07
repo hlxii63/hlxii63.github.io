@@ -2698,6 +2698,16 @@
       </div>
     </div>
   </div>
+  <div id="modal-back-edit" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">✏️ 返回编辑器？</div>
+      <p id="back-edit-body" class="modal-tip"></p>
+      <div class="modal-btns">
+        <button id="back-edit-cancel" class="act primary">取消，继续试玩</button>
+        <button id="back-edit-ok" class="act">确定进入编辑器</button>
+      </div>
+    </div>
+  </div>
   <div id="modal-rank" class="modal">
     <div class="modal-box wide">
       <div id="rank-title" class="modal-title">🏆 排行榜</div>
@@ -2759,7 +2769,9 @@
           </tr>
         </table>
         <p><b>操作</b>：编辑器里选好工具后点击格子；红/绿边先点一格再点相邻格（含斜向）；数字格先在「数字」输入框填范围（两个框都填 = 区间 a~b，只填第一个 = 精确步数；都留空点击可移除数字）再点格子；答案路径从 S 开始点或拖动画线（与试玩规则相同），可用「撤销一步答案」逐步回退；试玩时从 S 开始点或拖动画线、可显示序号。</p>
-        <p><b>往回走（撤销）</b>：试玩时点<b>路径上的上一格</b>即往回退一步，可以连续点、连续退；退回时按钮、得分、各种物体状态也一起回到那一刻（计时不变）。关卡设置里关掉「允许往回走」后就不能回退，只能点 <b>🧹 清空路径</b>重开。</p>
+        <p><b>上传关卡</b>：本地关卡通关后，结算页有 <b>⬆ 上传关卡</b> 按钮（<b>这是唯一的上传入口</b>），登录社区账号后即可把这一关分享到社区；<b>社区关卡</b>本身已经在社区里，结算页不再显示这个按钮。</p>
+        <p><b>进度保存</b>：试玩中途切后台、关页面、被系统回收，进度都会自动存下来（当前笔画、已完成笔画、暂停笔画、草稿线、用时、机关与物体的位置/得分/动画），下次进来接着走；也可点 <b>⏏ 返回编辑</b>手动存档。</p>
+        <p><b>往回走（撤销）</b>：试玩时点<b>路径上的上一格</b>即往回退一步（<b>按住拖动拖回上一格</b>也可以连续退），可以连续点、连续拖、连续退；退回时按钮、得分、各种物体状态也一起回到那一刻（计时不变）。关卡设置里关掉「允许往回走」后就不能回退，只能点 <b>🧹 清空路径</b>重开。</p>
         <p><b>PC 端移动地图</b>：按住 <b>右键/中键</b> 拖动即可平移（或点左上角 ✋ 切换拖动模式后用左键拖）；<b>方向键</b> 也能平移（Shift 加速）；<b>Shift+滚轮</b> 或触控板横向滑动 = 左右平移，普通滚轮 = 缩放，Ctrl+滚轮 = 缩放。</p>
         <p><b>隐藏答案</b>：编辑器默认「隐藏答案路径」（勾选状态），载入示例/导入关卡时不会显示灰色虚线官方解，防止偷看；取消勾选即可查看；绘制答案时会自动临时显示。</p>
         <p><b>难度</b>：可填「前缀 + 难度」（如 <b>FATE 17.0</b>），导出后随关卡保存。</p>
@@ -2767,6 +2779,8 @@
         <p>背景音乐（两种方式）：① <b>上传文件</b>：音乐库里选文件 →「⬆ 上传到社区音乐库」（需登录），系统自动分块写入社区仓库并分配 ID（每块 700KB，单曲上限 30MB，块信息写在文件名 <code>…p1ofN…</code> 里），别人播放时自动逐块下载拼回并缓存。② <b>外链 URL</b>：编辑器「🎵 音乐库」→ 填名称 + 音频<b>直链</b>（形如 <code>https://…/a.mp3</code>，必须是能直接下载的音频地址，不是网页地址）→ ＋添加（自动分配 ID，如 <code>m1a2b</code>）→ 在编辑器「音乐」框填这个 ID。首次播放自动下载并缓存，之后不再重复下载；音乐库里可试听 / 删除下载缓存 / 删除条目 / 调音量。保存或导出关卡时会自动带上对应 URL，分享给别人也能听到。</p>
         <p><b>建议评级（玩家）</b>：<b>通关后</b>结算浮层会出现「💬 建议评级（难度）」输入框，填一个数（如 <code>12.5</code>）提交即可；这会显示在关卡的<b>排行榜</b>上（榜头还会显示「玩家建议评级：平均 X（N 人评过）」），并且<b>本人可以在排行榜自己那一行直接修改或取消</b>（填 0 或留空＝取消）。建议评级只代表玩家意见，<b>不会改变成绩</b>（用时与过程仍以第一次记录为准），也不会改掉作者设定的难度。</p>
         <p><b>排行榜</b>：关卡的成绩<b>以第一次记录为准</b>——名次按首次通关时间，用时与过程之后不再变化（仅旧版缺失字段会补存一次），避免靠重复通关刷时间。</p>
+        <p><b>排行榜 · 现代关卡</b>：有机关、时间驱动、<b>没有官方答案路径</b>的关卡同样计入排行榜（只要没看过答案、没进过编辑器）。成绩会连<b>每一步的时间点</b>一起保存，榜上点 <b>▶ 回放</b> 就按真实时间重放，机关移动、视野切换、得分变化都会如实重现——和自己当初玩的一模一样。</p>
+        <p><b>排行榜 · 排序</b>：榜头可切换 <b>得分优先</b>（得分 → 初见总时长 → 完成时刻）与 <b>完成时刻</b>（谁先通关谁在前）；<b>#0 正攻手法</b> 始终置顶，不参与排序。</p>
         <p><b>关卡库</b>：「🗂️ 关卡库」可把当前关卡保存到本机（成品或半成品草稿，下次继续编辑），也可上传到社区共享。社区有两种方式：自建服务器（server/community-server.js 或 CloudBase 云函数）或 GitHub Gist 免服务器方案（在 GitHub 新建一个含 levels.json 的 Gist，读取免 Token，上传/删除需要 GitHub Token）。</p>
         <p><b>进阶挑战</b>：示例里内置 8×8「进阶挑战」超级难题（难度 15.2），含斜向枢纽、红绿边与数字格约束，试试看你能不能通关。</p>
         <p><b>答案加密</b>：导出 JSON 时答案以加密形式存储（solutionEnc），不会出现明文；导入时自动解密。</p>
@@ -4398,7 +4412,17 @@ function analyzePath(s, e) {
           deleted: o.deleted,
           place: o.place ? JSON.parse(JSON.stringify(o.place)) : null,
           props: JSON.parse(JSON.stringify(o.props || {})),
-          _cond: o._cond.slice()
+          _cond: o._cond.slice(),
+          /* fix45：把「正在移动中」的动画也存下来，否则存档/撤销会把走到一半的物体弹回起点 */
+          _anim: o._anim ? {
+            from: o._anim.from ? JSON.parse(JSON.stringify(o._anim.from)) : null,
+            to: o._anim.to ? JSON.parse(JSON.stringify(o._anim.to)) : null,
+            cells: Array.isArray(o._anim.cells) ? JSON.parse(JSON.stringify(o._anim.cells)) : null,
+            t: Number(o._anim.t) || 0,
+            ms: Number(o._anim.ms) || 0,
+            perMs: Number(o._anim.perMs) || 0
+          } : null,
+          _vis: o._vis ? { r: Number(o._vis.r) || 0, c: Number(o._vis.c) || 0 } : null
         });
         return {
           objs: out,
@@ -4514,7 +4538,16 @@ function analyzePath(s, e) {
         for (const so of (snap.objs || [])) {
           const o = this.map.get(so.id);
           if (!o) continue;
-          o.enabled = so.enabled, o.visible = so.visible, o.deleted = so.deleted, o.place = so.place, o.props = so.props, o._cond = (so._cond || []).slice(), o._anim = null, o._vis = null, o._hubAt = o.place && "cell" === o.place.type ? [o.place.r | 0, o.place.c | 0] : null
+          o.enabled = so.enabled, o.visible = so.visible, o.deleted = so.deleted, o.place = so.place, o.props = so.props, o._cond = (so._cond || []).slice(),
+            /* fix45：恢复动画进度（走到一半的继续从那一刻走） */
+            o._anim = so._anim ? {
+              from: so._anim.from ? JSON.parse(JSON.stringify(so._anim.from)) : null,
+              to: so._anim.to ? JSON.parse(JSON.stringify(so._anim.to)) : null,
+              cells: Array.isArray(so._anim.cells) ? JSON.parse(JSON.stringify(so._anim.cells)) : null,
+              t: Number(so._anim.t) || 0, ms: Number(so._anim.ms) || 0, perMs: Number(so._anim.perMs) || 0
+            } : null,
+            o._vis = so._vis ? { r: Number(so._vis.r) || 0, c: Number(so._vis.c) || 0 } : null,
+            o._hubAt = o.place && "cell" === o.place.type ? [o.place.r | 0, o.place.c | 0] : null
         }
         snap.feat && this._featRestore(snap.feat), void 0 !== snap.viewId && (this.viewId = snap.viewId), this.score = Number(snap.score) || 0, this.nextId = Number(snap.nextId) || this.nextId, this._pruneFeatures(), this._indexVirt(), this.touch()
       };
@@ -9326,6 +9359,16 @@ function analyzePath(s, e) {
         if (!1 === (e.settings || {}).dragDraw) return;
         const s = Render.cellAt(t, _lv(), r.clientX, r.clientY, p);
         if (!s) return;
+        /* fix45：拖动也能往回走 —— 手指（鼠标）拖过路径上的上一格就退一步，
+           继续往回拖可以连续退多步，和点击回退完全一致（状态一起回滚）。 */
+        if (i.length >= 2) {
+          const _pv = i[i.length - 2];
+          if (_pv[0] === s[0] && _pv[1] === s[1]) {
+            if (!1 === (e.settings || {}).allowUndo) { a = !1, S(), App.toast("🚫 本关已禁用往回走，只能点「🧹 清空路径」重开"); return }
+            D(1), S();
+            return
+          }
+        }
         const o = i[i.length - 1];
         !o || o[0] === s[0] && o[1] === s[1] || (_ext(s, !0), S())
       }
@@ -9435,7 +9478,9 @@ function analyzePath(s, e) {
           const r = x("win-community");
           r && (r.style.display = e ? "" : "none");
           const _up = x("win-upload");
-          _up && (_up.style.display = e ? "" : "none");
+          /* fix46 需求1：社区关卡的结算页不再放「上传关卡」（多余的，社区里已有这一关）；
+             但这是本地关卡通关后唯一的分享入口，所以本地关卡（e 为空）必须保留。 */
+          _up && (_up.style.display = e ? "none" : "");
           const s = x("win-back");
           s && (s.style.display = "")
         } catch (t) {}
@@ -9483,11 +9528,46 @@ function analyzePath(s, e) {
             } catch (t) {}
             "undefined" != typeof Library && Library.hidePvpRaceBar && Library.hidePvpRaceBar(), "undefined" != typeof App && App.closeModal && App.closeModal("modal-library"), App.toast("😢 已认输，退出对战")
           })).catch((() => {}))
-        } else "undefined" != typeof Library && Library.saveDraft && Library.saveDraft(i, l, X()), "undefined" != typeof Library ? (App.switchMode("editor", !0), "undefined" != typeof Editor && Library.restoreEditorAfterExit && Library.restoreEditorAfterExit(), "undefined" != typeof App && App.closeModal && App.closeModal("modal-library"), App.toast("⏏ 进度已保存，已回到编辑器")) : (App.switchMode("editor"), App.toast("⏏ 进度已保存"))
+        } else "undefined" != typeof Library && Library.saveDraft && Library.saveDraft(i, l, X(), ES()), "undefined" != typeof Library ? (App.switchMode("editor", !0), "undefined" != typeof Editor && Library.restoreEditorAfterExit && Library.restoreEditorAfterExit(), "undefined" != typeof App && App.closeModal && App.closeModal("modal-library"), App.toast("⏏ 进度已保存，已回到编辑器")) : (App.switchMode("editor"), App.toast("⏏ 进度已保存"))
       }
 
       function X() {
         return Math.max(0, y + (Date.now() - c))
+      }
+
+      /* fix45：把整局状态导出来（存档/崩溃恢复/退出都用它） */
+      function ES() {
+        const st = {
+          path: i.map((q => [q[0], q[1]])),
+          done: done.map((s => s.map((q => [q[0], q[1]])))),
+          paused: paused.map((s => s.map((q => [q[0], q[1]])))),
+          segs: Array.from(b),
+          run: _run.slice(-1500),
+          ms: X(),
+          totalMs: "number" == typeof _totalMs ? _totalMs : 0,
+          y: "number" == typeof y ? y : 0
+        };
+        try { _world && (st.world = _world.snapshot()) } catch (_e0) {}
+        try {
+          st.snaps = _snaps.slice(-24).map((r => ({
+            len: r.len, rlen: r.rlen, dlen: r.dlen, plen: r.plen,
+            ref: (r.ref || []).slice(0, r.len),
+            snap: r.snap
+          })));
+        } catch (_e1) {}
+        return st
+      }
+
+      let _lastSave = 0;
+      function _autoSave(force) {
+        try {
+          if ("player" !== App.getMode() || !e || r || _rp) return;
+          if (!force && Date.now() - _lastSave < 5000) return;
+          const st = ES();
+          if (!st.path.length && !st.done.length && !st.paused.length && !st.segs.length) return;
+          if ("undefined" != typeof Library && Library.saveDraft) Library.saveDraft(st.path, l, st.ms, st);
+          _lastSave = Date.now()
+        } catch (_e0) {}
       }
       return {
         init: function() {
@@ -9517,7 +9597,18 @@ function analyzePath(s, e) {
             s = t.target.checked, S()
           })), x("p-back").addEventListener("click", (() => {
             "undefined" != typeof Library && Library.inPvpRace && Library.inPvpRace() ? App.toast("⚔️ 对战中不可返回编辑器") : App.switchMode("editor")
-          })), x("p-exit").addEventListener("click", I), x("p-answer").addEventListener("click", W), x("win-restart").addEventListener("click", (() => {
+          })), x("p-exit").addEventListener("click", I), x("p-answer").addEventListener("click", W),
+          (function() {
+            /* fix45：切后台/关页面/图标被回收时自动落盘，避免「走到一半退出又回到起点」 */
+            try {
+              window.addEventListener("pagehide", (function() { _autoSave(!0) }));
+              window.addEventListener("beforeunload", (function() { _autoSave(!0) }));
+              document.addEventListener("visibilitychange", (function() {
+                "hidden" === document.visibilityState && _autoSave(!0)
+              }))
+            } catch (_e0) {}
+          })(),
+          x("win-restart").addEventListener("click", (() => {
             B(), T()
           }));
           const e = x("win-rate-save");
@@ -9669,12 +9760,32 @@ function analyzePath(s, e) {
           } catch (t) {}
           if ("undefined" != typeof Library && Library.getDraft) {
             const a = Library.getDraft();
-            if (a && Array.isArray(a.path) && a.path.length >= 1) {
-              if (i = a.path.map((t => [t[0], t[1]])), y = "number" == typeof a.ms && a.ms > 0 ? a.ms : 0, l = !!a.viewed, !l && "undefined" != typeof Library && Library.viewedMap && Library.getCurrentCommunity) try {
+            const _norm = function(arr) {
+              return (arr || []).filter((q => Array.isArray(q) && q.length >= 2)).map((q => [q[0] | 0, q[1] | 0]))
+            };
+            const _hasAny = a && (Array.isArray(a.path) && a.path.length >= 1
+              || Array.isArray(a.done) && a.done.length
+              || Array.isArray(a.paused) && a.paused.length
+              || Array.isArray(a.segs) && a.segs.length);
+            if (_hasAny) {
+              /* fix45：整局恢复 —— 当前笔画 + 已完成笔画 + 暂停笔画 + 草稿 + 用时 + 世界状态 */
+              i = _norm(a.path);
+              done = (a.done || []).map(_norm).filter((s => s.length));
+              paused = (a.paused || []).map(_norm).filter((s => s.length));
+              try { b = new Set((a.segs || []).map(String)) } catch (_e0) { b = new Set }
+              y = "number" == typeof a.ms && a.ms > 0 ? a.ms : 0, c = Date.now();
+              _totalMs = "number" == typeof a.totalMs && a.totalMs > 0 ? a.totalMs : 0;
+              l = !!a.viewed;
+              if (!l && "undefined" != typeof Library && Library.viewedMap && Library.getCurrentCommunity) try {
                 const t = Library.getCurrentCommunity();
                 t && t.id && Library.viewedMap()[t.id] && (l = !0)
               } catch (t) {}
-              o = l, r = !1, n = analyzePath(_lv(), i), S(), z(), App.toast("↩ 已恢复上次作答进度" + (l ? "（此局已标记查看过答案）" : ""))
+              if (a.world && _world) { try { _world.restore(a.world) } catch (_e1) {} }
+              if (Array.isArray(a.run) && a.run.length) { try { _run = a.run.slice(-1500) } catch (_e2) {} }
+              if (Array.isArray(a.snaps) && a.snaps.length) { try { _snaps = a.snaps.filter((r => r && r.snap)).slice(-24) } catch (_e3) {} }
+              o = l, r = !1, n = analyzePath(_lv(), i), _hud(), S(), z();
+              const _segs = done.length + paused.length + (i.length ? 1 : 0);
+              App.toast("↩ 已恢复上次进度" + (_segs > 1 ? "（" + _segs + " 段路径）" : "") + (l ? "（此局已标记查看过答案）" : ""))
             }
           }
         },
@@ -9693,7 +9804,7 @@ function analyzePath(s, e) {
           } catch (t) {}
         },
         refreshTimer: function() {
-          e && n && z()
+          e && n && z(), _autoSave(!1)
         },
         showWin: N,
         viewAnswer: W,
@@ -9746,7 +9857,12 @@ function analyzePath(s, e) {
         wonMs: () => d,
         hasWon: () => r,
         elapsedMs: X,
+        /* fix45：初见总时长 = 历次重置前累计的 _totalMs + 本轮累计 X()
+           （踩到重置物/重开都会把时间并进 _totalMs，所以这是「从第一次打开这一关到现在」的净游玩时间） */
+        firstSeenMs: () => ("number" == typeof _totalMs ? _totalMs : 0) + X(),
         getLevel: () => e,
+        exportState: ES,
+        autoSave: _autoSave,
         getRun: function() {
           const sc = Number(d) > 0 ? Math.round(d) : Math.round(X());
           return { path: _run.map((r => [r.r, r.c])), times: _run.map((r => r.t)), ms: sc }
@@ -10374,19 +10490,56 @@ function analyzePath(s, e) {
         e[t] || (e[t] = Date.now(), localStorage.setItem(O, JSON.stringify(e)))
       }
 
+      /* fix46 需求2：撤销「进入过编辑器」标记。
+         以前载入「没有官方答案的社区关卡」时会顺手调 R()，结果每个玩家一进关就被判成改过，
+         onWin 里直接拒绝记录 → 现代关卡永远上不了排行榜。现在改为载入时清掉这个误标
+         （顺便修复老版本已经写进 localStorage 的脏标记）。真正进编辑器仍会重新打标。 */
+      function _clearEdited(t) {
+        if (!t) return;
+        try {
+          const e = j();
+          if (!(t in e)) return;
+          delete e[t], localStorage.setItem(O, JSON.stringify(e))
+        } catch (_e) {}
+      }
+
       function H() {
         return T ? "path-game:player-draft:" + T.id : ""
       }
 
-      function J(t, e, n) {
+      /* fix45：存档存「完整局面」——不只是正在画的那一条笔画，还有已完成笔画、暂停笔画、草稿线、
+         用时/总用时、世界快照（物体位置/得分/被吃掉的物体/正在移动的动画）。以前只存了当前笔画，
+         多条 S 的关卡一退出就只剩 S1。 */
+      function _strokeJSON(st) {
+        return Array.isArray(st)
+          ? st.filter((q => Array.isArray(q) && q.length >= 2)).map((q => [q[0] | 0, q[1] | 0]))
+          : []
+      }
+      function J(t, e, n, x) {
         const i = H();
         if (!i || !Array.isArray(t)) return;
-        const a = {
-          path: t.map((t => [t[0], t[1]])),
-          viewed: !!e,
-          at: Date.now()
-        };
-        "number" == typeof n && n > 0 && (a.ms = Math.round(n)), localStorage.setItem(i, JSON.stringify(a))
+        const a = { v: 2, path: _strokeJSON(t), viewed: !!e, at: Date.now() };
+        "number" == typeof n && n > 0 && (a.ms = Math.round(n));
+        if (x && "object" == typeof x) {
+          try {
+            a.done = (x.done || []).map(_strokeJSON).filter((s => s.length));
+            a.paused = (x.paused || []).map(_strokeJSON).filter((s => s.length));
+            a.segs = (x.segs || []).map(String);
+            if (a.segs.length > 4000) a.segs = a.segs.slice(0, 4000);
+            if ("number" == typeof x.totalMs && x.totalMs > 0) a.totalMs = Math.round(x.totalMs);
+            if (Array.isArray(x.run) && x.run.length) a.run = x.run.slice(-1500);
+            if (x.world && "object" == typeof x.world) a.world = x.world;
+            if (Array.isArray(x.snaps) && x.snaps.length) a.snaps = x.snaps.slice(-24);
+          } catch (_e) {}
+        }
+        let str = "";
+        try { str = JSON.stringify(a) } catch (_e0) { str = "" }
+        if (!str) { try { delete a.snaps, delete a.world, str = JSON.stringify(a) } catch (_e1) { return } }
+        try { localStorage.setItem(i, str) } catch (_e2) {
+          try { delete a.snaps, localStorage.setItem(i, JSON.stringify(a)) } catch (_e3) {
+            try { localStorage.setItem(i, JSON.stringify({ v: 2, path: a.path, viewed: !!e, at: Date.now(), ms: a.ms || 0 })) } catch (_e4) {}
+          }
+        }
       }
       async function K(t, e, n) {
         if (!t) return;
@@ -10520,19 +10673,35 @@ function analyzePath(s, e) {
         } catch (t) {}
       }
 
-      function G(t, w) {
+      /* fix45 需求5：排行榜排序模式，"score"（默认，得分→初见用时→时刻） / "at"（完成时刻，最早在前） */
+      var _rankSortMode = "score";
+      function _rankSetMode(m) {
+        _rankSortMode = "at" === m ? "at" : "score";
+        return _rankSortMode
+      }
+      function G(t, w, mode) {
         const _sc = v => Number(v && v.score) || 0,
-          _ms = v => {
-            const m = Number(v && v.ms) || 0;
+          /* fix45 需求4：初见总时长优先（老记录没有 tms 就退回 ms） */
+          _tms = v => {
+            const a = Number(v && v.tms) || 0,
+              m = a > 0 ? a : (Number(v && v.ms) || 0);
             return m > 0 ? m : Infinity
           },
-          e = (t && t.completions || []).filter((e => e && e.key && String(e.key) !== String(t.ownerKey) && (w || !e.banned))).sort(((a, b) => _sc(b) - _sc(a) || _ms(a) - _ms(b) || (a.at || 0) - (b.at || 0))),
+          _md = "at" === mode ? "at" : ("score" === mode ? "score" : _rankSortMode),
+          e = (t && t.completions || []).filter((e => e && e.key && String(e.key) !== String(t.ownerKey) && (w || !e.banned))).sort(
+            "at" === _md
+              ? ((a, b) => (a.at || 0) - (b.at || 0) || _sc(b) - _sc(a))
+              : ((a, b) => _sc(b) - _sc(a) || _tms(a) - _tms(b) || (a.at || 0) - (b.at || 0))
+          ),
           n = Number(t && t.data && t.data.timeLimit || t && t.timeLimit || 0);
         return e.map(((t, e) => ({
           rank: e + 1,
           name: t.name || "匿名",
           at: t.at || 0,
-          ms: t.ms || 0,
+          /* fix45 需求4：ms 给「初见总时长」用于展示与排序；runMs 是本轮用时（评级用） */
+          ms: (Number(t.tms) || 0) > 0 ? Number(t.tms) : (Number(t.ms) || 0),
+          runMs: Number(t.ms) || 0,
+          tms: (Number(t.tms) || 0) > 0 ? Number(t.tms) : (Number(t.ms) || 0),
           score: _sc(t),
           key: t.key,
           grade: n > 0 && Number(t.ms) > 0 ? gradeOf(Number(t.ms) / 1e3 / n) : "",
@@ -11522,7 +11691,9 @@ function analyzePath(s, e) {
             }
             n.innerHTML = "", e.textContent = "🏆 " + (a.name || "未命名") + " · 难度 " + dt(a);
             const r = Tt(a);
-            n.appendChild(Ke("div", "pc-note", "📊 排序规则：得分高者在前；同分时「初见总用时」短者在前；再同为最早通关者在前。")), n.appendChild(Ke("div", "pc-note", r ? "🥇 首杀：" + (r.name || "匿名") + " · " + Je(r.at) + (r.ms > 0 ? " · 用时 " + $(r.ms) : "") + "　（首杀 = 最早的通关记录，作者自己的成绩不计入）" : "还没有首杀：还没有玩家通关（作者自己的成绩不计入）。"));
+            n.appendChild(Ke("div", "pc-note", "at" === _rankSortMode
+              ? "📊 排序规则：按「完成时刻」，最早通关者在前（与得分无关）。"
+              : "📊 排序规则：得分高者在前；同分时「初见总用时」短者在前；再同为最早通关者在前。")), n.appendChild(Ke("div", "pc-note", r ? "🥇 首杀：" + (r.name || "匿名") + " · " + Je(r.at) + (r.ms > 0 ? " · 用时 " + $(r.ms) : "") + "　（首杀 = 最早的通关记录，作者自己的成绩不计入）" : "还没有首杀：还没有玩家通关（作者自己的成绩不计入）。"));
             let s = null;
             try {
               s = _(a)
@@ -11537,6 +11708,19 @@ function analyzePath(s, e) {
                整块包 try，并且「取不到」时也留一行说明 + 🧪自检，避免再出现「什么都没有」。 */
             /* fix43: #0 正攻手法独立渲染（不依赖是否有人上榜） */
             _appendRankZero(n, a);
+            /* fix45 需求5：排序切换（#0 正攻手法始终置顶，不参与排序） */
+            {
+              const _sw = Ke("div", "lib-item-btns");
+              const _bs = Ke("button", "act" + ("score" === _rankSortMode ? " primary" : ""), "🏆 按得分");
+              _bs.title = "得分高者在前，同分比初见总用时", _bs.addEventListener("click", (() => {
+                _rankSetMode("score"), Kt(t)
+              }));
+              const _ba = Ke("button", "act" + ("at" === _rankSortMode ? " primary" : ""), "🕒 按完成时刻");
+              _ba.title = "最早通关者在前", _ba.addEventListener("click", (() => {
+                _rankSetMode("at"), Kt(t)
+              }));
+              _sw.appendChild(_bs), _sw.appendChild(_ba), n.appendChild(_sw);
+            }
             if (c) {
               const w = Ke("div", "lib-item-btns"),
                 b = Ke("button", "act", rbBannedShown() ? "🙈隐藏被封禁玩家" : "👁显示被封禁玩家");
@@ -12478,7 +12662,7 @@ function analyzePath(s, e) {
           const t = a("in-desc");
           t && (t.value = i.desc)
         }
-        N(e.communityId || null), e.hideSol && Editor.setHideSol(!0), e.communityId && z(e.communityId), i.solutionValid() ? (App.switchMode("player"), App.toast("已载入：「" + i.name + "」，直接试玩（返回编辑可继续改）")) : e.communityId ? (e.communityId && R(e.communityId), App.switchMode("player"), App.toast("已载入：「" + i.name + "」，直接试玩（这关没有官方答案路径，按机关规则判定）")) : i.hasPassword() ? (e.communityId && R(e.communityId), App.toast("该关卡没有有效答案路径且设有密码，请输入密码进入编辑器补画"), App.openModal("modal-pass")) : (e.communityId && R(e.communityId), App.switchMode("editor"), App.toast("已载入草稿：「" + i.name + "」（无有效答案，可在编辑器补画）"))
+        N(e.communityId || null), e.hideSol && Editor.setHideSol(!0), e.communityId && z(e.communityId), i.solutionValid() ? (App.switchMode("player"), App.toast("已载入：「" + i.name + "」，直接试玩（返回编辑可继续改）")) : e.communityId ? (_clearEdited(e.communityId), App.switchMode("player"), App.toast("已载入：「" + i.name + "」，直接试玩（这关没有官方答案路径，按机关规则判定）")) : i.hasPassword() ? (e.communityId && R(e.communityId), App.toast("该关卡没有有效答案路径且设有密码，请输入密码进入编辑器补画"), App.openModal("modal-pass")) : (e.communityId && R(e.communityId), App.switchMode("editor"), App.toast("已载入草稿：「" + i.name + "」（无有效答案，可在编辑器补画）"))
       }
 
       function Je(t) {
@@ -12576,8 +12760,21 @@ function analyzePath(s, e) {
               const c = (await banDev()) === !0,
                 a = G(i, c && rbBannedShown());
               e.innerHTML = "", e.appendChild(Ke("div", "lib-panel-title", "🏆 排行榜（作者不计入）")),
+                e.appendChild(Ke("div", "pc-note", "at" === _rankSortMode ? "📊 排序：按完成时刻，最早在前。" : "📊 排序：得分高者在前，同分比初见总用时。")),
                 /* fix43: 列表里的「🏆 排行」内联面板也必须先显示 #0 正攻手法 */
                 _appendRankZero(e, i);
+              {
+                const _sw = Ke("div", "lib-item-btns");
+                const _bs = Ke("button", "act" + ("score" === _rankSortMode ? " primary" : ""), "🏆 按得分");
+                _bs.addEventListener("click", (() => {
+                  _rankSetMode("score"), n(i)
+                }));
+                const _ba = Ke("button", "act" + ("at" === _rankSortMode ? " primary" : ""), "🕒 按完成时刻");
+                _ba.addEventListener("click", (() => {
+                  _rankSetMode("at"), n(i)
+                }));
+                _sw.appendChild(_bs), _sw.appendChild(_ba), e.appendChild(_sw);
+              }
               if (c) {
                 const w = Ke("div", "lib-item-btns"),
                   b = Ke("button", "act", rbBannedShown() ? "🙈隐藏被封禁玩家" : "👁显示被封禁玩家");
@@ -12588,7 +12785,7 @@ function analyzePath(s, e) {
               const r = _(i);
               r.count > 0 && e.appendChild(Ke("div", "lib-panel-sub", "💬 玩家建议评级：平均 " + r.avg + "（" + r.count + " 人评过）")), a.length ? a.slice(0, 20).forEach((i => {
                 const a = Ke("div", "lib-rank" + (i.rank <= 3 ? " top" + i.rank : "") + (i.banned ? " banned" : "")),
-                  r = Ke("span", "", "第" + i.rank + "名  " + i.name + " · " + Je(i.at) + (i.ms > 0 ? " · " + $(i.ms) : "") + (i.grade ? " · 评级 " + i.grade : "") + (i.suggest > 0 ? " · 💬 建议 " + i.suggest : ""));
+                  r = Ke("span", "", "第" + i.rank + "名  " + i.name + (i.score ? " · 🏆 " + i.score + " 分" : "") + " · " + Je(i.at) + (i.ms > 0 ? " · 初见 " + $(i.ms) : "") + (i.grade ? " · 评级 " + i.grade : "") + (i.suggest > 0 ? " · 💬 建议 " + i.suggest : ""));
                 if (a.appendChild(r), i.key === de()) {
                   const e = document.createElement("input");
                   e.type = "number", e.min = "0", e.max = "999", e.step = "0.1", e.className = "lib-suggest-input", e.value = i.suggest > 0 ? String(i.suggest) : "", e.placeholder = "我的建议", e.title = "我的建议评级（留空/0 = 取消）";
@@ -14654,10 +14851,12 @@ function analyzePath(s, e) {
         saveDraftIfPlaying: function() {
           if (T && "undefined" != typeof Player && Player.getPath) try {
             if (Player.hasWon && Player.hasWon()) return;
-            const t = Player.getPath();
-            if (t && t.length) {
+            const t = Player.getPath() || [];
+            const st = "function" == typeof Player.exportState ? Player.exportState() : null;
+            const _any = (t && t.length) || (st && ((st.done || []).length || (st.paused || []).length));
+            if (_any) {
               const e = "function" == typeof Player.elapsedMs ? Player.elapsedMs() : 0;
-              J(t, !!Player.hasViewed && Player.hasViewed(), e)
+              J(t, !!Player.hasViewed && Player.hasViewed(), e, st)
             }
           } catch (t) {}
         },
@@ -14673,14 +14872,36 @@ function analyzePath(s, e) {
           let n = {};
           "number" == typeof sc && (n.score = Math.round(sc));
           try {
-            if ("undefined" != typeof Player && Player.getPath) {
+            /* fix46 需求2：过程（path）和时间点（times）必须来自同一份记录。
+               以前 path 取 Player.getPath()（只有「当前这一条笔画」），times 取 Player.getRun()（整局所有笔画），
+               多笔画/现代关卡两者长度不等 → K() 里的 _tm() 判定不一致，直接把 times 丢掉，
+               排行榜里的记录就没有时间点，没法按时间回放。 */
+            if ("undefined" != typeof Player && Player.getRun) {
+              const _rw = Player.getRun();
+              if (_rw && Array.isArray(_rw.path) && _rw.path.length >= 2) {
+                n.path = _rw.path.slice(0, 1500).map((q => [q[0] | 0, q[1] | 0]));
+                Array.isArray(_rw.times) && _rw.times.length === _rw.path.length &&
+                  (n.times = _rw.times.slice(0, n.path.length).map(Number))
+              }
+            }
+            if ((!n.path || n.path.length < 2) && "undefined" != typeof Player && Player.getPath) {
               const t = Player.getPath();
               t && t.length && (n.path = t.slice())
             }
+            /* fix45：ms 保持「本轮用时」（评级/技能值仍按它算），另存 tms = 初见总时长（排行榜展示与排序用） */
             "undefined" != typeof Player && Player.wonMs && (n.ms = Player.wonMs());
-            if ("undefined" != typeof Player && Player.getRun) {
+            try {
+              if ("undefined" != typeof Player && Player.firstSeenMs) {
+                const _f = Math.round(Number(Player.firstSeenMs()) || 0);
+                _f > 0 && (n.tms = _f);
+              }
+            } catch (_e0) {}
+            if (!n.tms && n.ms > 0) n.tms = n.ms;
+            /* fix46：times 已与 path 一起从 getRun() 取好，这里不再单独重复取 */
+            if (!n.times && "undefined" != typeof Player && Player.getRun) {
               const _rn = Player.getRun();
-              _rn && Array.isArray(_rn.times) && _rn.times.length >= 2 && Array.isArray(_rn.path) && _rn.times.length === _rn.path.length && (n.times = _rn.times.slice(0, 1500))
+              _rn && Array.isArray(_rn.times) && Array.isArray(_rn.path) && _rn.times.length >= 2 &&
+                _rn.times.length === _rn.path.length && (n.times = _rn.times.slice(0, 1500))
             }
           } catch (t) {}
           K(e, pe(), n).then((() => App.toast("🏆 已记录完成，看看这关的排行榜！"))).catch((() => {}))
@@ -14708,6 +14929,7 @@ function analyzePath(s, e) {
         },
         viewedMap: D,
         markEdited: R,
+        clearEdited: _clearEdited,
         editedMap: j,
         skillRanking: W,
         snapshotEditorOnLoad: tt,
@@ -14869,6 +15091,21 @@ function analyzePath(s, e) {
         return t.complete ? null : "答案路径无效：" + (t.errors[0] || "未覆盖全部要求")
       }
       let r = null;
+      /* fix45：返回编辑器的确认闸门。_editGate=true 表示本次已确认过（才允许进入编辑器）。
+         以前用 window.confirm，某些 WebView 里「取消」并不生效，玩家点取消照样进了编辑器、直接看到答案。 */
+      let _editGate = !1;
+
+      function _askBackToEdit() {
+        const comm = "undefined" != typeof Library && Library.getCurrentCommunity ? Library.getCurrentCommunity() : null;
+        const lv = "undefined" != typeof Editor && Editor.getLevel ? Editor.getLevel() : null;
+        const nm = lv && lv.name ? lv.name : "这一关";
+        const locked = !("undefined" != typeof Editor && Editor.isUnlocked && Editor.isUnlocked());
+        const body = t("back-edit-body");
+        if (body) body.innerHTML = locked
+          ? ("这是社区关卡「" + nm + "」，<b>设有密码</b>。回到编辑器需要输入密码；而且本次会被记录为「进入过编辑器」，之后的通关不计入排行榜。")
+          : ("这是社区关卡「" + nm + "」，<b>没有设置密码</b>。回到编辑器会直接看到这一关的<b>答案路径</b>（已默认隐藏，仍可取消勾选），并记录为「进入过编辑器」，之后的通关不计入排行榜。<br><br>想继续挑战请点「取消，继续试玩」。");
+        p("modal-back-edit")
+      }
 
       function a(a, o) {
         {
@@ -14886,10 +15123,12 @@ function analyzePath(s, e) {
                 t("pass-input").focus()
               } catch (e) {}
             }), 60);
+            /* fix45：社区关卡回编辑器必须先过二次确认（取消 = 真的留在试玩，不再直接进编辑器） */
             if ("editor" === a && "undefined" != typeof Library && Library.getCurrentCommunity && Library.getCurrentCommunity()) {
-              if (!window.confirm("进入编辑器后将不能记录本关成绩（排行榜/实力不计入）。确定进入吗？")) return;
+              if (!_editGate) return void _askBackToEdit();
               Library.markEdited && Library.markEdited(Library.getCurrentCommunity().id)
             }
+            try { "editor" === a && document.getElementById("win-overlay") && document.getElementById("win-overlay").classList.remove("show") } catch (_e) {}
             n(a)
           }
         }
@@ -14902,6 +15141,7 @@ function analyzePath(s, e) {
           } catch (e) {}
           Player.stop()
         }
+        "player" === i && (_editGate = !1),
         e = i, t("editor-panel").classList.toggle("hidden", "editor" !== i), t("player-panel").classList.toggle("hidden", "player" !== i), t("tab-editor").classList.toggle("active", "editor" === i), t("tab-player").classList.toggle("active", "player" === i);
         const r = t("zoom-controls");
         r && (r.style.display = "editor" === i || "player" === i ? "" : "none"), y(), l()
@@ -14978,7 +15218,23 @@ function analyzePath(s, e) {
             }))
           })), t("pass-ok").addEventListener("click", o), t("pass-cancel").addEventListener("click", (() => {
             u("modal-pass"), s("已取消，停留在试玩模式")
-          })), t("pass-input").addEventListener("keydown", (e => {
+          })),
+          (function() {
+            const _bc = t("back-edit-cancel"), _bo = t("back-edit-ok");
+            _bc && _bc.addEventListener("click", (function() {
+              u("modal-back-edit");
+              /* 关键：取消就是取消 —— 如果当前不是 player，强制切回 player，绝不留在编辑器 */
+              if ("editor" === e) n("player");
+              else try { "editor" === App.getMode() && n("player") } catch (_e) {}
+              s("已取消，继续试玩")
+            }));
+            _bo && _bo.addEventListener("click", (function() {
+              u("modal-back-edit"), _editGate = !0;
+              try { "undefined" != typeof Editor && Editor.setHideSol && Editor.setHideSol(!0) } catch (_e) {}
+              a("editor")
+            }))
+          })(),
+          t("pass-input").addEventListener("keydown", (e => {
             "Enter" === e.key && o()
           })), document.addEventListener("keydown", (t => {
             const r = t.target,
@@ -15017,7 +15273,7 @@ function analyzePath(s, e) {
           }), !0);
           try {
             const e = "v2.0.1-dev";
-            window.__ver = e, window.__build = "fix44", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            window.__ver = e, window.__build = "fix46", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
