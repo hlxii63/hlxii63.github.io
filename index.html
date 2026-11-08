@@ -2737,7 +2737,6 @@
     <div class="modal-box">
       <div class="modal-title">❓ 规则与图例</div>
       <div class="help-body">
-        <p><b>排行榜用时</b>：榜上的「初见」= <b>初见总用时</b>（从第一次打开这一关到首次通关的全部净时长，退出/清空/踩重置都不清零）。评级仍按「本轮用时」算。</p>
         <p><b>目标</b>：从 <b style="color:#1e88e5">起点 S</b> 出发画一条连续路径，经过<b>每个普通格恰好一次</b>（灰色格可以不经过），最后到达 <b style="color:#8e24aa">终点 E</b>。</p>
         <table class="legend">
           <tr>
@@ -9017,8 +9016,6 @@ function analyzePath(s, e) {
         y = 0,
         _totalMs = 0,
         d = 0,
-        _hits = 0,
-        _drags = 0,
         p = {
           scale: 1,
           x: 0,
@@ -9419,8 +9416,6 @@ function analyzePath(s, e) {
 
       function M(r) {
         if ("player" !== App.getMode() || !e || _rp) return;
-        /* fix48 需求2：真实指针事件计数（脚本直接调接口伪造通关时这里是 0） */
-        _hits++;
         if (r.preventDefault(), h) {
           const i = Render.cellAt(t, _lv(), r.clientX, r.clientY, p);
           return void(i && function(t) {
@@ -9501,7 +9496,6 @@ function analyzePath(s, e) {
 
       function E(r) {
         if ("player" !== App.getMode() || !e || _rp) return;
-        _drags++;
         _lpTimer && !_lpIds && _tipHide();
         if (f && L) return p.x += r.clientX - L.x, p.y += r.clientY - L.y, L = {
           x: r.clientX,
@@ -9563,10 +9557,7 @@ function analyzePath(s, e) {
       }
 
       function T() {
-        /* fix48 需求1：清空路径 / 重来 不能把已经花掉的时间抹掉。
-           以前这里直接把 y 归零，于是「初见总用时」= _totalMs + 本轮，中途清一次就少一大截，
-           最后进榜的数字和「本轮用时」几乎一样。现在先把当前这一轮并进 _totalMs 再归零。 */
-        if (_totalMs = ("number" == typeof _totalMs ? _totalMs : 0) + ("number" == typeof y ? y : 0) + (Date.now() - ("number" == typeof c ? c : Date.now())), i = [], done = [], paused = [], _snaps = [], _run = [], r = !1, y = 0, c = Date.now(), _world && _world.reset(), _hud())
+        if (i = [], done = [], paused = [], _snaps = [], r = !1, y = 0, c = Date.now(), _world && _world.reset(), _hud())
         n = analyzePath(_lv(), i), S(), z(), B()
       }
 
@@ -9904,7 +9895,7 @@ function analyzePath(s, e) {
         loadLevel: function(t) {
           const a = Level.fromJSON(t);
           if (!a.level) return;
-          if (e = a.level, _world = new World(e), _ix(), _startLoop(), C(), _totalMs = 0, d = 0, _hits = 0, _drags = 0, x("p-levelname").textContent = "关卡：" + e.name + " · 难度 " + e.diffText() + (e.timeLimit > 0 ? " · 限时 " + e.timeLimit + " 秒" : "") + (e.musicId || e.musicUrl || e.musicRepo ? " · 🎵" : ""), "undefined" != typeof Music) try {
+          if (e = a.level, _world = new World(e), _ix(), _startLoop(), C(), x("p-levelname").textContent = "关卡：" + e.name + " · 难度 " + e.diffText() + (e.timeLimit > 0 ? " · 限时 " + e.timeLimit + " 秒" : "") + (e.musicId || e.musicUrl || e.musicRepo ? " · 🎵" : ""), "undefined" != typeof Music) try {
             e.musicId || e.musicUrl || e.musicRepo ? Music.play(e.musicId, e.musicUrl, e.musicRepo).then((t => {
               t && !t.ok && t.err && App.toast("🎵 背景音乐无法播放：" + t.err)
             })).catch((() => {})) : Music.stop()
@@ -10015,8 +10006,6 @@ function analyzePath(s, e) {
         wonMs: () => d,
         hasWon: () => r,
         elapsedMs: X,
-        /* fix48 需求2：把「真的有手指在画」的证据交出去，供排行榜自检 */
-        inputProof: () => ({ hits: _hits, drags: _drags, steps: Math.max(0, i.length - 1) }),
         /* fix45：初见总时长 = 历次重置前累计的 _totalMs + 本轮累计 X()
            （踩到重置物/重开都会把时间并进 _totalMs，所以这是「从第一次打开这一关到现在」的净游玩时间） */
         firstSeenMs: () => ("number" == typeof _totalMs ? _totalMs : 0) + X(),
@@ -10701,30 +10690,6 @@ function analyzePath(s, e) {
           }
         }
       }
-      /* fix48 需求2：通关记录的可信度自检 —— 只做「标记」，处置交给排行榜隐藏 / 管理员封禁。
-         想伪造一条记录，得同时伪造：合法路径、像人一样的时间间隔、真实指针事件，
-         成本远高于亲手玩一遍。 */
-      function _runFlags(n, proof) {
-        const out = [],
-          p = Array.isArray(n && n.path) ? n.path : [],
-          tm = Array.isArray(n && n.times) && n.times.length === p.length ? n.times.map(Number) : null,
-          steps = Math.max(0, p.length - 1);
-        if (!tm || tm.length < 2) out.push("notimes");
-        else {
-          const gaps = [];
-          for (let k = 1; k < tm.length; k++) gaps.push(Math.abs(tm[k] - tm[k - 1]));
-          const sorted = gaps.slice().sort(((a, b) => a - b)),
-            med = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
-            span = Math.abs(tm[tm.length - 1] - tm[0]);
-          /* 阈值故意保守：拖拽确实很快，但不至于 12 步连续 30ms 内 */
-          steps >= 12 && med < 30 && out.push("machine");
-          steps >= 12 && span > 0 && span < 500 && out.push("instant");
-        }
-        const hits = proof ? (Number(proof.hits) || 0) + (Number(proof.drags) || 0) : -1;
-        if (0 === hits) out.push("noinput");
-        else if (hits > 0 && steps >= 10 && hits < steps / 2) out.push("lowinput");
-        return out
-      }
       async function K(t, e, n) {
         if (!t) return;
         const i = de(),
@@ -10735,34 +10700,11 @@ function analyzePath(s, e) {
         const s = () => Array.isArray(n.path) && n.path.length >= 2 ? n.path.slice(0, 1500).map((t => [t[0], t[1]])) : null,
           _tm = () => Array.isArray(n.times) && Array.isArray(n.path) && n.times.length === n.path.length && n.times.length >= 2 ? n.times.slice(0, 1500).map(Number) : null,
           o = r.completions.find((t => t.key === i));
-        /* fix48 需求1：n.ms 是「这一局的用时」，进榜要的是 n.tms「初见总用时」（含退出前累计的时长）。
-           以前这里只把 n.ms 写进记录，onWin 算出来的 n.tms 被直接丢掉，排行榜读到空 tms 就回退成 ms
-           —— 于是榜上永远是「本轮用时」。 */
-        const _tmsIn = Math.round(Number(n.tms) || 0),
-          _fl = Array.isArray(n.flags) ? n.flags.filter((q => "string" == typeof q && q)).slice(0, 8) : [];
-        /* fix48 需求2：抄答案识别 —— 与作者正攻手法 / 官方答案路径逐格完全相同，人类重画不可能一模一样 */
-        try {
-          let _dd = r.data;
-          if ("string" == typeof _dd) try { _dd = JSON.parse(_dd) } catch (_q1) { _dd = null }
-          const _p0 = Array.isArray(n.path) ? n.path : null,
-            _same = (a) => Array.isArray(a) && !!_p0 && a.length === _p0.length && a.every(((q, k) => q && _p0[k] && q[0] === _p0[k][0] && q[1] === _p0[k][1]));
-          if (_p0 && _p0.length >= 2) {
-            if (_dd && "object" == typeof _dd) {
-              _dd.authorRun && _same(_dd.authorRun.path) && _fl.indexOf("copy") < 0 && _fl.push("copy"),
-                Array.isArray(_dd.solution) && _same(_dd.solution) && _fl.indexOf("copy") < 0 && _fl.push("copy")
-            }
-            (r.completions || []).some((c => c && c.key !== i && !c.banned && _same(c.path))) && _fl.indexOf("dupe") < 0 && _fl.push("dupe")
-          }
-        } catch (_q2) {}
         if (o) {
           if ("number" == typeof n.score && (!(o.score >= 0) || n.score > o.score) && (o.score = Math.round(n.score)), !(o.ms > 0) && n.ms > 0 && (o.ms = Math.round(n.ms)), !(o.path && o.path.length >= 2)) {
             const t = s(), _t2 = _tm();
             t && (o.path = t), _t2 && (o.times = _t2)
           }
-          /* 初见总用时只认更小的那个（同一关多次通关，第一次的数才是「初见」）；老记录没有 tms 就回填 */
-          _tmsIn > 0 && (o.tms = o.tms > 0 ? Math.min(o.tms, _tmsIn) : _tmsIn),
-            _fl.length && (o.flags = Array.from(new Set((Array.isArray(o.flags) ? o.flags : []).concat(_fl))).slice(0, 8)),
-            n.pr && "object" == typeof n.pr && (o.pr = n.pr)
         } else {
           const t = {
             key: i,
@@ -10770,8 +10712,6 @@ function analyzePath(s, e) {
             at: Date.now()
           };
           n.ms > 0 && (t.ms = Math.round(n.ms)), "number" == typeof n.score && (t.score = Math.round(n.score));
-          _tmsIn > 0 && (t.tms = _tmsIn);
-          _fl.length && (t.flags = _fl), n.pr && "object" == typeof n.pr && (t.pr = n.pr);
           const a = s(), _t3 = _tm();
           a && (t.path = a), _t3 && (t.times = _t3), r.completions.push(t)
         }
@@ -10897,11 +10837,7 @@ function analyzePath(s, e) {
             return m > 0 ? m : Infinity
           },
           _md = "at" === mode ? "at" : ("score" === mode ? "score" : _rankSortMode),
-          /* fix48 需求2：硬标记派上用场——「步进不像人 / 通关过快 / 没有真实点击」默认不进榜；
-             「抄答案 / 与他人同路径」只做软标记（唯一解关卡上手玩也会和答案一样，不能据此定罪）。
-             勾「显示被封禁玩家」时全部可见，方便复核。 */
-          _hard = v => Array.isArray(v && v.flags) && v.flags.some((q => "machine" === q || "instant" === q || "noinput" === q || "lowinput" === q)),
-          e = (t && t.completions || []).filter((e => e && e.key && String(e.key) !== String(t.ownerKey) && (w || !e.banned && !_hard(e)))).sort(
+          e = (t && t.completions || []).filter((e => e && e.key && String(e.key) !== String(t.ownerKey) && (w || !e.banned))).sort(
             "at" === _md
               ? ((a, b) => (a.at || 0) - (b.at || 0) || _sc(b) - _sc(a))
               : ((a, b) => _sc(b) - _sc(a) || _tms(a) - _tms(b) || (a.at || 0) - (b.at || 0))
@@ -10922,8 +10858,6 @@ function analyzePath(s, e) {
           suggest: Number(t.suggest) || 0,
           banned: !!t.banned,
           banBy: t.banBy || "",
-          flags: Array.isArray(t.flags) ? t.flags : [],
-          pr: t.pr || null,
           path: t.path || null,
           times: t.times || null
         })))
@@ -10984,22 +10918,6 @@ function analyzePath(s, e) {
         return t > 0 ? t < 1e3 ? Math.round(t) + "ms" : (t / 1e3).toFixed(1) + "s" : ""
       }
 
-      /* fix48 需求2：疑似记录的可见标记 */
-      function _flagText(f) {
-        if (!Array.isArray(f) || !f.length) return "";
-        const m = {
-            copy: "抄答案",
-            dupe: "路径与他人完全相同",
-            machine: "步进速度非人类",
-            instant: "通关过快",
-            noinput: "无真实点击",
-            lowinput: "操作次数过少",
-            notimes: "缺少时间轴",
-            badpath: "路径不合法"
-          },
-          a = f.filter((q => m[q])).map((q => m[q]));
-        return " · ⚠" + (a.length ? a.join("／") : "疑似")
-      }
       function Z(t, e) {
         const n = de();
         return !(!e || String(e) !== String(n)) || String(t.ownerKey) === String(n) || !!(t.completions || []).some((t => t && t.key && !t.banned && String(t.key) === String(n))) || !(!t.id || !D()[t.id])
@@ -11721,7 +11639,7 @@ function analyzePath(s, e) {
               const e = String(t && t.ownerKey || "");
               return (t && t.completions || []).filter((t => t && t.key && !t.banned && String(t.key) !== e))
             }(i);
-            s.appendChild(Ke("div", "pc-sub", (a ? "🥇 首杀：" + (a.name || "匿名") + " · " + Je(a.at) + ((Number(a.tms) || Number(a.ms) || 0) > 0 ? " · 初见 " + $((Number(a.tms) || Number(a.ms) || 0)) : "") : "⏳暂无首杀（等待勇士）") + " · 🏆 " + l.length + " 完成" + (Number(i.plays) > 0 ? " · ▶ " + i.plays + " 玩" : "") + (i.author ? " · 作者 " + i.author : "")));
+            s.appendChild(Ke("div", "pc-sub", (a ? "🥇 首杀：" + (a.name || "匿名") + " · " + Je(a.at) + (a.ms > 0 ? " · " + $(a.ms) : "") : "⏳暂无首杀（等待勇士）") + " · 🏆 " + l.length + " 完成" + (Number(i.plays) > 0 ? " · ▶ " + i.plays + " 玩" : "") + (i.author ? " · 作者 " + i.author : "")));
             const c = Ke("div", "pc-btns"),
               d = (t, e, n, i) => {
                 const a = Ke("button", "act " + (e || ""), t);
@@ -11924,7 +11842,7 @@ function analyzePath(s, e) {
             const r = Tt(a);
             n.appendChild(Ke("div", "pc-note", "at" === _rankSortMode
               ? "📊 排序规则：按「完成时刻」，最早通关者在前（与得分无关）。"
-              : "📊 排序规则：得分高者在前；同分时「初见总用时」短者在前；再同为最早通关者在前。⏱「初见总用时」= 从第一次打开这关到首次通关的净时长（退出、清空、踩重置都算在内）；带 ⚠ 的记录默认不进榜（勾「显示被封禁玩家」可查看）。")), n.appendChild(Ke("div", "pc-note", r ? "🥇 首杀：" + (r.name || "匿名") + " · " + Je(r.at) + ((Number(r.tms) || Number(r.ms) || 0) > 0 ? " · 初见 " + $((Number(r.tms) || Number(r.ms) || 0)) : "") + "　（首杀 = 最早的通关记录，作者自己的成绩不计入）" : "还没有首杀：还没有玩家通关（作者自己的成绩不计入）。"));
+              : "📊 排序规则：得分高者在前；同分时「初见总用时」短者在前；再同为最早通关者在前。")), n.appendChild(Ke("div", "pc-note", r ? "🥇 首杀：" + (r.name || "匿名") + " · " + Je(r.at) + (r.ms > 0 ? " · 用时 " + $(r.ms) : "") + "　（首杀 = 最早的通关记录，作者自己的成绩不计入）" : "还没有首杀：还没有玩家通关（作者自己的成绩不计入）。"));
             let s = null;
             try {
               s = _(a)
@@ -11962,7 +11880,7 @@ function analyzePath(s, e) {
             const o = G(a, c && rbBannedShown());
             if (!o.length) return void n.appendChild(Ke("div", "lib-empty", c && (a.completions || []).some((t => t && t.banned)) ? "所有上榜记录都已被封禁（可点上方按钮切换查看）。" : "还没有人上榜，快来当第一个完成者！"));
             o.slice(0, 50).forEach((e => {
-              const i = Ke("div", "lib-rank" + (e.rank <= 3 ? " top" + e.rank : "") + (e.banned ? " banned" : ""), "第" + e.rank + "名  " + e.name + (e.score ? " · 🏆 " + e.score + " 分" : "") + " · " + Je(e.at) + (e.ms > 0 ? " · 初见 " + $(e.ms) : "") + (e.grade ? " · 评级 " + e.grade : "") + (e.suggest > 0 ? " · 💬 建议 " + e.suggest : "") + _flagText(e.flags));
+              const i = Ke("div", "lib-rank" + (e.rank <= 3 ? " top" + e.rank : "") + (e.banned ? " banned" : ""), "第" + e.rank + "名  " + e.name + (e.score ? " · 🏆 " + e.score + " 分" : "") + " · " + Je(e.at) + (e.ms > 0 ? " · 初见 " + $(e.ms) : "") + (e.grade ? " · 评级 " + e.grade : "") + (e.suggest > 0 ? " · 💬 建议 " + e.suggest : ""));
               e.banned && i.appendChild(Ke("span", "ban-tag", "🚫 已封禁" + (e.banBy ? "（by " + e.banBy + "）" : "")));
               if (e.hasPath && Z(a, e.key)) {
                 const n = Ke("button", "act replay-run-btn", "▶ 过程");
@@ -13016,7 +12934,7 @@ function analyzePath(s, e) {
               const r = _(i);
               r.count > 0 && e.appendChild(Ke("div", "lib-panel-sub", "💬 玩家建议评级：平均 " + r.avg + "（" + r.count + " 人评过）")), a.length ? a.slice(0, 20).forEach((i => {
                 const a = Ke("div", "lib-rank" + (i.rank <= 3 ? " top" + i.rank : "") + (i.banned ? " banned" : "")),
-                  r = Ke("span", "", "第" + i.rank + "名  " + i.name + (i.score ? " · 🏆 " + i.score + " 分" : "") + " · " + Je(i.at) + (i.ms > 0 ? " · 初见 " + $(i.ms) : "") + (i.grade ? " · 评级 " + i.grade : "") + (i.suggest > 0 ? " · 💬 建议 " + i.suggest : "") + _flagText(i.flags));
+                  r = Ke("span", "", "第" + i.rank + "名  " + i.name + (i.score ? " · 🏆 " + i.score + " 分" : "") + " · " + Je(i.at) + (i.ms > 0 ? " · 初见 " + $(i.ms) : "") + (i.grade ? " · 评级 " + i.grade : "") + (i.suggest > 0 ? " · 💬 建议 " + i.suggest : ""));
                 if (a.appendChild(r), i.key === de()) {
                   const e = document.createElement("input");
                   e.type = "number", e.min = "0", e.max = "999", e.step = "0.1", e.className = "lib-suggest-input", e.value = i.suggest > 0 ? String(i.suggest) : "", e.placeholder = "我的建议", e.title = "我的建议评级（留空/0 = 取消）";
@@ -15100,8 +15018,6 @@ function analyzePath(s, e) {
           if (!T) return;
           const e = T.id;
           if (t || D()[e] || j()[e]) return void App.toast("👁 查看过答案或进入过编辑器，本次通关不计入排行榜");
-          let _proof = null;
-          try { _proof = "undefined" != typeof Player && Player.inputProof ? Player.inputProof() : null } catch (_eP) {}
           let n = {};
           "number" == typeof sc && (n.score = Math.round(sc));
           try {
@@ -15137,21 +15053,6 @@ function analyzePath(s, e) {
                 _rn.times.length === _rn.path.length && (n.times = _rn.times.slice(0, 1500))
             }
           } catch (t) {}
-          /* fix48 需求2：先本地复算这条路径是不是真的能通关（脚本直接塞一串坐标、或者爬来的答案被改动过，都会在这里被拦下） */
-          try {
-            const _lvx = "undefined" != typeof Player && Player.getLevel ? Player.getLevel() : null;
-            if (_lvx && Array.isArray(n.path) && n.path.length >= 2) {
-              const _an2 = analyzePath(_lvx, n.path);
-              if (!_an2 || !_an2.complete) {
-                try { App.toast("❌ 路径校验未通过，本次通关不记录") } catch (_eT) {}
-                return
-              }
-            }
-          } catch (_eV) {}
-          try {
-            n.flags = _runFlags(n, _proof);
-            n.pr = _proof ? { hits: Number(_proof.hits) || 0, drags: Number(_proof.drags) || 0, steps: Number(_proof.steps) || 0 } : null
-          } catch (_eF) {}
           K(e, pe(), n).then((() => App.toast("🏆 已记录完成，看看这关的排行榜！"))).catch((() => {}))
         },
         openCommunityTab: function() {
@@ -15521,7 +15422,7 @@ function analyzePath(s, e) {
           }), !0);
           try {
             const e = "v2.0.1-dev";
-            window.__ver = e, window.__build = "fix48", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            window.__ver = e, window.__build = "fix47", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
