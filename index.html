@@ -512,6 +512,10 @@
       background: #2e7d32
     }
 
+    .sym-blue {
+      background: #1e88e5
+    }
+
     .sym-sol {
       background: #546e7a;
       color: #fff;
@@ -2143,15 +2147,20 @@
           </select>
         </label>
         <label class="field">目标
-          <select id="obj-tmode" title="按ID：固定操作那个编号的物体；按格子：触发的那一刻去找停在该格的物体（物体被移动过去也能命中）">
+          <select id="obj-tmode" title="按ID：固定操作那个编号的物体；按格子：触发的那一刻去找停在该格的物体（物体被移动过去也能命中）；按分组：一次操作整组物体（灰格等格子特性也在内）">
             <option value="id">按ID</option>
             <option value="cell">按格子</option>
+            <option value="group">按分组</option>
           </select>
           <span id="obj-targetid-wrap"><input id="obj-target" type="number" min="1" value="1" style="width:62px" title="被操作物体的编号（物体面板里会列出）"></span>
           <span id="obj-tcell-wrap" style="display:none"><input id="obj-tcell" style="width:86px" placeholder="行,列 如 2,3" title="目标格子：触发时找该格上的物体"></span>
+          <span id="obj-tgroup-wrap" style="display:none"><input id="obj-tgroup" style="width:118px" placeholder="如 enemy,wall" title="目标分组：填一个或多个分组名（逗号分隔），触发时把所有属于这些分组的物体一起处理"></span>
         </label>
         <label class="field">数值
           <input id="obj-value" type="number" value="1" style="width:62px" title="加分/扣分的数值；条件触发的得分阈值">
+        </label>
+        <label class="field">分组
+          <input id="obj-groups" style="width:126px" placeholder="如 enemy,wall" title="这个物体所属的分组，多个用逗号分隔（一个物体可以属于多个分组）。动作里选「按分组」就能一次操作整组物体，不用一个个填编号">
         </label>
         <label class="field" id="obj-move-row" style="display:none">移动
           <select id="obj-movedir" title="移动方向（上下左右，逐格推进）">
@@ -2183,6 +2192,7 @@
             <option value="edgeBlue">蓝边</option>
           </select>
           <input id="obj-spawncell" style="width:86px" placeholder="行,列 如 2,3" title="生成位置：行,列；留空=生成在按钮所在格">
+          <input id="obj-spawng" style="width:110px" placeholder="分组(可选)" title="生成出来的物体归到这些分组（逗号分隔，可留空）；之后动作里用「按分组」就能一次操作它们">
         </label>
         <label class="field" id="obj-spawnedge-row" style="display:none">边方向
           <select id="obj-spawndir" title="红/绿/蓝边的另一格方向：以「生成位置」那一格为一端，朝这个方向连一条边（斜向边要两格都允许斜向才能走）">
@@ -2260,6 +2270,12 @@
         </label>
         <label class="field check" title="关闭后玩家不能往回走（也就是不能撤销），只能点「🧹 清空路径」重开（难度更高）">
           <input id="in-set-undo" type="checkbox" checked> 允许往回走（撤销）
+        </label>
+        <label class="field">撤销方式
+          <select id="in-set-undo-mode" title="原版撤销：撤销时时间和物体一起回到那一刻（正在移动的物体从那一刻继续移动）；仅回退：只退路径，计时继续走、物体停在原处不回退">
+            <option value="legacy">原版撤销（时间也倒退）</option>
+            <option value="path">仅回退（只退路径）</option>
+          </select>
         </label>
         <label class="field check" title="关闭后棋盘不绘制最外圈边框">
           <input id="in-set-border" type="checkbox" checked> 显示边框
@@ -2764,6 +2780,10 @@
             <td>绿边：路径必须跨越（至少一次）</td>
           </tr>
           <tr>
+            <td><span class="sym sym-blue">—</span></td>
+            <td>蓝边：这段连线<b>允许重复经过</b>（放行「同一段不能走两次」的判定），但<b>不能刚过去就原路返回</b>；斜向蓝边需要两格都是斜向格才画得出</td>
+          </tr>
+          <tr>
             <td><span class="sym sym-sol">┅</span></td>
             <td>答案路径（灰色虚线）：编辑器中用「答案路径」工具绘制，<b>试玩时隐藏</b>；关卡必须有有效答案才能游玩</td>
           </tr>
@@ -2771,7 +2791,14 @@
         <p><b>操作</b>：编辑器里选好工具后点击格子；红/绿边先点一格再点相邻格（含斜向）；数字格先在「数字」输入框填范围（两个框都填 = 区间 a~b，只填第一个 = 精确步数；都留空点击可移除数字）再点格子；答案路径从 S 开始点或拖动画线（与试玩规则相同），可用「撤销一步答案」逐步回退；试玩时从 S 开始点或拖动画线、可显示序号。</p>
         <p><b>上传关卡</b>：本地关卡通关后，结算页有 <b>⬆ 上传关卡</b> 按钮（<b>这是唯一的上传入口</b>），登录社区账号后即可把这一关分享到社区；<b>社区关卡</b>本身已经在社区里，结算页不再显示这个按钮。</p>
         <p><b>进度保存</b>：试玩中途切后台、关页面、被系统回收，进度都会自动存下来（当前笔画、已完成笔画、暂停笔画、草稿线、用时、机关与物体的位置/得分/动画），下次进来接着走；也可点 <b>⏏ 返回编辑</b>手动存档。</p>
-        <p><b>往回走（撤销）</b>：试玩时点<b>路径上的上一格</b>即往回退一步（<b>按住拖动拖回上一格</b>也可以连续退），可以连续点、连续拖、连续退；退回时按钮、得分、各种物体状态也一起回到那一刻（计时不变）。关卡设置里关掉「允许往回走」后就不能回退，只能点 <b>🧹 清空路径</b>重开。</p>
+        <p><b>往回走（撤销）</b>：试玩时点<b>路径上的上一格</b>即往回退一步（<b>按住拖动拖回上一格</b>也可以连续退），可以连续点、连续拖、连续退。撤销有两种模式，在「关卡设置 · 撤销方式」里选：<br>
+          · <b>原版撤销（默认）</b>：<b>时间和物体一起回到那一刻</b>——计时倒退到那一步的用时，按钮、得分、机关、视野也全部还原；<b>正在移动中的物体从那一刻继续往下走</b>（和「退出游玩时保存进度」用的是同一套整局恢复逻辑，不会一下子弹回起点）。<br>
+          · <b>仅回退</b>：<b>只把路径退回去</b>，计时继续走，物体停在原处不回退（得分、机关状态也保持现状）。<br>
+          关卡设置里关掉「允许往回走」后就不能回退，只能点 <b>🧹 清空路径</b> 重开。</p>
+        <p><b>物体分组（group）</b>：每个物体都可以填「分组」，<b>一个物体可以同时属于多个分组</b>（逗号分隔，如 <code>enemy,wall</code>）。按钮动作的「目标」除了 <b>按ID</b>、<b>按格子</b>，还有 <b>按分组</b>：填一个或多个分组名，触发时把这一组的物体<b>一次性全部处理</b>（移动、删除、禁用、隐藏、显示、启用），不用一个个填编号；「在指定格生成物体」时也能顺便写上分组，生成出来的物体直接归到这一组。</p>
+        <p><b>删除物体 · 灰格也是物体</b>：灰色格、障碍、枢纽、斜向格、数字格、起终点、红/绿/蓝边都是<b>真正的物体</b>，各有自己的 <b>#编号</b>（编辑器物体面板里能看到），所以既能用「🗑 删除物体」删，也能被动作「删除物体 + 按格子 / 按分组」删掉。动作指向某个灰格时会把灰格从格子上抹掉（之后就是普通格，可以正常重复经过）；擦除工具同样能擦灰格。</p>
+        <p><b>雾霾 / 视野</b>：🌫 雾霾只遮挡画面，不影响判定；「视野」可定义若干矩形范围（写法 <code>id,行,列,宽,高</code>，多条用 <code>;</code> 分隔），锁定后棋盘只显示那一块、路径也只能画在里面，按钮可用「设置视野范围」动作随时切换或解除。</p>
+        <p><b>草稿 / 亚像素 / 批量</b>：试玩页「📝 打草稿」点两个相邻格（含斜向）画一条灰色短线段做提示，不参与判定、对战也能用；「修改格子亚像素」把一个格子切成 6×6 小格逐个上色，可以作画；编辑器按住拖动可批量放物体（设置里「拖动批量」可选「刷子（轨迹）」或「矩形填充」）。</p>
         <p><b>PC 端移动地图</b>：按住 <b>右键/中键</b> 拖动即可平移（或点左上角 ✋ 切换拖动模式后用左键拖）；<b>方向键</b> 也能平移（Shift 加速）；<b>Shift+滚轮</b> 或触控板横向滑动 = 左右平移，普通滚轮 = 缩放，Ctrl+滚轮 = 缩放。</p>
         <p><b>隐藏答案</b>：编辑器默认「隐藏答案路径」（勾选状态），载入示例/导入关卡时不会显示灰色虚线官方解，防止偷看；取消勾选即可查看；绘制答案时会自动临时显示。</p>
         <p><b>难度</b>：可填「前缀 + 难度」（如 <b>FATE 17.0</b>），导出后随关卡保存。</p>
@@ -2923,7 +2950,7 @@
     }
     class Level {
       constructor(s, e, t) {
-        this.rows = clampInt(s, 2, 99, 6), this.cols = clampInt(e, 2, 99, 6), this.name = "string" == typeof t && t.trim() ? t.trim().slice(0, 40) : "未命名关卡", this.start = null, this.end = null, this.obstacles = new Set, this.hubs = new Set, this.diagonals = new Set, this.redEdges = new Set, this.greenEdges = new Set, this.solution = null, this.password = null, this.desc = "", this.numbers = new Map, this.difficulty = 0, this.difficultyPrefix = "", this.grays = new Set, this.timeLimit = 0, this.musicId = "", this.musicUrl = "", this.musicRepo = "", this.bg = "", this.starts = [], this.ends = [], this.blueEdges = new Set, this.objects = [], this.subpixels = new Map, this.settings = { allowZoom: !0, initialZoom: 0, clickDraw: !0, dragDraw: !0, allowUndo: !0, showBorder: !0, showGrid: !0, batchMode: "brush" }, this.nextObjectId = 1, this.viewRects = [], this.viewId = "", this.schemaVersion = 2
+        this.rows = clampInt(s, 2, 99, 6), this.cols = clampInt(e, 2, 99, 6), this.name = "string" == typeof t && t.trim() ? t.trim().slice(0, 40) : "未命名关卡", this.start = null, this.end = null, this.obstacles = new Set, this.hubs = new Set, this.diagonals = new Set, this.redEdges = new Set, this.greenEdges = new Set, this.solution = null, this.password = null, this.desc = "", this.numbers = new Map, this.difficulty = 0, this.difficultyPrefix = "", this.grays = new Set, this.timeLimit = 0, this.musicId = "", this.musicUrl = "", this.musicRepo = "", this.bg = "", this.starts = [], this.ends = [], this.blueEdges = new Set, this.objects = [], this.subpixels = new Map, this.settings = { allowZoom: !0, initialZoom: 0, clickDraw: !0, dragDraw: !0, allowUndo: !0, undoMode: "legacy", showBorder: !0, showGrid: !0, batchMode: "brush" }, this.nextObjectId = 1, this.viewRects = [], this.viewId = "", this.schemaVersion = 2
       }
       inBounds(s, e) {
         return s >= 0 && s < this.rows && e >= 0 && e < this.cols
@@ -3110,6 +3137,7 @@
             c: c | 0
           },
           props: Object.assign({}, props || {}),
+          groups: [],
           triggers: [],
           actions: [],
           motion: null
@@ -3129,6 +3157,7 @@
             b: [b[0] | 0, b[1] | 0]
           },
           props: {},
+          groups: [],
           triggers: [],
           actions: [],
           motion: null
@@ -3514,6 +3543,14 @@
               r.objects.push({
                 id: oid, kind: String(ob.kind || ""), enabled: !1 !== ob.enabled, visible: !1 !== ob.visible, deleted: "boolean" == typeof ob.deleted ? ob.deleted : void 0,
                 place: place,
+                groups: (function(g) {
+                  const out = [];
+                  if (Array.isArray(g)) for (const q of g) {
+                    const v = String(q == null ? "" : q).trim().slice(0, 20);
+                    v && out.indexOf(v) < 0 && out.length < 8 && out.push(v)
+                  }
+                  return out
+                })(ob.groups),
                 props: (ob.props && "object" == typeof ob.props) ? JSON.parse(JSON.stringify(ob.props)) : {},
                 triggers: Array.isArray(ob.triggers) ? JSON.parse(JSON.stringify(ob.triggers)) : [],
                 actions: Array.isArray(ob.actions) ? JSON.parse(JSON.stringify(ob.actions)) : [],
@@ -3548,6 +3585,7 @@
             for (const key of ["allowZoom", "clickDraw", "dragDraw", "allowUndo", "showBorder", "showGrid"]) {
               if (key in s.settings) r.settings[key] = !!s.settings[key];
             }
+            r.settings.undoMode = "path" === s.settings.undoMode ? "path" : "legacy";
             const iz = Number(s.settings.initialZoom);
             if (Number.isFinite(iz) && iz > 0 && iz <= 10) r.settings.initialZoom = iz;
             else if ("initialZoom" in s.settings && !(Number.isFinite(iz) && 0 === iz)) t.push("initialZoom 无效（0 = 自动，或 0.1~10），已忽略");
@@ -3818,6 +3856,7 @@ function analyzePath(s, e) {
           triggers: (o.triggers || []).map((t => Object.assign({}, t))),
           actions: (o.actions || []).map((a => Object.assign({}, a))),
           motion: o.motion ? Object.assign({}, o.motion) : null,
+          groups: Array.isArray(o.groups) ? o.groups.map((q => String(q))).slice(0, 8) : [],
           _anim: null,
           _cond: [],
           _pulse: []
@@ -4053,6 +4092,7 @@ function analyzePath(s, e) {
               b: eb
             },
             props: Object.assign({}, act.props || {}),
+            groups: Array.isArray(act.groups) ? act.groups.map((q => String(q))).slice(0, 8) : [],
             triggers: [],
             actions: [],
             motion: null,
@@ -4091,6 +4131,7 @@ function analyzePath(s, e) {
               c: c
             },
             props: Object.assign({}, act.props || {}, grp ? { group: grp } : {}),
+            groups: Array.isArray(act.groups) ? act.groups.map((q => String(q))).slice(0, 8) : [],
             triggers: [],
             actions: [],
             motion: null,
@@ -4104,6 +4145,7 @@ function analyzePath(s, e) {
             kind: act.kind || "fog",
             place: act.place || null,
             props: act.props,
+            groups: Array.isArray(act.groups) ? act.groups.map((q => String(q))).slice(0, 8) : [],
             triggers: act.triggers,
             actions: act.actions,
             motion: act.motion,
@@ -4174,12 +4216,37 @@ function analyzePath(s, e) {
             out.ok = !0, out.cell = [pr, pc], out.index = idx;
           return out
         }
+        /* fix47：动作目标支持「按分组」——一次把整组物体都处理掉。
+           实现方式是把一条动作展开成「每个目标物体一条」，逐条走原来的单目标逻辑。 */
+        if (Array.isArray(act.targetGroups) && act.targetGroups.length) {
+          const want = act.targetGroups.map((q => String(q))).filter((q => q)),
+            ids = [];
+          if (want.length) {
+            const scan = function(o) {
+              if (!o || o.deleted) return;
+              const gs = Array.isArray(o.groups) ? o.groups : [];
+              for (const g of gs)
+                if (want.indexOf(String(g)) >= 0) return void ids.push(o.id)
+            };
+            this.map && this.map.forEach(scan), this._virt && this._virt.forEach(scan)
+          }
+          let cnt = 0;
+          for (const id of ids) {
+            const sub = Object.assign({}, act);
+            delete sub.targetGroups, delete sub.targetCell, sub.target = id;
+            const rr = this.apply(sub);
+            rr && rr.ok && cnt++
+          }
+          return out.ok = cnt > 0, out.count = cnt, out.ids = ids, out
+        }
         let t = act.targetCell && null != act.targetCell.r && null != act.targetCell.c ?
           this.atCell(act.targetCell.r, act.targetCell.c) : this.resolve(act.target);
         if (act.targetCell) {
           out.byCell = [act.targetCell.r | 0, act.targetCell.c | 0];
           if (!t || t.deleted) {
-            const cand = this.at(act.targetCell.r | 0, act.targetCell.c | 0).filter((o => o && !o.deleted && !o.virtual)).sort(((a, b) => (a.id | 0) - (b.id | 0)));
+            /* fix47：以前这里把「虚拟物体」（只存在于 L.grays / L.obstacles 等集合里的格子特性）排除掉，
+               结果灰格、障碍这类纯特征格在「按格子删除」时永远找不到目标，删不动。现在一并纳入。 */
+            const cand = this.at(act.targetCell.r | 0, act.targetCell.c | 0).filter((o => o && !o.deleted)).sort(((a, b) => (a.id | 0) - (b.id | 0)));
             t = cand.length ? cand[0] : t
           }
         }
@@ -4234,7 +4301,7 @@ function analyzePath(s, e) {
         else if ("disable" === op) t.enabled = !1;
         else if ("show" === op) t.visible = !0;
         else if ("hide" === op) t.visible = !1;
-        else if ("delete" === op) t.deleted = !0;
+        else if ("delete" === op) t.deleted = !0, this._featSyncDelete(t);
         else if ("props" === op) Object.assign(t.props, act.patch || {});
         else return out;
         return this.touch(), out.ok = !0, out
@@ -4412,6 +4479,7 @@ function analyzePath(s, e) {
           deleted: o.deleted,
           place: o.place ? JSON.parse(JSON.stringify(o.place)) : null,
           props: JSON.parse(JSON.stringify(o.props || {})),
+          groups: Array.isArray(o.groups) ? o.groups.slice() : [],
           _cond: o._cond.slice(),
           /* fix45：把「正在移动中」的动画也存下来，否则存档/撤销会把走到一半的物体弹回起点 */
           _anim: o._anim ? {
@@ -4501,6 +4569,35 @@ function analyzePath(s, e) {
         } else return !1;
         return this.touch(), !0
       };
+      /* fix47：删掉一个「格子特性 / 边」物体时，把关卡里对应的集合也一起删掉。
+         之前只把世界里的副本标成 deleted，L.grays / L.obstacles / redEdges 这些集合没动，
+         渲染仍然照着集合画，于是「灰格删不掉」。 */
+      World.prototype._featSyncDelete = function(o) {
+        const L = this.level;
+        if (!L || !o || !o.place) return !1;
+        const p = o.place,
+          k = o.kind;
+        let hit = !1;
+        if ("edge" === p.type) {
+          const ek = Level.edgeKey(p.a, p.b),
+            eset = "edgeRed" === k ? L.redEdges : "edgeGreen" === k ? L.greenEdges : "edgeBlue" === k ? L.blueEdges : null;
+          eset && eset.delete && (hit = eset.delete(ek) || hit)
+        } else if ("cell" === p.type) {
+          const key = KEY(p.r | 0, p.c | 0),
+            set = "obstacle" === k ? L.obstacles : "gray" === k ? L.grays : "diagonal" === k ? L.diagonals : "hub" === k ? L.hubs : null;
+          if (set && set.delete) hit = set.delete(key) || hit;
+          else if ("number" === k && L.numbers) hit = L.numbers.delete(key) || hit;
+          else if ("start" === k || "end" === k) {
+            const arr = "start" === k ? (L.starts || (L.starts = [])) : (L.ends || (L.ends = []));
+            for (let i = arr.length - 1; i >= 0; i--) {
+              const e = arr[i];
+              e && (e.r | 0) === (p.r | 0) && (e.c | 0) === (p.c | 0) && (arr.splice(i, 1), hit = !0)
+            }
+            if (hit) "start" === k ? (L.start = arr.length ? [arr[0].r, arr[0].c] : null) : (L.end = arr.length ? [arr[0].r, arr[0].c] : null)
+          }
+        }
+        return hit && (this._indexVirt(), this.touch()), hit
+      };
       World.prototype._movePlaceSync = function(o, dest) {
         const p0 = o.place && "cell" === o.place.type ? [o.place.r | 0, o.place.c | 0] : null;
         return o.place = dest, p0 && this._featSyncMove(o, p0) && this._indexVirt(), dest
@@ -4539,6 +4636,7 @@ function analyzePath(s, e) {
           const o = this.map.get(so.id);
           if (!o) continue;
           o.enabled = so.enabled, o.visible = so.visible, o.deleted = so.deleted, o.place = so.place, o.props = so.props, o._cond = (so._cond || []).slice(),
+            o.groups = Array.isArray(so.groups) ? so.groups.slice() : (Array.isArray(o.groups) ? o.groups : []),
             /* fix45：恢复动画进度（走到一半的继续从那一刻走） */
             o._anim = so._anim ? {
               from: so._anim.from ? JSON.parse(JSON.stringify(so._anim.from)) : null,
@@ -5882,6 +5980,7 @@ function analyzePath(s, e) {
             c: c
           },
           props: {},
+          groups: [],
           triggers: [],
           actions: [],
           motion: null
@@ -6105,7 +6204,24 @@ function analyzePath(s, e) {
           c: m[1] | 0
         } : null
       }
+      function _groupsParse(raw) {
+        const out = [];
+        for (const q of String(null == raw ? "" : raw).split(/[,，;；\s]+/)) {
+          const v = q.trim().slice(0, 20);
+          v && out.indexOf(v) < 0 && out.length < 8 && out.push(v)
+        }
+        return out
+      }
+      function _groupsStr(g) {
+        return Array.isArray(g) ? g.map((q => String(q))).join(",") : ""
+      }
       function _applyTargetMode(act) {
+        const mode = _targetMode();
+        if ("group" === mode) {
+          const gs = _groupsParse((L("obj-tgroup") || {}).value);
+          if (gs.length) return delete act.target, delete act.targetCell, act.targetGroups = gs, act
+        }
+        delete act.targetGroups;
         const tc = _targetCellNow();
         return tc && (delete act.target, act.targetCell = tc), act
       }
@@ -6313,11 +6429,12 @@ function analyzePath(s, e) {
               }
             } else place = null
           }
-          return {
+          const _sact = {
             op: "spawn",
             kind: kind,
             place: place
-          }
+          }, _sg = _groupsParse((L("obj-spawng") || {}).value);
+          return _sg.length && (_sact.groups = _sg), _sact
         }
         if ("subpixel" === op) {
           const cellEl = L("obj-subpxcell"),
@@ -6482,8 +6599,9 @@ function analyzePath(s, e) {
         let opv = a.op;
         "score" === a.op && (opv = (Number(a.delta) || 0) < 0 ? "scoreMinus" : "score"),
           setv("obj-act", opv), setv("obj-target", void 0 === a.target ? "" : a.target);
-        a.targetCell ? (setv("obj-tmode", "cell"), setv("obj-tcell", a.targetCell.r + "," + a.targetCell.c)) :
-          (setv("obj-tmode", "id"), setv("obj-tcell", ""));
+        Array.isArray(a.targetGroups) && a.targetGroups.length ? (setv("obj-tmode", "group"), setv("obj-tgroup", a.targetGroups.join(","))) :
+          a.targetCell ? (setv("obj-tmode", "cell"), setv("obj-tcell", a.targetCell.r + "," + a.targetCell.c)) :
+          (setv("obj-tmode", "id"), setv("obj-tcell", ""), setv("obj-tgroup", ""));
         const _cop = void 0 !== (a.bindCond || null) ? null : null;
         "score" === a.op ? setv("obj-value", Math.abs(Number(a.delta) || 1)) :
           "move" === a.op ? ((mv => {
@@ -6517,7 +6635,8 @@ function analyzePath(s, e) {
             const k = Object.keys(b)[0] || "allowZoom";
             setv("obj-setkey", k), setv("obj-setval", b[k] ? "true" : "false")
           })(a.patch || {}) :
-          setv("obj-value", "")
+          setv("obj-value", "");
+        setv("obj-spawng", _groupsStr(a.groups))
       }
       function _oCondRowSync() {
         const op = (L("obj-condop") || {}).value || "ge",
@@ -6543,10 +6662,13 @@ function analyzePath(s, e) {
           box("obj-target", ("disable" === act || "enable" === act || "hide" === act || "show" === act || "delete" === act || "move" === act) && "button" === ((o || {}).kind || "")),
           box("obj-value", "score" === act || "scoreMinus" === act || "move" === act);
         "setview" === act && _oViewSelFill();
-        const isCellT = "cell" === _targetMode(),
+        const _tmode = _targetMode(),
+          isCellT = "cell" === _tmode,
+          isGrpT = "group" === _tmode,
           w1 = L("obj-targetid-wrap"),
-          w2 = L("obj-tcell-wrap");
-        w1 && (w1.style.display = isCellT ? "none" : ""), w2 && (w2.style.display = isCellT ? "" : "none"), _oCondRowSync(), "subpixel" === act && _spxInit()
+          w2 = L("obj-tcell-wrap"),
+          w3 = L("obj-tgroup-wrap");
+        w1 && (w1.style.display = isCellT || isGrpT ? "none" : ""), w2 && (w2.style.display = isCellT ? "" : "none"), w3 && (w3.style.display = isGrpT ? "" : "none"), _oCondRowSync(), "subpixel" === act && _spxInit()
       }
       function _oActsHtml(o) {
         if (!o || "button" !== o.kind) return "";
@@ -6576,6 +6698,7 @@ function analyzePath(s, e) {
               if (Array.isArray(a.pat)) return _head + (a.pat.length ? "画了 " + a.pat.length + " 个小格" : "清空这一格的亚像素");
               return _head + (a.erase ? "擦除" : (-1 === (a.index | 0) ? "全部 36 小格" : "小格 " + (a.index | 0))) + " " + (a.erase ? "" : "#" + ("000000" + ((Number(a.color) || 0) >>> 0).toString(16)).slice(-6))
             }
+            if (Array.isArray(a.targetGroups) && a.targetGroups.length) return " 组:" + a.targetGroups.join(",");
             if (a.targetCell) return " @(" + a.targetCell.r + "," + a.targetCell.c + ")";
             return void 0 === a.target ? "" : " #" + a.target
           };
@@ -6651,6 +6774,8 @@ function analyzePath(s, e) {
           isBtn = "button" === kd,
           isScore = "score+" === kd || "score-" === kd,
           isText = "text" === kd;
+        const _gEl = L("obj-groups");
+        _gEl && (_gEl.value = o ? _groupsStr(o.groups) : "");
         const box = (id, on) => {
           const el = L(id);
           if (!el) return;
@@ -6697,6 +6822,7 @@ function analyzePath(s, e) {
               })(x.cond));
             let txt = "🔘 选中 #" + o.id + " " + _kindName(o.kind);
             if (o.place && "cell" === o.place.type) txt += " (" + o.place.r + "," + o.place.c + ")";
+            if (o.groups && o.groups.length) txt += " 分组[" + o.groups.join(",") + "]";
             if (isScore) txt += " 经过自动 " + ("score+" === kd ? "+1" : "-1") + " 分";
             else if (isBtn) txt += " 触发[" + (o.triggers || []).map(trName).join(",") + "] 动作[" + (acts.length ? acts.join(",") : "无") + "]";
             else if (isText) txt += " 触发[" + (o.triggers || []).map(trName).join(",") + "]";
@@ -7112,10 +7238,12 @@ function analyzePath(s, e) {
       function _stRead() {
         const st = t.settings || (t.settings = {}),
           zo = L("in-set-zoom"), iz = L("in-set-izoom"), ck = L("in-set-click"),
-          dg = L("in-set-drag"), un = L("in-set-undo"), bd = L("in-set-border"), bm = L("in-set-batch");
+          dg = L("in-set-drag"), un = L("in-set-undo"), bd = L("in-set-border"), bm = L("in-set-batch"),
+          um = L("in-set-undo-mode");
         zo && (st.allowZoom = !!zo.checked), ck && (st.clickDraw = !!ck.checked),
           dg && (st.dragDraw = !!dg.checked), un && (st.allowUndo = !!un.checked),
-          bd && (st.showBorder = !!bd.checked), L("in-set-grid") && (st.showGrid = !!L("in-set-grid").checked), bm && (st.batchMode = "rect" === bm.value ? "rect" : "brush");
+          bd && (st.showBorder = !!bd.checked), L("in-set-grid") && (st.showGrid = !!L("in-set-grid").checked), bm && (st.batchMode = "rect" === bm.value ? "rect" : "brush"),
+          um && (st.undoMode = "path" === um.value ? "path" : "legacy");
         if (iz) {
           const v = Number(iz.value);
           st.initialZoom = Number.isFinite(v) && v >= 0.1 && v <= 10 ? Math.round(10 * v) / 10 : 0
@@ -7124,10 +7252,12 @@ function analyzePath(s, e) {
       function _stSync() {
         const st = t.settings || {},
           zo = L("in-set-zoom"), iz = L("in-set-izoom"), ck = L("in-set-click"),
-          dg = L("in-set-drag"), un = L("in-set-undo"), bd = L("in-set-border"), bm = L("in-set-batch");
+          dg = L("in-set-drag"), un = L("in-set-undo"), bd = L("in-set-border"), bm = L("in-set-batch"),
+          um = L("in-set-undo-mode");
         zo && (zo.checked = !1 !== st.allowZoom), ck && (ck.checked = !1 !== st.clickDraw),
           dg && (dg.checked = !1 !== st.dragDraw), un && (un.checked = !1 !== st.allowUndo),
           bd && (bd.checked = !1 !== st.showBorder), L("in-set-grid") && (L("in-set-grid").checked = !1 !== st.showGrid), bm && (bm.value = "rect" === st.batchMode ? "rect" : "brush"),
+          um && (um.value = "path" === st.undoMode ? "path" : "legacy"),
           iz && (iz.value = Number(st.initialZoom) > 0 ? st.initialZoom : 0)
       }
       function X() {
@@ -7382,7 +7512,7 @@ function analyzePath(s, e) {
             "undefined" != typeof Library && Library.inPvpMatch && Library.inPvpMatch() ? App.toast("⚔️ 对战中不可导入关卡") : App.openModal("modal-import")
           })), L("btn-play").addEventListener("click", Z), L("btn-help").addEventListener("click", (() => App.openModal("modal-help"))), L("btn-sol-clear").addEventListener("click", R), L("btn-sol-undo").addEventListener("click", I), L("btn-password").addEventListener("click", J), L("in-sol-numbers").addEventListener("change", (e => {
             g = e.target.checked, $()
-          })), L("in-hide-sol").addEventListener("change", (e => A(e.target.checked))), L("in-difficulty").addEventListener("change", H), ["in-set-zoom", "in-set-izoom", "in-set-click", "in-set-drag", "in-set-undo", "in-set-border", "in-set-grid", "in-set-batch"].forEach((function(id) {
+          })), L("in-hide-sol").addEventListener("change", (e => A(e.target.checked))), L("in-difficulty").addEventListener("change", H), ["in-set-zoom", "in-set-izoom", "in-set-click", "in-set-drag", "in-set-undo", "in-set-undo-mode", "in-set-border", "in-set-grid", "in-set-batch"].forEach((function(id) {
             const el = L(id);
             el && el.addEventListener("change", (function() {
               _stRead(), x(), te(ee()), App.toast("⚙ 关卡设置已更新")
@@ -7430,6 +7560,12 @@ function analyzePath(s, e) {
             if (!o) return void App.toast("先选中一个物体");
             const hit = _oDelObj(o);
             selObjId = 0, hit && x(), _oSync(), te(ee()), App.toast(hit ? "🗑 已删除该物体" : "没删掉：该物体已不存在")
+          }));
+          const _og = L("obj-groups");
+          _og && _og.addEventListener("change", (function() {
+            const o = _oSel();
+            if (!o) return void App.toast("先选中一个物体，再填分组");
+            o.groups = _groupsParse(_og.value), _og.value = _groupsStr(o.groups), x(), _oSync(), te(ee()), App.toast(o.groups.length ? "🏷 分组：" + o.groups.join(",") : "🏷 已清空分组")
           }));
           const _ol = L("obj-list");
           _ol && _ol.addEventListener("click", (ev => {
@@ -9073,6 +9209,7 @@ function analyzePath(s, e) {
           ref: i,
           dlen: done.length,
           plen: paused.length,
+          ms: X(),
           snap: _world.snapshot()
         });
         const ctx = _ctx(),
@@ -9089,7 +9226,16 @@ function analyzePath(s, e) {
         let rec = null;
         for (let k = 0; k < cnt && _snaps.length; k++) rec = _snaps.pop();
         if (!rec) return null;
-        _world && (_world.restore(rec.snap), _world.touch());
+        /* fix47：撤销分两种模式。
+           legacy（原版撤销）：时间 + 世界一起回到那一刻（和「退出游玩时保存进度」同一套恢复逻辑），
+             正在移动的物体因为快照里存着 _anim 进度，会从那一刻继续往下走；
+           path（仅回退）：只退路径，计时与世界状态都不动。 */
+        const _mode = e && e.settings && "path" === e.settings.undoMode ? "path" : "legacy";
+        if ("path" !== _mode) {
+          _world && (_world.restore(rec.snap), _world.touch());
+          if ("number" == typeof rec.ms && rec.ms >= 0) y = rec.ms, c = Date.now()
+        }
+        rec._mode = _mode;
         if (rec.ref && "number" == typeof rec.len) i = rec.ref.slice(0, rec.len);
         "number" == typeof rec.rlen && rec.rlen >= 0 && (_run = _run.slice(0, rec.rlen));
         "number" == typeof rec.plen && (paused = paused.slice(0, rec.plen));
@@ -9404,7 +9550,10 @@ function analyzePath(s, e) {
         if (!_snaps.length) return void App.toast("已经回到起点，不能再往回走了");
         const cnt = Math.max(1, t | 0),
           rec = _undoWorld(cnt);
-        rec ? (r = !1, B(), n = _an(), P(), S(), z(), App.toast(cnt > 1 ? "↩ 已往回走 " + cnt + " 步（状态也回到那一刻，计时不变）" : "↩ 已往回走一步（再点上一格可以继续退）")) : App.toast("已经回到起点，不能再往回走了")
+        if (!rec) return void App.toast("已经回到起点，不能再往回走了");
+        r = !1, B(), n = _an(), P(), S(), z();
+        const _pathOnly = "path" === rec._mode;
+        App.toast(cnt > 1 ? "↩ 已往回走 " + cnt + " 步（" + (_pathOnly ? "仅退路径：计时与物体不回退" : "时间和物体一起回到那一刻") + "）" : "↩ 已往回走一步（再点上一格可以继续退）")
       }
 
       function T() {
@@ -9550,7 +9699,7 @@ function analyzePath(s, e) {
         try { _world && (st.world = _world.snapshot()) } catch (_e0) {}
         try {
           st.snaps = _snaps.slice(-24).map((r => ({
-            len: r.len, rlen: r.rlen, dlen: r.dlen, plen: r.plen,
+            len: r.len, rlen: r.rlen, dlen: r.dlen, plen: r.plen, ms: r.ms,
             ref: (r.ref || []).slice(0, r.len),
             snap: r.snap
           })));
@@ -15273,7 +15422,7 @@ function analyzePath(s, e) {
           }), !0);
           try {
             const e = "v2.0.1-dev";
-            window.__ver = e, window.__build = "fix46", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            window.__ver = e, window.__build = "fix47", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
