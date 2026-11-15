@@ -2118,15 +2118,18 @@
             <option value="score">得分</option>
             <option value="time">时间(秒)</option>
             <option value="steps">步数</option>
+            <option value="__var">变量…</option>
           </select>
+          <input id="obj-condmetricvar" list="obj-varlist" style="width:72px;display:none" placeholder="t / x1 / a1" title="变量：t = 当前用时（秒）；xn = 编号 n 物体的 x 坐标（列）；yn = y 坐标（行）；a1、a2… = 关卡变量">
+          <datalist id="obj-varlist"></datalist>
           <select id="obj-condop" title="≥：不小于下界；≤：不大于上界；区间：介于两者之间">
             <option value="ge">≥</option>
             <option value="le">≤</option>
             <option value="range">区间</option>
           </select>
-          <span id="obj-condmin-wrap"><input id="obj-condmin" type="number" placeholder="-∞" style="width:72px" title="下界；留空 = 负无穷"></span>
+          <span id="obj-condmin-wrap"><input id="obj-condmin" type="text" placeholder="-∞" style="width:72px" title="下界；留空 = 负无穷。可以填变量名（t / x1 / y2 / a1）"></span>
           <span id="obj-condrange-sep" style="color:#78909c">~</span>
-          <span id="obj-condmax-wrap"><input id="obj-condmax" type="number" placeholder="+∞" style="width:72px" title="上界；留空 = 正无穷"></span>
+          <span id="obj-condmax-wrap"><input id="obj-condmax" type="text" placeholder="+∞" style="width:72px" title="上界；留空 = 正无穷。可以填变量名（t / x1 / y2 / a1）"></span>
           <span style="margin-left:4px">间隔<input id="obj-condevery" type="number" min="0.05" step="0.1" placeholder="1" style="width:58px" title="脉冲检测间隔（秒）：每隔这么多秒检测一次，成立就执行动作，可以反复执行；留空 = 只在条件成立那一刻触发一次">s</span>
           <button id="obj-cond-save" class="act" title="只把这里的条件写进按钮的触发条件，不改已有动作">✔ 应用条件</button>
         </label>
@@ -2144,6 +2147,11 @@
             <option value="settings">修改关卡设置</option>
             <option value="setview">设置视野范围</option>
             <option value="subpixel">修改格子亚像素</option>
+            <option value="varset">变量设为</option>
+            <option value="varadd">变量加</option>
+            <option value="varsub">变量减</option>
+            <option value="varmul">变量乘</option>
+            <option value="vardiv">变量除</option>
           </select>
         </label>
         <label class="field">目标
@@ -2159,8 +2167,15 @@
         <label class="field">数值
           <input id="obj-value" type="number" value="1" style="width:62px" title="加分/扣分的数值；条件触发的得分阈值">
         </label>
+        <label class="field" id="obj-var-row" style="display:none">变量
+          <input id="obj-varname" style="width:56px" placeholder="a1" title="变量名：字母开头，最多 8 位字母/数字/下划线，例如 a1、a2、spd、hp2（xn / yn / t 是保留的坐标与时间变量，不要占用）">
+          <input id="obj-varvalue" style="width:92px" placeholder="10 或 a2" title="运算的值：可以填数字，也可以填变量名（a2 / t / x1 / y1），触发时取它的当前值">
+        </label>
         <label class="field">分组
-          <input id="obj-groups" style="width:126px" placeholder="如 enemy,wall" title="这个物体所属的分组，多个用逗号分隔（一个物体可以属于多个分组）。动作里选「按分组」就能一次操作整组物体，不用一个个填编号">
+          <input id="obj-groups" style="width:126px" placeholder="如 1,7" title="分组名只能是数字（1~999），多个用逗号分隔。这个物体所属的分组，多个用逗号分隔（一个物体可以属于多个分组）。动作里选「按分组」就能一次操作整组物体，不用一个个填编号">
+        </label>
+        <label class="field" title="画笔分组：先填好，之后新放置的物体都会自动带上一模一样的分组，不用每放一个再填一遍">🖌画笔分组
+          <input id="obj-paintgroups" style="width:126px" placeholder="如 note" title="画笔分组：填好之后新放置的物体都会自动带上这些分组（可留空）">
         </label>
         <label class="field" id="obj-move-row" style="display:none">移动
           <select id="obj-movedir" title="移动方向（上下左右，逐格推进）">
@@ -2169,7 +2184,7 @@
             <option value="up">↑ 上</option>
             <option value="down">↓ 下</option>
           </select>
-          <input id="obj-movespeed" type="number" min="0.1" step="0.1" value="1" style="width:60px" title="速度：每秒走几格">格/秒
+          <input id="obj-movespeed" type="text" value="1" style="width:78px" title="速度：每秒走几格；也可以直接填变量名（a1 / t / x1 / y1），运行时按变量当前值走">格/秒
           <input id="obj-movetime" type="number" min="0" step="0.1" value="1" style="width:60px" title="移动时长（秒）；格数 = 速度 × 时间">秒
         </label>
         <label class="field" id="obj-spawn-row" style="display:none">生成
@@ -2251,7 +2266,23 @@
         <button id="obj-add" class="act" title="把上面这个动作加到选中的按钮上">➕ 加动作</button>
         <button id="obj-clear" class="act" title="清空该按钮的触发器与动作">🧹 清空动作</button>
         <button id="obj-del" class="act" title="删除选中的物体">🗑 删除物体</button>
+        <div class="tool-row" style="margin:4px 0">
+          <span id="obj-multinfo" style="font-size:12px;color:#1a73e8"></span>
+          <button id="obj-gnext" style="padding:3px 9px;min-height:28px" title="把「分组」填成当前没被占用的小分组号（从 1 起）">🆕 下一个空分组</button>
+          <button id="obj-gclear" style="padding:3px 9px;min-height:28px" title="全部取消选择：点画布上的物体就能多选，点已选物体再点一次就取消；这里一次清空">☐ 全部取消选择</button>
+        </div>
         <div id="obj-cellinfo" class="objacts"></div>
+        <div class="tool-row" id="struct-row" style="margin:4px 0;border-top:1px dashed #cfd8dc;padding-top:6px">
+          <span class="levelname">📦 结构</span>
+          <label class="field">名称 <input id="st-name" style="width:92px" placeholder="如 双枢纽"></label>
+          <label class="field">参考格 <input id="st-ref" style="width:96px" placeholder="行,列（留空=选中格）"></label>
+          <label class="field">目标格 <input id="st-put" style="width:120px" placeholder="行,列（留空=选中格/点画布）" title="填 行,列；或者直接在画布上点任意一格（包括空格）把它设为目标格"></label>
+          <button id="st-export" style="padding:3px 9px;min-height:28px" title="把当前关卡的全部物体/特征存成本地结构，参考格＝导出时指定的格子">📤 导出为结构</button>
+          <label class="field">结构库 <select id="st-list" style="width:150px" title="选择具体结构"></select></label>
+          <button id="st-pick" style="padding:3px 9px;min-height:28px" title="从结构库里挑一个结构">📦 选择结构</button>
+          <button id="st-place" style="padding:3px 9px;min-height:28px" title="把选中的结构放进去：结构的参考格与「目标格」重合">📐 放置结构</button>
+          <button id="st-del" style="padding:3px 9px;min-height:28px" title="删除当前选中的结构">🗑 删结构</button>
+        </div>
         <div id="obj-list" class="objacts"></div>
       </div>
       <div class="tool-row" id="set-panel">
@@ -2951,7 +2982,7 @@
     }
     class Level {
       constructor(s, e, t) {
-        this.rows = clampInt(s, 2, 99, 6), this.cols = clampInt(e, 2, 99, 6), this.name = "string" == typeof t && t.trim() ? t.trim().slice(0, 40) : "未命名关卡", this.start = null, this.end = null, this.obstacles = new Set, this.hubs = new Set, this.diagonals = new Set, this.redEdges = new Set, this.greenEdges = new Set, this.solution = null, this.password = null, this.desc = "", this.numbers = new Map, this.difficulty = 0, this.difficultyPrefix = "", this.grays = new Set, this.timeLimit = 0, this.musicId = "", this.musicUrl = "", this.musicRepo = "", this.bg = "", this.starts = [], this.ends = [], this.blueEdges = new Set, this.objects = [], this.subpixels = new Map, this.settings = { allowZoom: !0, initialZoom: 0, clickDraw: !0, dragDraw: !0, allowUndo: !0, undoMode: "legacy", showBorder: !0, showGrid: !0, batchMode: "brush" }, this.nextObjectId = 1, this.viewRects = [], this.viewId = "", this.schemaVersion = 2
+        this.rows = clampInt(s, 2, 99, 6), this.cols = clampInt(e, 2, 99, 6), this.name = "string" == typeof t && t.trim() ? t.trim().slice(0, 40) : "未命名关卡", this.start = null, this.end = null, this.obstacles = new Set, this.hubs = new Set, this.diagonals = new Set, this.redEdges = new Set, this.greenEdges = new Set, this.solution = null, this.password = null, this.desc = "", this.numbers = new Map, this.difficulty = 0, this.difficultyPrefix = "", this.grays = new Set, this.timeLimit = 0, this.musicId = "", this.musicUrl = "", this.musicRepo = "", this.bg = "", this.starts = [], this.ends = [], this.blueEdges = new Set, this.objects = [], this.subpixels = new Map, this.settings = { allowZoom: !0, initialZoom: 0, clickDraw: !0, dragDraw: !0, allowUndo: !0, undoMode: "legacy", showBorder: !0, showGrid: !0, batchMode: "brush" }, this.nextObjectId = 1, this.viewRects = [], this.viewId = "", this.vars = {}, this.now = 0, this.schemaVersion = 2
       }
       inBounds(s, e) {
         return s >= 0 && s < this.rows && e >= 0 && e < this.cols
@@ -2969,6 +3000,19 @@
       }
       inViewEdge(a, b) {
         return !!(a && b && this.inView(a[0], a[1]) && this.inView(b[0], b[1]))
+      }
+      /* fix50：结算用「全图」口径——一格只要落在本关任意一个视野范围里，就算玩家能走到、必须覆盖；
+         完全不属于任何视野的格子（纯装饰远景行）不参与要求。
+         以前用「当前视野」，视野外的格子既算缺失又判非法，带视野的关卡根本没法通关。 */
+      inAnyView(s, e) {
+        const rs = this.viewRects || [];
+        if (!rs.length) return !0;
+        if ("function" == typeof this.activeViewRect && !this.activeViewRect()) return !0;
+        for (const q of rs) {
+          const R = q.rows | 0, C = q.cols | 0;
+          if (R > 0 && C > 0 && s >= (q.r | 0) && s < (q.r | 0) + R && e >= (q.c | 0) && e < (q.c | 0) + C) return !0
+        }
+        return !1
       }
       isObstacle(s, e) {
         return this.obstacles.has(KEY(s, e))
@@ -3334,7 +3378,31 @@
           blueEdges: e(this.blueEdges),
           starts: (this.starts || []).map((t => [t.r, t.c, t.i])),
           ends: (this.ends || []).map((t => [t.r, t.c, t.i])),
-          objects: JSON.parse(JSON.stringify(this.objects || [])),
+          /* fix50：体积优化。纯特征物件（灰格/边/障碍/斜向…）本来就由 grays / redEdges 等集合承载，
+             只要没带额外信息（props/groups/触发/动作/运动/被禁用隐藏）就不再重复序列化；
+             另外所有默认值字段一并省掉，加载侧 fromJSON 自动补默认。 */
+          objects: (function(lv) {
+            const isFeat = (k => Level.featureKinds().indexOf(k) >= 0),
+              out = [];
+            for (const o of (lv.objects || [])) {
+              if (!o) continue;
+              if (isFeat(o.kind) && !1 !== o.enabled && !1 !== o.visible && !o.motion &&
+                !(Array.isArray(o.groups) && o.groups.length) &&
+                !(Array.isArray(o.triggers) && o.triggers.length) &&
+                !(Array.isArray(o.actions) && o.actions.length) &&
+                !(o.props && Object.keys(o.props).length)) continue;
+              const c = JSON.parse(JSON.stringify(o));
+              !0 === c.enabled && delete c.enabled, !0 === c.visible && delete c.visible,
+                !1 === c.deleted && delete c.deleted,
+                Array.isArray(c.groups) && !c.groups.length && delete c.groups,
+                c.props && "object" == typeof c.props && !Object.keys(c.props).length && delete c.props,
+                Array.isArray(c.triggers) && !c.triggers.length && delete c.triggers,
+                Array.isArray(c.actions) && !c.actions.length && delete c.actions,
+                !c.motion && delete c.motion,
+                out.push(c)
+            }
+            return out
+          })(this),
           subpixels: Object.fromEntries([...this.subpixels].map((([k, v]) => [k, v]))),
           settings: Object.assign({}, this.settings),
           nextObjectId: this.nextObjectId || 1,
@@ -3356,6 +3424,17 @@
             cols: v.cols | 0
           })),
           viewId: String(this.viewId || "").slice(0, 12),
+          /* fix50：关卡变量初值（按钮动作「变量设为/加/减/乘/除」改的就是它） */
+          vars: (function(src) {
+            const out = {};
+            for (const k of Object.keys(src || {}).slice(0, 24)) {
+              const nm = String(k).trim();
+              if (!/^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(nm)) continue;
+              const v = Number(src[k]);
+              isFinite(v) && (out[nm] = v)
+            }
+            return out
+          })(this.vars),
           authorRun: (function() {
             const ar = this.authorRun;
             if (!ar || !Array.isArray(ar.path) || ar.path.length < 2) return null;
@@ -3564,6 +3643,18 @@
             }
           } else t.push("objects 必须是数组，已忽略");
         }
+        // ---- v3: 关卡变量（fix50）----
+        if (null != s.vars && "object" == typeof s.vars && !Array.isArray(s.vars)) {
+          const outv = {};
+          for (const k of Object.keys(s.vars).slice(0, 24)) {
+            const nm = String(k).trim();
+            if (!/^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(nm)) { t.push("变量名无效（字母开头，最多 8 位字母/数字/下划线）: " + nm); continue }
+            const v = Number(s.vars[k]);
+            if (!isFinite(v)) { t.push("变量 " + nm + " 的初值无效，已忽略"); continue }
+            outv[nm] = v
+          }
+          r.vars = outv
+        }
         // ---- v3: 亚像素（稀疏）----
         if (null != s.subpixels) {
           if (s.subpixels && "object" == typeof s.subpixels && !Array.isArray(s.subpixels)) {
@@ -3669,8 +3760,46 @@ function _edgeInView(s, k) {
   const A = p[0].split(","), B = p[1].split(",");
   return _inView(s, +A[0], +A[1]) && _inView(s, +B[0], +B[1])
 }
-function analyzePath(s, e) {
+function _inScope(s, r, c) {
+  return "function" == typeof s.inAnyView ? s.inAnyView(r, c) : _inView(s, r, c)
+}
+function _edgeInScope(s, k) {
+  const p = String(k).split("|");
+  if (p.length < 2) return !0;
+  const A = p[0].split(","), B = p[1].split(",");
+  return _inScope(s, +A[0], +A[1]) && _inScope(s, +B[0], +B[1])
+}
+function _reachSet(s) {
+      /* fix50：从任一 S 出发、按规则真的能走到的格子集合。
+         被红边/障碍/雾霾封死的区域不算进「必须踩遍」，否则那些关卡永远判定不完整。 */
+      const R = s.rows | 0, C = s.cols | 0, seen = new Set(), q = [];
+      const ok = (r, c) => r >= 0 && c >= 0 && r < R && c < C && !s.isBlocked(r, c);
+      const push = (r, c) => { const k = KEY(r, c); seen.has(k) || (seen.add(k), q.push([r, c])); };
+      const starts = (s.starts && s.starts.length) ? s.starts.map(v => [v.r | 0, v.c | 0]) : (s.start ? [[s.start[0] | 0, s.start[1] | 0]] : []);
+      for (const st of starts) ok(st[0], st[1]) && push(st[0], st[1]);
+      const ds = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+      while (q.length) {
+        const cur = q.pop(), r = cur[0], c = cur[1];
+        for (const d of ds) {
+          const nr = r + d[0], nc = c + d[1];
+          if (!ok(nr, nc)) continue;
+          if (d[0] && d[1] && !s.isDiagonal(r, c) && !s.isDiagonal(nr, nc)) continue;
+          if (s.hasEdge("red", [r, c], [nr, nc])) continue;
+          push(nr, nc)
+        }
+      }
+      return seen
+    }
+
+    function _allCells(s) {
+      /* fix51: must traverse every non-gray non-obstacle cell; no reachability trimming. */
+      const R = s.rows | 0, C = s.cols | 0, out = new Set();
+      for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) out.add(KEY(r, c));
+      return out
+    }
+    function analyzePath(s, e) {
       if (Array.isArray(e) && e.length && Array.isArray(e[0]) && Array.isArray(e[0][0])) return analyzeStrokes(s, e);
+      const _reach = _allCells(s);
       const t = {
           valid: !0,
           complete: !1,
@@ -3679,12 +3808,12 @@ function analyzePath(s, e) {
           visitedNormal: 0,
           totalHubs: Array.from(s.hubs).filter(e => {
             const q = e.split(',');
-            return !s.isGray(+q[0], +q[1]) && _inView(s, +q[0], +q[1]);
+            return !s.isGray(+q[0], +q[1]) && !s.isBlocked(+q[0], +q[1]) && _inScope(s, +q[0], +q[1]) && _reach.has(KEY(+q[0], +q[1]));
           }).length,
           visitedHubs: 0,
-          totalGreen: [...s.greenEdges].filter((k => _edgeInView(s, k))).length,
+          totalGreen: [...s.greenEdges].filter((k => { const q = String(k).split("|"); return _edgeInScope(s, k) && _reach.has(q[0]) && _reach.has(q[1]) })).length,
           crossedGreen: 0,
-          totalNumbers: [...s.numbers.keys()].filter((k => { const q = String(k).split(","); return _inView(s, +q[0], +q[1]) })).length,
+          totalNumbers: [...s.numbers.keys()].filter((k => { const q = String(k).split(","); return _inScope(s, +q[0], +q[1]) && _reach.has(String(k)) })).length,
           okNumbers: 0,
           missingCells: [],
           missingHubs: [],
@@ -3695,7 +3824,7 @@ function analyzePath(s, e) {
         },
         r = new Set;
       for (let e = 0; e < s.rows; e++)
-        for (let t = 0; t < s.cols; t++) !_inView(s, e, t) || s.isBlocked(e, t) || s.isStart(e, t) || s.isEnd(e, t) || s.isGray(e, t) || r.add(KEY(e, t));
+        for (let t = 0; t < s.cols; t++) !_reach.has(KEY(e, t)) || !_inScope(s, e, t) || s.isBlocked(e, t) || s.isStart(e, t) || s.isEnd(e, t) || s.isGray(e, t) || r.add(KEY(e, t));
       if (t.totalNormal = r.size, !e || 0 === e.length) return t.valid = !1, t.errors.push("尚未开始画路径（请从起点 S 开始）"), t;
       const n = new Map;
       for (const s of e) {
@@ -3712,7 +3841,7 @@ function analyzePath(s, e) {
           o = e[r],
           a = KEY(n[0], n[1]),
           l = KEY(o[0], o[1]);
-        s.isAdjacent(n, o) ? (!s.isDiagMove(n, o) || s.isDiagonal(n[0], n[1]) || s.isDiagonal(o[0], o[1]) || t.errors.push("斜向移动需要斜向连线格: (" + a + ") → (" + l + ")"), s.hasEdge("red", n, o) && (t.errors.push("跨越红边: (" + a + ")-(" + l + ")"), t.redCells.push(a, l)), s.hasEdge("green", n, o) && i.add(Level.edgeKey(n, o))) : t.errors.push("非法移动: (" + a + ") → (" + l + ")"), s.isObstacle(o[0], o[1]) && t.errors.push("进入障碍格: (" + l + ")"), s.isFog(o[0], o[1]) && !s.isObstacle(o[0], o[1]) && t.errors.push("进入雾霾格: (" + l + ")"), s.isRedBlock(o[0], o[1]) && t.errors.push("碰到红障碍: (" + l + ")"), s.isStart(o[0], o[1]) && !s.isHub(o[0], o[1]) && t.errors.push("不能重复进入起点: (" + l + ")"), !_inView(s, o[0], o[1]) && t.errors.push("进入视野范围外的格子: (" + l + ")")
+        s.isAdjacent(n, o) ? (!s.isDiagMove(n, o) || s.isDiagonal(n[0], n[1]) || s.isDiagonal(o[0], o[1]) || t.errors.push("斜向移动需要斜向连线格: (" + a + ") → (" + l + ")"), s.hasEdge("red", n, o) && (t.errors.push("跨越红边: (" + a + ")-(" + l + ")"), t.redCells.push(a, l)), s.hasEdge("green", n, o) && i.add(Level.edgeKey(n, o))) : t.errors.push("非法移动: (" + a + ") → (" + l + ")"), s.isObstacle(o[0], o[1]) && t.errors.push("进入障碍格: (" + l + ")"), s.isFog(o[0], o[1]) && !s.isObstacle(o[0], o[1]) && t.errors.push("进入雾霾格: (" + l + ")"), s.isRedBlock(o[0], o[1]) && t.errors.push("碰到红障碍: (" + l + ")"), s.isStart(o[0], o[1]) && !s.isHub(o[0], o[1]) && t.errors.push("不能重复进入起点: (" + l + ")"), !_inScope(s, o[0], o[1]) && t.errors.push("这一格不属于任何视野范围: (" + l + ")")
       }
       for (let s = 0; s + 2 < e.length; s++)
         if (e[s][0] === e[s + 2][0] && e[s][1] === e[s + 2][1]) {
@@ -3733,15 +3862,16 @@ function analyzePath(s, e) {
       for (const e of s.hubs) {
         const q = e.split(',');
         if (s.isGray(+q[0], +q[1])) continue;
-        if (!_inView(s, +q[0], +q[1])) continue;
+        if (s.isBlocked(+q[0], +q[1])) continue;
+        if (!_inScope(s, +q[0], +q[1])) continue;
         n.has(e) || t.missingHubs.push(e);
       }
-      for (const e of s.greenEdges) _edgeInView(s, e) && (i.has(e) || t.missingGreens.push(e));
+      for (const e of s.greenEdges) _edgeInScope(s, e) && (i.has(e) || t.missingGreens.push(e));
       t.visitedNormal = r.size - t.missingCells.length, t.visitedHubs = t.totalHubs - t.missingHubs.length, t.crossedGreen = i.size;
       const _lvsN = s;
       for (const [r, n] of _lvsN.numbers) {
         const _q0 = String(r).split(",");
-        if (!_inView(_lvsN, +_q0[0], +_q0[1])) continue;
+        if (!_inScope(_lvsN, +_q0[0], +_q0[1]) || !_reach.has(String(r))) continue;
         const [s, i] = Array.isArray(n) ? n : [n, n], o = s === i ? "第 " + s + " 步" : "第 " + s + "~" + i + " 步之间", [a, l] = r.split(",").map(Number);
         let u = -1;
         for (let s = 0; s < e.length; s++)
@@ -3754,6 +3884,7 @@ function analyzePath(s, e) {
     }
 
     function analyzeStrokes(s, strokes) {
+      const _reach = _allCells(s);
       const t = {
         valid: !0,
         complete: !1,
@@ -3763,12 +3894,12 @@ function analyzePath(s, e) {
         visitedNormal: 0,
         totalHubs: Array.from(s.hubs).filter((e => {
           const q = e.split(",");
-          return !s.isGray(+q[0], +q[1]) && _inView(s, +q[0], +q[1])
+          return !s.isGray(+q[0], +q[1]) && !s.isBlocked(+q[0], +q[1]) && _inScope(s, +q[0], +q[1]) && _reach.has(KEY(+q[0], +q[1]))
         })).length,
         visitedHubs: 0,
-        totalGreen: [...s.greenEdges].filter((k => _edgeInView(s, k))).length,
+        totalGreen: [...s.greenEdges].filter((k => { const q = String(k).split("|"); return _edgeInScope(s, k) && _reach.has(q[0]) && _reach.has(q[1]) })).length,
         crossedGreen: 0,
-        totalNumbers: [...s.numbers.keys()].filter((k => { const q = String(k).split(","); return _inView(s, +q[0], +q[1]) })).length,
+        totalNumbers: [...s.numbers.keys()].filter((k => { const q = String(k).split(","); return _inScope(s, +q[0], +q[1]) && _reach.has(String(k)) })).length,
         okNumbers: 0,
         missingCells: [],
         missingHubs: [],
@@ -3782,7 +3913,7 @@ function analyzePath(s, e) {
       if (!Array.isArray(strokes) || !strokes.length) return t.valid = !1, t.errors.push("没有可结算的笔画"), t;
       const normal = new Set;
       for (let r = 0; r < s.rows; r++)
-        for (let c = 0; c < s.cols; c++) !_inView(s, r, c) || s.isBlocked(r, c) || s.isStart(r, c) || s.isEnd(r, c) || s.isGray(r, c) || normal.add(KEY(r, c));
+        for (let c = 0; c < s.cols; c++) !_inScope(s, r, c) || !_reach.has(KEY(r, c)) || s.isBlocked(r, c) || s.isStart(r, c) || s.isEnd(r, c) || s.isGray(r, c) || normal.add(KEY(r, c));
       t.totalNormal = normal.size;
       const cnt = new Map,
         green = new Set,
@@ -3827,12 +3958,12 @@ function analyzePath(s, e) {
       for (const k of normal) cnt.has(k) || t.missingCells.push(k);
       for (const e of s.hubs) {
         const q = e.split(",");
-        _inView(s, +q[0], +q[1]) && (s.isGray(+q[0], +q[1]) || cnt.has(e) || t.missingHubs.push(e));
+        _inScope(s, +q[0], +q[1]) && _reach.has(e) && !s.isBlocked(+q[0], +q[1]) && (s.isGray(+q[0], +q[1]) || cnt.has(e) || t.missingHubs.push(e));
       }
-      for (const e of s.greenEdges) _edgeInView(s, e) && (green.has(e) || t.missingGreens.push(e));
+      for (const e of s.greenEdges) { const q = String(e).split("|"); _edgeInScope(s, e) && _reach.has(q[0]) && _reach.has(q[1]) && (green.has(e) || t.missingGreens.push(e)); }
       for (const [k, v] of s.numbers) {
         const _q1 = String(k).split(",");
-        if (!_inView(s, +_q1[0], +_q1[1])) continue;
+        if (!_inScope(s, +_q1[0], +_q1[1]) || !_reach.has(String(k))) continue;
         const [lo, hi] = Array.isArray(v) ? v : [v, v],
           step = numHit.get(k),
           txt = lo === hi ? "第 " + lo + " 步" : "第 " + lo + "~" + hi + " 步之间";
@@ -3880,7 +4011,8 @@ function analyzePath(s, e) {
             for (const k of Object.keys(st)) Object.prototype.hasOwnProperty.call(base, k) || delete st[k];
             Object.assign(st, base)
           }(this.level.settings, this._set0);
-        this.viewId = this._view0, this.map = new Map, this.score = 0, this._view = null, this._dirty = !0, this._self = null;
+        this.viewId = this._view0, this.map = new Map, this.score = 0, this._view = null, this._dirty = !0, this._self = null,
+          this.vars = Object.assign({}, (this.level && this.level.vars) || {});
         const src = (this.level && this.level.objects) || [];
         let maxId = 0;
         for (const o of src) {
@@ -3895,7 +4027,7 @@ function analyzePath(s, e) {
               o && "hub" === o.kind && o.place && "cell" === o.place.type && (o._hubAt = [o.place.r | 0, o.place.c | 0])
             };
             w.map && w.map.forEach(setHub), w._virt && w._virt.forEach(setHub)
-          }(this)
+          }(this), this._hubResync()
       };
       World.CELL_KINDS = ["obstacle", "gray", "diagonal", "hub", "number", "start", "end"];
       World.isCellKind = function(k) {
@@ -4048,6 +4180,49 @@ function analyzePath(s, e) {
         return best
       };
 
+      /* fix53：把「变量名」统一求值。
+         t   = 当前用时（秒，来自触发时的 ctx.time，或最近一次 step 记下的 this.now）
+         xn  = 编号 n 物体的全局 x 坐标（= 列）；yn = 全局 y 坐标（= 行）；边物体取两端中点
+         a1、a2、…（以及任意合法变量名） = 关卡变量
+         求不出来返回 null。 */
+      World.prototype.varValue = function(name, ctx) {
+        const s2 = String(null == name ? "" : name).trim();
+        if (!s2) return null;
+        if ("t" === s2) {
+          const tv = ctx && isFinite(Number(ctx.time)) ? Number(ctx.time) : Number(this.now) || 0;
+          return Math.max(0, tv)
+        }
+        const m = /^([xyXY])(\d{1,6})$/.exec(s2);
+        if (m) {
+          const id = parseInt(m[2], 10),
+            o = this.map && this.map.get(id);
+          if (!o || o.deleted || !o.place) return 0;
+          let r = 0,
+            c = 0;
+          if ("edge" === o.place.type && Array.isArray(o.place.a) && Array.isArray(o.place.b)) {
+            r = (+o.place.a[0] + +o.place.b[0]) / 2, c = (+o.place.a[1] + +o.place.b[1]) / 2
+          } else r = +o.place.r || 0, c = +o.place.c || 0;
+          return "x" === m[1].toLowerCase() ? c : r
+        }
+        const v = Number(this.vars && this.vars[s2]);
+        return isFinite(v) ? v : null
+      };
+      /* fix50/fix53：数值字段可以填变量名（b2 / a1 / t / xn / yn），运行时按当前值取数；填数字就直接用数字。 */
+      World.prototype.numv = function(x, d) {
+        const dd = "number" == typeof d ? d : 0;
+        if ("string" == typeof x) {
+          const s2 = x.trim();
+          if (!s2) return dd;
+          if (/^[A-Za-z_]/.test(s2)) {
+            const v = this.varValue(s2);
+            return null == v || !isFinite(v) ? dd : v
+          }
+          const v2 = Number(s2);
+          return isFinite(v2) ? v2 : dd
+        }
+        const n2 = Number(x);
+        return isFinite(n2) ? n2 : dd
+      };
       World.prototype.apply = function(act) {
         const out = {
           op: act && act.op,
@@ -4142,7 +4317,7 @@ function analyzePath(s, e) {
             motion: null,
             _cond: []
           };
-          return this.map.set(sp.id, sp), this._indexVirt(), this.touch(), out.id = sp.id, out
+          return "hub" === sp.kind && sp.place && "cell" === sp.place.type && (sp._hubAt = [sp.place.r | 0, sp.place.c | 0]), this.map.set(sp.id, sp), this._indexVirt(), this.touch(), out.id = sp.id, out
         }
         if ("spawn" === op) {
           const o = cloneObj({
@@ -4157,15 +4332,33 @@ function analyzePath(s, e) {
             enabled: act.enabled,
             visible: act.visible
           });
-          return this.map.set(o.id, o), this.touch(), out.ok = !0, out.id = o.id, out
+          return "hub" === o.kind && o.place && "cell" === o.place.type && (o._hubAt = [o.place.r | 0, o.place.c | 0]), this.map.set(o.id, o), this.touch(), out.ok = !0, out.id = o.id, out
         }
         if ("settings" === op) {
           const st = this.level && this.level.settings;
           return st && Object.assign(st, act.patch || {}), this.touch(), out.ok = !0, out
         }
         if ("score" === op) {
-          const d = Number(act.delta) || 0;
+          const d = this.numv(act.delta, 0);
           return this.score += d, this.touch(), out.ok = !0, out.delta = d, out
+        }
+        /* fix50：按钮可以改「关卡变量」——设为/加/减/乘/除。
+           act.varName = 变量名；act.value = 数字或另一个变量名（取它的当前值）。 */
+        if ("varset" === op || "varadd" === op || "varsub" === op || "varmul" === op || "vardiv" === op) {
+          const nm = String(act.varName || act.name || "").trim().slice(0, 8);
+          if (!/^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(nm)) return out;
+          const v = this.numv(act.value, 0),
+            cur = Number(this.vars && this.vars[nm]) || 0;
+          let nv = cur;
+          if ("varset" === op) nv = v;
+          else if ("varadd" === op) nv = cur + v;
+          else if ("varsub" === op) nv = cur - v;
+          else if ("varmul" === op) nv = cur * v;
+          else if ("vardiv" === op) {
+            if (0 === v) return out;
+            nv = cur / v
+          }
+          return this.vars || (this.vars = {}), this.vars[nm] = nv, this.touch(), out.ok = !0, out.name = nm, out.value = nv, out
         }
         if ("setview" === op) {
           const id = String(null == act.value ? "" : act.value).trim().slice(0, 12);
@@ -4255,13 +4448,21 @@ function analyzePath(s, e) {
             t = cand.length ? cand[0] : t
           }
         }
+        /* fix50：按格子删除时，永远不删「触发这次动作的物体自己」。
+           以前按钮和音符同格，点按钮删音符会把按钮一起带走，后面的音符就点不动了。
+           需要自删的关卡给动作加 allowSelf:true 即恢复旧行为。 */
+        if ("delete" === op && t && this._self && t === this._self && !0 !== act.allowSelf) {
+          const _p = this._self.place && "cell" === this._self.place.type ? this._self.place : null,
+            _alt = _p ? this.at(_p.r | 0, _p.c | 0).filter((o => o && !o.deleted && o !== this._self)).sort(((a, b) => (a.id | 0) - (b.id | 0))) : [];
+          t = _alt.length ? _alt[0] : null
+        }
         if (!t || t.deleted) return out;
         if ("move" === op) {
           const mv = act.motion || t.motion;
           if (mv && ("up" === mv.dir || "down" === mv.dir || "left" === mv.dir || "right" === mv.dir)) {
             if (!t.place || "cell" !== t.place.type) return out;
-            const sp = Math.max(.01, Number(mv.speed) || 1),
-              tm = Math.max(0, Number(mv.time) || 0),
+            const sp = Math.max(.01, this.numv(mv.speed, 1)),
+              tm = Math.max(0, this.numv(mv.time, 0)),
               want = Math.max(1, Math.round(sp * tm)),
               dr = "up" === mv.dir ? -1 : "down" === mv.dir ? 1 : 0,
               dc = "left" === mv.dir ? -1 : "right" === mv.dir ? 1 : 0,
@@ -4320,17 +4521,28 @@ function analyzePath(s, e) {
 
       World.prototype.checkCond = function(cond, ctx) {
         cond = cond || {}, ctx = ctx || {};
+        const self = this;
+        ctx && isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
         const lo = function(v, d) {
             if (void 0 === v || null === v || "" === v) return d;
             const n = Number(v);
-            return isFinite(n) ? n : d
+            if (isFinite(n)) return n;
+            const mv = self.varValue(v, ctx);
+            return null == mv || !isFinite(mv) ? d : mv
           },
           score = Number(this.score) || 0,
           steps = Number(ctx.steps) || 0,
           time = Number(ctx.time) || 0;
         if (!(score >= lo(cond.scoreMin, -Infinity) && score <= lo(cond.scoreMax, Infinity) && steps >= lo(cond.stepsMin, -Infinity) && steps <= lo(cond.stepsMax, Infinity))) return !1;
         if (cond.metric) {
-          const v = "time" === cond.metric ? time : "steps" === cond.metric ? steps : score;
+          let v;
+          if ("time" === cond.metric) v = time;
+          else if ("steps" === cond.metric) v = steps;
+          else if ("score" === cond.metric) v = score;
+          else {
+            const mv = self.varValue("__var" === cond.metric ? (cond.metricVar || "") : cond.metric, ctx);
+            v = null == mv || !isFinite(mv) ? 0 : mv
+          }
           return v >= lo(cond.min, -Infinity) && v <= lo(cond.max, Infinity)
         }
         const rng = function(spec, val) {
@@ -4357,13 +4569,14 @@ function analyzePath(s, e) {
 
       World.prototype.pass = function(r, c, ctx) {
         ctx = ctx || {};
+        isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
         const out = [];
         for (const o of this.at(r, c)) {
           if (o.enabled) {
             if ("score+" === o.kind) this.score += 1, out.push({ kind: "score", delta: 1, id: o.id });
             else if ("score-" === o.kind) this.score -= 1, out.push({ kind: "score", delta: -1, id: o.id });
             else if ("score" === o.kind) {
-              const d = Number(o.props.delta) || 0;
+              const d = this.numv(o.props.delta, 0);
               this.score += d, out.push({ kind: "score", delta: d, id: o.id })
             }
           }
@@ -4377,6 +4590,7 @@ function analyzePath(s, e) {
       };
 
       World.prototype.click = function(r, c, ctx) {
+        ctx && isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
         const out = [];
         for (const o of this.at(r, c)) {
           if (!o.enabled) continue;
@@ -4387,6 +4601,7 @@ function analyzePath(s, e) {
       };
 
       World.prototype.step = function(ctx, dt) {
+        ctx && isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
         const out = [],
           _ms = Math.max(0, Number(dt) || 0);
         for (const o of this.map.values()) {
@@ -4552,7 +4767,7 @@ function analyzePath(s, e) {
             } else to && "cell" === to.type && trail.add(KEY(to.r | 0, to.c | 0))
           }
           const h = o._hubAt;
-          if (!h) return o._hubAt = [r1, c1], !1;
+          if (!h) return L.hubs.delete(KEY(r0, c0)), on && L.hubs.add(KEY(r1, c1)), o._hubAt = [r1, c1], this.touch(), !0;
           if (h[0] === r1 && h[1] === c1) return !1;
           return L.hubs.delete(KEY(h[0], h[1])), on && L.hubs.add(KEY(r1, c1)), o._hubAt = [r1, c1], this.touch(), !0
         }
@@ -4607,6 +4822,27 @@ function analyzePath(s, e) {
         const p0 = o.place && "cell" === o.place.type ? [o.place.r | 0, o.place.c | 0] : null;
         return o.place = dest, p0 && this._featSyncMove(o, p0) && this._indexVirt(), dest
       };
+      /* fix51: hub object vs required-set consistency sweep. */
+      World.prototype._hubResync = function() {
+        const L = this.level;
+        if (!L || !L.hubs) return !1;
+        let hit = !1;
+        const fix = function(o) {
+          if (!o || "hub" !== o.kind || !o.place || "cell" !== o.place.type) return;
+          if (o.deleted || !o.enabled || !1 === o.visible) return;
+          const r = o.place.r | 0,
+            c = o.place.c | 0,
+            k = KEY(r, c),
+            h = o._hubAt;
+          if (h && (h[0] !== r || h[1] !== c)) {
+            const hk = KEY(h[0] | 0, h[1] | 0);
+            L.hubs.has(hk) && (L.hubs.delete(hk), hit = !0)
+          }
+          L.hubs.has(k) || (L.hubs.add(k), hit = !0), o._hubAt = [r, c]
+        };
+        this.map && this.map.forEach(fix), this._virt && this._virt.forEach(fix);
+        return hit && this._indexVirt(), hit
+      };
       World.prototype._pruneFeatures = function() {
         const L = this.level;
         if (!L || "function" != typeof L.isFeatureKind) return;
@@ -4652,7 +4888,7 @@ function analyzePath(s, e) {
             o._vis = so._vis ? { r: Number(so._vis.r) || 0, c: Number(so._vis.c) || 0 } : null,
             o._hubAt = o.place && "cell" === o.place.type ? [o.place.r | 0, o.place.c | 0] : null
         }
-        snap.feat && this._featRestore(snap.feat), void 0 !== snap.viewId && (this.viewId = snap.viewId), this.score = Number(snap.score) || 0, this.nextId = Number(snap.nextId) || this.nextId, this._pruneFeatures(), this._indexVirt(), this.touch()
+        snap.feat && this._featRestore(snap.feat), void 0 !== snap.viewId && (this.viewId = snap.viewId), this.score = Number(snap.score) || 0, this.nextId = Number(snap.nextId) || this.nextId, this._pruneFeatures(), this._indexVirt(), this._hubResync(), this.touch()
       };
 
       return World
@@ -5847,7 +6083,8 @@ function analyzePath(s, e) {
         h = !1,
         b = [],
         v = -1,
-        selObjId = 0;
+        selObjId = 0,
+        _oSelSet = new Set();
       const y = {
         select: "选择：点格子选中其中的物体并显示在面板里（不改动棋盘）",
         se: "起终点合并：第 1 下放起点 S，第 2 下放终点 E，之后交替补多笔画 S+/E+；点已有的 S/E 是移除",
@@ -5989,6 +6226,12 @@ function analyzePath(s, e) {
         return t
       }
 
+      let _paintGroups = (function() {
+        try {
+          const v = JSON.parse(localStorage.getItem("path_paint_groups") || "[]");
+          return Array.isArray(v) ? v.map((q => String(q).trim())).filter((q => q)).slice(0, 8) : []
+        } catch (e) { return [] }
+      })();
       function _oAt(r, c) {
         const out = [];
         for (const o of (t.objects || [])) {
@@ -6011,7 +6254,7 @@ function analyzePath(s, e) {
             c: c
           },
           props: {},
-          groups: [],
+          groups: (_paintGroups || []).slice(0, 8),
           triggers: [],
           actions: [],
           motion: null
@@ -6236,12 +6479,32 @@ function analyzePath(s, e) {
         } : null
       }
       function _groupsParse(raw) {
+        /* fix51: group names must be numeric (1~999). Legacy text groups get dropped here. */
         const out = [];
         for (const q of String(null == raw ? "" : raw).split(/[,，;；\s]+/)) {
-          const v = q.trim().slice(0, 20);
-          v && out.indexOf(v) < 0 && out.length < 8 && out.push(v)
+          const v = q.trim();
+          if (!v) continue;
+          const n = Number(v);
+          if (!Number.isInteger(n) || n < 1 || n > 999) continue;
+          const s = String(n);
+          out.indexOf(s) < 0 && out.length < 8 && out.push(s)
         }
         return out
+      }
+      /* fix51: next unused group number (starts from 1). */
+      function _nextFreeGroup() {
+        const used = new Set(),
+          eat = function(g) {
+            for (const q of (Array.isArray(g) ? g : [])) {
+              const n = Number(q);
+              Number.isInteger(n) && n >= 1 && used.add(n)
+            }
+          };
+        for (const o of (t.objects || [])) o && eat(o.groups);
+        eat(_paintGroups);
+        let n = 1;
+        while (used.has(n) && n < 999) n++;
+        return n
       }
       function _groupsStr(g) {
         return Array.isArray(g) ? g.map((q => String(q))).join(",") : ""
@@ -6467,6 +6730,13 @@ function analyzePath(s, e) {
           }, _sg = _groupsParse((L("obj-spawng") || {}).value);
           return _sg.length && (_sact.groups = _sg), _sact
         }
+        if ("varset" === op || "varadd" === op || "varsub" === op || "varmul" === op || "vardiv" === op) {
+          const _nmEl = L("obj-varname"),
+            _vvEl = L("obj-varvalue"),
+            _nm = String((_nmEl && _nmEl.value) || "").trim().slice(0, 8),
+            _vv = String((_vvEl && _vvEl.value) || "").trim().slice(0, 12);
+          return /^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(_nm) ? { op: op, varName: _nm, value: _vv } : null
+        }
         if ("subpixel" === op) {
           const cellEl = L("obj-subpxcell"),
             raw = cellEl && cellEl.value ? String(cellEl.value).trim() : "",
@@ -6499,8 +6769,10 @@ function analyzePath(s, e) {
             spEl = L("obj-movespeed"),
             tmEl = L("obj-movetime"),
             dir = (dEl && dEl.value) || "right",
-            sp = Math.max(.1, Number(spEl && spEl.value) || 1),
-            tm = Math.max(0, Number(tmEl && tmEl.value) || 0),
+            _spRaw = String((spEl && spEl.value) || "").trim(),
+            _tmRaw = String((tmEl && tmEl.value) || "").trim(),
+            sp = /^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(_spRaw) ? _spRaw : Math.max(.1, Number(_spRaw) || 1),
+            tm = /^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(_tmRaw) ? _tmRaw : Math.max(0, Number(_tmRaw) || 0),
             out = {
               op: "move",
               target: target | 0,
@@ -6531,14 +6803,22 @@ function analyzePath(s, e) {
         const mEl = L("obj-condmetric"),
           mnEl = L("obj-condmin"),
           mxEl = L("obj-condmax"),
-          metric = (mEl && mEl.value) || "score",
+          _mRaw = (mEl && mEl.value) || "score",
           rd = function(el) {
             if (!el) return void 0;
             const raw = String(el.value || "").trim();
             if (!raw) return void 0;
             const n = Number(raw);
-            return isFinite(n) ? n : void 0
-          };
+            return isFinite(n) ? n : raw
+          },
+          metricVar = "",
+          metric = _mRaw;
+        if ("__var" === _mRaw) {
+          const _mvEl = L("obj-condmetricvar");
+          metricVar = String((_mvEl && _mvEl.value) || "").trim(),
+            metric = /^[A-Za-z_]/.test(metricVar) && metricVar.length <= 16 ? metricVar : "score",
+            metricVar = "score" === metric ? "" : metricVar
+        }
         const opEl = L("obj-condop"),
           cop = (opEl && opEl.value) || "ge";
         let mn = rd(mnEl),
@@ -6548,6 +6828,7 @@ function analyzePath(s, e) {
         const c = {
           metric: metric
         };
+        metricVar && (c.metricVar = metricVar);
         if (void 0 !== mn && (c.min = mn), void 0 !== mx && (c.max = mx), "score" === metric) {
           void 0 !== mn ? c.scoreMin = mn : c.scoreMin = 0, void 0 !== mx && (c.scoreMax = mx)
         }
@@ -6576,7 +6857,8 @@ function analyzePath(s, e) {
         const tr = _oMakeTrigger(type, val);
         if ("button" === obj.kind) obj.triggers = [tr], _oSyncShape(obj);
         else obj.triggers.some((x => x.type === tr.type)) || obj.triggers.push(tr);
-        return obj.actions.push(_oMakeAction(op, val, target)), !0
+        const _act0 = _oMakeAction(op, val, target);
+        return _act0 ? (obj.actions.push(_act0), !0) : !1
       }
       function _oApplyTrigger(ty) {
         const o = _oSel();
@@ -6621,7 +6903,15 @@ function analyzePath(s, e) {
           };
         setv("obj-trigger", tr.type || "click");
         ((tr && tr.cond) || null) && (function(c) {
-          setv("obj-condmetric", c.metric || (void 0 !== c.scoreMin || void 0 !== c.scoreMax ? "score" : void 0 !== c.timeMin || void 0 !== c.timeMax ? "time" : "score"));
+          (function() {
+            const _known = {
+                score: 1,
+                time: 1,
+                steps: 1
+              },
+              _cm = c.metric || (void 0 !== c.scoreMin || void 0 !== c.scoreMax ? "score" : void 0 !== c.timeMin || void 0 !== c.timeMax ? "time" : "score");
+            _known[_cm] ? (setv("obj-condmetric", _cm), setv("obj-condmetricvar", "")) : (setv("obj-condmetric", "__var"), setv("obj-condmetricvar", c.metricVar || _cm))
+          })();
           const mn = void 0 !== c.min ? c.min : void 0 !== c.scoreMin ? c.scoreMin : void 0 !== c.timeMin ? c.timeMin : void 0 !== c.stepsMin ? c.stepsMin : void 0,
             mx = void 0 !== c.max ? c.max : void 0 !== c.scoreMax ? c.scoreMax : void 0 !== c.timeMax ? c.timeMax : void 0 !== c.stepsMax ? c.stepsMax : void 0;
           setv("obj-condop", void 0 !== mn && void 0 !== mx ? "range" : void 0 !== mx ? "le" : "ge"),
@@ -6630,6 +6920,7 @@ function analyzePath(s, e) {
         let opv = a.op;
         "score" === a.op && (opv = (Number(a.delta) || 0) < 0 ? "scoreMinus" : "score"),
           setv("obj-act", opv), setv("obj-target", void 0 === a.target ? "" : a.target);
+        ("varset" === a.op || "varadd" === a.op || "varsub" === a.op || "varmul" === a.op || "vardiv" === a.op) && (setv("obj-varname", a.varName || ""), setv("obj-varvalue", void 0 === a.value ? "" : String(a.value)));
         Array.isArray(a.targetGroups) && a.targetGroups.length ? (setv("obj-tmode", "group"), setv("obj-tgroup", a.targetGroups.join(","))) :
           a.targetCell ? (setv("obj-tmode", "cell"), setv("obj-tcell", a.targetCell.r + "," + a.targetCell.c)) :
           (setv("obj-tmode", "id"), setv("obj-tcell", ""), setv("obj-tgroup", ""));
@@ -6670,6 +6961,9 @@ function analyzePath(s, e) {
         setv("obj-spawng", _groupsStr(a.groups))
       }
       function _oCondRowSync() {
+        const _mSel = L("obj-condmetric"),
+          _mVar = L("obj-condmetricvar");
+        _mVar && (_mVar.style.display = _mSel && "__var" === _mSel.value ? "" : "none");
         const op = (L("obj-condop") || {}).value || "ge",
           mn = L("obj-condmin-wrap"),
           mx = L("obj-condmax-wrap"),
@@ -6689,7 +6983,7 @@ function analyzePath(s, e) {
             const w = el.closest ? el.closest("label") : null;
             (w || el).style.display = on ? "" : "none"
           };
-        box("obj-spawn-row", isSpawn), box("obj-spawnedge-row", isSpawn && 0 === String((L("obj-spawnkind") || {}).value || "").indexOf("edge")), box("obj-set-row", isSet), box("obj-setview-row", "setview" === act), box("obj-move-row", "move" === act), box("obj-subpx-row", "subpixel" === act),
+        box("obj-spawn-row", isSpawn), box("obj-spawnedge-row", isSpawn && 0 === String((L("obj-spawnkind") || {}).value || "").indexOf("edge")), box("obj-set-row", isSet), box("obj-setview-row", "setview" === act), box("obj-move-row", "move" === act), box("obj-subpx-row", "subpixel" === act), box("obj-var-row", 0 === String(act).indexOf("var")),
           box("obj-target", ("disable" === act || "enable" === act || "hide" === act || "show" === act || "delete" === act || "move" === act) && "button" === ((o || {}).kind || "")),
           box("obj-value", "score" === act || "scoreMinus" === act || "move" === act);
         "setview" === act && _oViewSelFill();
@@ -6746,6 +7040,24 @@ function analyzePath(s, e) {
       function _oSel() {
         return selObjId ? _oFind(selObjId) : null
       }
+      /* fix53: 点物体 = 切换多选（已在集合里就退出），主选中跟随最后操作的那个 */
+      function _oToggleSel(id) {
+        id = id | 0;
+        if (!id) return { on: !1, n: _oSelSet.size, id: 0 };
+        if (_oSelSet.has(id)) {
+          _oSelSet.delete(id),
+            selObjId === id && (selObjId = _oSelSet.size ? [..._oSelSet][_oSelSet.size - 1] : 0);
+        } else _oSelSet.add(id), selObjId = id;
+        return { on: _oSelSet.has(id), n: _oSelSet.size, id: id }
+      }
+      /* fix51: targets for group edit / delete = multi-selection union primary */
+      function _oGroupTargets() {
+        const out = [],
+          add = function(o) { o && out.indexOf(o) < 0 && out.push(o) };
+        for (const id of [..._oSelSet]) add(_oFind(id));
+        add(_oSel());
+        return out
+      }
 
       function _kindName(k) {
         return {
@@ -6790,14 +7102,29 @@ function analyzePath(s, e) {
         for (const o of (t.objects || [])) {
           if (!o || !o.place) continue;
           const p = "cell" === o.place.type ? "(" + o.place.r + "," + o.place.c + ")" : "边",
-            sel = o.id === selObjId;
-          parts.push('<span data-oid="' + o.id + '" title="点击选中 #' + o.id + '" style="display:inline-block;margin:2px 3px;padding:1px 7px;border:1px solid ' + (sel ? "#1a73e8" : "#90a4ae") + ';border-radius:9px;cursor:pointer;background:' + (sel ? "#1a73e8" : "#fff") + ';color:' + (sel ? "#fff" : "inherit") + '">#' + o.id + " " + _kindName(o.kind) + p + "</span>");
+            inMulti = _oSelSet.has(o.id),
+            sel = o.id === selObjId || inMulti;
+          parts.push('<i data-oidtog="' + o.id + '" title="切换多选 #' + o.id + '" style="font-style:normal;cursor:pointer;margin-right:1px">' + (inMulti ? "☑" : "☐") + '</i><span data-oid="' + o.id + '" title="点击切换选择 #' + o.id + '" style="display:inline-block;margin:2px 3px;padding:1px 7px;border:1px solid ' + (sel ? "#1a73e8" : "#90a4ae") + ';border-radius:9px;cursor:pointer;background:' + (sel ? "#1a73e8" : "#fff") + ';color:' + (sel ? "#fff" : "inherit") + '">#' + o.id + " " + _kindName(o.kind) + p + "</span>");
           if (parts.length >= 120) break
         }
         return parts.length ? parts.join("") : "（还没有物体）"
       }
 
       function _oSync() {
+        /* fix51: drop multi-selected ids that no longer exist */
+        if (_oSelSet.size) {
+          for (const _id of [..._oSelSet]) _oFind(_id) || _oSelSet.delete(_id)
+        }
+        (function() {
+          const dl = L("obj-varlist");
+          if (!dl) return;
+          const names = ["t"];
+          for (const oo of (t.objects || [])) oo && oo.id && (names.push("x" + oo.id), names.push("y" + oo.id));
+          for (const kk of Object.keys((t && t.vars) || {})) names.push(kk);
+          dl.innerHTML = names.map((n) => '<option value="' + n + '"></option>').join("")
+        })();
+        const _mEl = L("obj-multinfo");
+        _mEl && (_mEl.textContent = _oSelSet.size ? "☑ 已多选 " + _oSelSet.size + " 个（改分组/删除会作用于这些物体）" : "");
         const info = L("obj-info"),
           list = L("obj-list"),
           o = _oSel(),
@@ -6807,6 +7134,8 @@ function analyzePath(s, e) {
           isText = "text" === kd;
         const _gEl = L("obj-groups");
         _gEl && (_gEl.value = o ? _groupsStr(o.groups) : "");
+        const _pgEl0 = L("obj-paintgroups");
+        _pgEl0 && (_pgEl0.value = _groupsStr(_paintGroups));
         const box = (id, on) => {
           const el = L(id);
           if (!el) return;
@@ -6840,7 +7169,7 @@ function analyzePath(s, e) {
                     score: "得分",
                     time: "时间",
                     steps: "步数"
-                  })[c.metric || "score"] || "得分",
+                  })[c.metric || "score"] || ("变量 " + (c.metricVar || ("__var" === c.metric ? "?" : c.metric))),
                   f = function(v, dft) {
                     if (void 0 === v || null === v || "" === v) return dft;
                     const n = Number(v);
@@ -6852,6 +7181,7 @@ function analyzePath(s, e) {
                 return nm + " " + (-Infinity === a ? "-∞" : a) + "~" + (Infinity === b ? "+∞" : b)
               })(x.cond));
             let txt = "🔘 选中 #" + o.id + " " + _kindName(o.kind);
+            _oSelSet.size > 1 && (txt = "☑ 多选 " + _oSelSet.size + " 个 ｜ " + txt);
             if (o.place && "cell" === o.place.type) txt += " (" + o.place.r + "," + o.place.c + ")";
             if (o.groups && o.groups.length) txt += " 分组[" + o.groups.join(",") + "]";
             if (isScore) txt += " 经过自动 " + ("score+" === kd ? "+1" : "-1") + " 分";
@@ -6940,11 +7270,17 @@ function analyzePath(s, e) {
             switch (n) {
               case "select": {
                 const arr = _oAt(o, s);
-                if (arr.length) selObjId = arr[0].id, _oSync(), App.toast("👆 已选中 #" + arr[0].id + " " + _kindName(arr[0].kind) + (arr.length > 1 ? "（该格共 " + arr.length + " 个物体，可在下面列表切换）" : ""));
+                if (arr.length) {
+                  const _tg = _oToggleSel(arr[0].id);
+                  _stClearTgt(!0), _oSync(), App.toast(_tg.on ? "☑ 已选择 #" + arr[0].id + " " + _kindName(arr[0].kind) + "（共 " + _tg.n + " 个）" + (arr.length > 1 ? "（该格共 " + arr.length + " 个物体，可在下面列表切换）" : "") : "☐ 已取消选择 #" + arr[0].id + (_tg.n ? "（还剩 " + _tg.n + " 个）" : "（已全部取消选择）"));
+                }
                 else {
                   const eg = _oEdgeAt(o, s);
-                  if (eg.length) selObjId = eg[0].id, _oSync(), App.toast("👆 已选中 #" + eg[0].id + " " + _kindName(eg[0].kind) + "（连到这一格的边，可用「🗑 删除物体」删掉）");
-                  else App.toast("该格没有物体")
+                  if (eg.length) {
+                    const _tg = _oToggleSel(eg[0].id);
+                    _stClearTgt(!0), _oSync(), App.toast(_tg.on ? "☑ 已选择 #" + eg[0].id + " " + _kindName(eg[0].kind) + "（连到这一格的边，共 " + _tg.n + " 个；可用「🗑 删除物体」删掉）" : "☐ 已取消选择 #" + eg[0].id + (_tg.n ? "（还剩 " + _tg.n + " 个）" : "（已全部取消选择）"));
+                  }
+                  else selObjId = 0, _oSync(), _stSetTgt(o, s), App.toast("🎯 目标格已设为 (" + o + "," + s + ")（空格也能当锚点）——点「📐 放置结构」会把结构的参考格对齐到这里")
                 }
                 break
               }
@@ -7231,6 +7567,7 @@ function analyzePath(s, e) {
 
       function U() {
         j();
+        _stResetSel();
         const e = clampInt(L("in-rows").value, 2, 99, 6),
           n = clampInt(L("in-cols").value, 2, 99, 6);
         t = new Level(e, n, D()), m = !0, F(), A(!1), "undefined" != typeof Library && Library.setCurrentCommunity && Library.setCurrentCommunity(null), x(), $(), K(), App.toast("已新建 " + e + "×" + n + " 空白关卡")
@@ -7238,6 +7575,7 @@ function analyzePath(s, e) {
 
       function V(e) {
         j();
+        _stResetSel();
         const t = SAMPLE_LEVELS.find((t => t.id === e));
         t && (B(t, {
           unlocked: !0
@@ -7394,6 +7732,7 @@ function analyzePath(s, e) {
       function W() {
         let e;
         j();
+        _stResetSel();
         try {
           e = JSON.parse(L("import-text").value)
         } catch (e) {
@@ -7492,6 +7831,32 @@ function analyzePath(s, e) {
           te(ee()), $()
       }
       let _showIds = !0;
+      /* fix52: 结构库「目标格」——画布上任意一格（含空格）都能当放置锚点 */
+      let _stTgt = null;
+      function _stSetTgt(r, c) {
+        const lv = Editor.getLevel();
+        if (!lv) return !1;
+        r = parseInt(r, 10), c = parseInt(c, 10);
+        if (!isFinite(r) || !isFinite(c) || r < 0 || c < 0 || r >= lv.rows || c >= lv.cols) return !1;
+        _stTgt = { r: r, c: c };
+        const inp = L("st-put");
+        if (inp) inp.value = r + "," + c;
+        return !0
+      }
+      function _stClearTgt(wipeInput) {
+        _stTgt = null;
+        if (wipeInput) {
+          const inp = L("st-put");
+          if (inp) inp.value = "";
+        }
+      }
+      /* fix53：换关卡（新建 / 导入 / 示例）时把遗留的目标格与选择一起清掉 */
+      function _stResetSel() {
+        _stTgt = null, selObjId = 0;
+        _oSelSet && _oSelSet.clear();
+        const inp = L("st-put");
+        if (inp) inp.value = "";
+      }
 
       function $() {
         if ("undefined" != typeof App && App.getMode && "editor" !== App.getMode()) return;
@@ -7562,10 +7927,13 @@ function analyzePath(s, e) {
               tgt = parseInt((L("obj-target") || {}).value, 10) || 0,
               val = Number((L("obj-value") || {}).value) || 0;
             if (_editActIdx >= 0 && o.actions && o.actions[_editActIdx]) {
-              o.actions[_editActIdx] = _oMakeAction(act, val, tgt);
+              const _na = _oMakeAction(act, val, tgt);
+              if (!_na) return void App.toast("⚠ 变量名不合法：字母开头，最多 8 位字母/数字/下划线，例如 b1");
+              o.actions[_editActIdx] = _na;
               const tr = _oMakeTrigger(trig, val);
               o.triggers = [tr], _oSyncShape(o), _editActIdx = -1, x(), _oSync(), te(ee()), App.toast("💾 已保存动作修改")
-            } else _oAddAction(o, trig, act, val, tgt), x(), _oSync(), te(ee()), App.toast("✅ 已加动作：" + ({
+            } else if (!_oAddAction(o, trig, act, val, tgt)) App.toast("⚠ 变量名不合法：字母开头，最多 8 位字母/数字/下划线，例如 b1");
+            else x(), _oSync(), te(ee()), App.toast("✅ 已加动作：" + ({
               score: "加分",
               scoreMinus: "扣分",
               disable: "禁用物体",
@@ -7577,7 +7945,12 @@ function analyzePath(s, e) {
               spawn: "生成物体",
               settings: "改设置",
               setview: "设视野",
-              subpixel: "改亚像素"
+              subpixel: "改亚像素",
+              varset: "变量设为",
+              varadd: "变量加",
+              varsub: "变量减",
+              varmul: "变量乘",
+              vardiv: "变量除"
             }[act] || act))
           }));
           const _oc = L("obj-clear");
@@ -7587,19 +7960,241 @@ function analyzePath(s, e) {
           }));
           const _od = L("obj-del");
           _od && _od.addEventListener("click", (() => {
-            const o = _oSel();
-            if (!o) return void App.toast("先选中一个物体");
-            const hit = _oDelObj(o);
-            selObjId = 0, hit && x(), _oSync(), te(ee()), App.toast(hit ? "🗑 已删除该物体" : "没删掉：该物体已不存在")
+            const tg = _oGroupTargets();
+            if (!tg.length) return void App.toast("先选中一个物体");
+            let hit = 0;
+            for (const o of tg) _oDelObj(o) && hit++;
+            selObjId = 0, _oSelSet.clear(), hit && x(), _oSync(), te(ee()),
+              App.toast(hit ? "🗑 已删除 " + hit + " 个物体" : "没删掉：该物体已不存在")
           }));
           const _og = L("obj-groups");
           _og && _og.addEventListener("change", (function() {
-            const o = _oSel();
-            if (!o) return void App.toast("先选中一个物体，再填分组");
-            o.groups = _groupsParse(_og.value), _og.value = _groupsStr(o.groups), x(), _oSync(), te(ee()), App.toast(o.groups.length ? "🏷 分组：" + o.groups.join(",") : "🏷 已清空分组")
+            /* fix51: 多选时一次改掉所有选中物体的分组 */
+            const tg = _oGroupTargets();
+            if (!tg.length) return void App.toast("先选中一个物体，再填分组");
+            const gs = _groupsParse(_og.value);
+            for (const o of tg) o.groups = gs.slice();
+            _og.value = _groupsStr(gs), x(), _oSync(), te(ee()),
+              App.toast(gs.length ? "🏷 分组 " + gs.join(",") + " 已设给 " + tg.length + " 个物体" : "🏷 已清空 " + tg.length + " 个物体的分组")
+          }));
+          const _pg = L("obj-paintgroups");
+          _pg && (_pg.value = _groupsStr(_paintGroups), _pg.addEventListener("change", (function() {
+            _paintGroups = _groupsParse(_pg.value), _pg.value = _groupsStr(_paintGroups);
+            try { localStorage.setItem("path_paint_groups", JSON.stringify(_paintGroups)) } catch (_e) {}
+            App.toast(_paintGroups.length ? "🖌 画笔分组：" + _paintGroups.join(",") + "（之后放的物体都会带上）" : "🖌 已清空画笔分组")
+          })));
+          /* ===== fix51: structure library (export / place) ===== */
+          const _stKey = "path_structures";
+          let _stLib = (function() {
+              try {
+                const v = JSON.parse(localStorage.getItem(_stKey) || "[]");
+                return Array.isArray(v) ? v.filter((q => q && q.objects)) : []
+              } catch (e) { return [] }
+            })(),
+            _stPick = -1;
+          const _stSave = function() {
+              try { localStorage.setItem(_stKey, JSON.stringify(_stLib.slice(0, 40))) } catch (e) {}
+            },
+            _stCell = function(txt) {
+              const t = Editor.getLevel();
+              const m = /^\s*(\d+)\s*[,，\s]\s*(\d+)\s*$/.exec(String(txt || ""));
+              if (!m) return null;
+              const r = +m[1], c = +m[2];
+              return r >= 0 && c >= 0 && r < t.rows && c < t.cols ? { r: r, c: c } : null
+            },
+            _stPickCell = function() {
+              const t = Editor.getLevel();
+              if (_stTgt && isFinite(_stTgt.r) && isFinite(_stTgt.c) && _stTgt.r >= 0 && _stTgt.c >= 0 && _stTgt.r < t.rows && _stTgt.c < t.cols) return { r: _stTgt.r, c: _stTgt.c };
+              const o = _oSel();
+              if (o && o.place && "cell" === o.place.type) return { r: o.place.r, c: o.place.c };
+              const r = parseInt((L("obj-sr") || {}).value, 10),
+                c = parseInt((L("obj-sc") || {}).value, 10);
+              return isFinite(r) && isFinite(c) && r >= 0 && c >= 0 && r < t.rows && c < t.cols ? { r: r, c: c } : null
+            },
+            _stFreeRef = function() {
+              const t = Editor.getLevel();
+              if (t.starts && t.starts.length) return { r: t.starts[0].r, c: t.starts[0].c };
+              for (const o of (t.objects || [])) if (o && o.place && "cell" === o.place.type) return { r: o.place.r, c: o.place.c };
+              return { r: 0, c: 0 }
+            },
+            _stRefresh = function() {
+              const sel = L("st-list");
+              if (!sel) return;
+              sel.innerHTML = "";
+              if (!_stLib.length) {
+                const o = document.createElement("option");
+                return o.value = "", o.textContent = "（结构库为空）", void sel.appendChild(o)
+              }
+              _stLib.forEach(((s, i) => {
+                const o = document.createElement("option");
+                o.value = String(i), o.textContent = (i + 1) + ". " + String(s.name || "结构") + " (" + s.ref[0] + "," + s.ref[1] + ")", sel.appendChild(o)
+              }));
+              sel.value = String(_stPick >= 0 ? _stPick : 0)
+            },
+            _stCur = function() {
+              return _stLib[_stPick >= 0 ? _stPick : 0] || null
+            },
+            _stGather = function(ref) {
+              const t = Editor.getLevel();
+              const objs = [];
+              for (const o of (t.objects || [])) {
+                if (!o || !o.place || o.deleted) continue;
+                const c = JSON.parse(JSON.stringify(o));
+                c.id = 0, objs.push(c)
+              }
+              return {
+                name: String((L("st-name") || {}).value || "").trim().slice(0, 20) || ("结构 " + (_stLib.length + 1)),
+                ref: [ref.r, ref.c],
+                at: Date.now(),
+                objects: objs,
+                obstacles: [...t.obstacles], hubs: [...t.hubs], grays: [...t.grays], diagonals: [...t.diagonals],
+                redEdges: [...t.redEdges], greenEdges: [...t.greenEdges], blueEdges: [...t.blueEdges],
+                numbers: [...t.numbers].map((([k, v]) => [k, Array.isArray(v) ? v.slice() : v])),
+                starts: JSON.parse(JSON.stringify(t.starts || [])),
+                ends: JSON.parse(JSON.stringify(t.ends || [])),
+                subpixels: (t.subpixels ? [...t.subpixels].map((([k, v]) => [k, JSON.parse(JSON.stringify(v))])) : [])
+              }
+            },
+            _stApply = function(st, tgt) {
+              const t = Editor.getLevel();
+              const dr = (tgt.r | 0) - (st.ref[0] | 0), dc = (tgt.c | 0) - (st.ref[1] | 0);
+              const inB = function(r, c) { return r >= 0 && c >= 0 && r < t.rows && c < t.cols };
+              const baseG = (t.starts || []).concat(t.ends || []).reduce(((m, v) => Math.max(m, (v && v.i | 0) || 0)), 0);
+              const gmap = {};
+              const mapG = function(g) {
+                const k = (g | 0) || 1;
+                void 0 === gmap[k] && (gmap[k] = baseG + k);
+                return gmap[k]
+              };
+              let added = 0,
+                first = 0,
+                ids = [];
+              for (const raw of (st.objects || [])) {
+                if (!raw || !raw.place) continue;
+                const o = JSON.parse(JSON.stringify(raw));
+                if ("cell" === o.place.type) {
+                  const r = (o.place.r | 0) + dr, c = (o.place.c | 0) + dc;
+                  if (!inB(r, c)) continue;
+                  o.place = { type: "cell", r: r, c: c }
+                } else if ("edge" === o.place.type) {
+                  const a = [(o.place.a[0] | 0) + dr, (o.place.a[1] | 0) + dc], b = [(o.place.b[0] | 0) + dr, (o.place.b[1] | 0) + dc];
+                  if (!inB(a[0], a[1]) || !inB(b[0], b[1])) continue;
+                  o.place = { type: "edge", a: a, b: b }
+                } else continue;
+                o.id = t.nextObjectId++, o.deleted = !1, o.enabled = !1 !== o.enabled, o.groups = _groupsParse(o.groups);
+                ("start" === o.kind || "end" === o.kind) && (o.props = o.props || {}, o.props.group = mapG(o.props.group));
+                t.objects.push(o), added++, ids.push(o.id), first || (first = o.id)
+              }
+              const addSet = function(set, arr) {
+                for (const k of (arr || [])) {
+                  const q = String(k).split(","), r = (+q[0]) + dr, c = (+q[1]) + dc;
+                  inB(r, c) && set.add(r + "," + c)
+                }
+              };
+              addSet(t.obstacles, st.obstacles), addSet(t.hubs, st.hubs), addSet(t.grays, st.grays), addSet(t.diagonals, st.diagonals);
+              const addEdge = function(set, arr) {
+                for (const k of (arr || [])) {
+                  const q = String(k).split("|");
+                  if (2 !== q.length) continue;
+                  const a = q[0].split(",").map(Number), b = q[1].split(",").map(Number);
+                  if (a.length < 2 || b.length < 2) continue;
+                  const a2 = [a[0] + dr, a[1] + dc], b2 = [b[0] + dr, b[1] + dc];
+                  inB(a2[0], a2[1]) && inB(b2[0], b2[1]) && set.add(Level.edgeKey(a2, b2))
+                }
+              };
+              addEdge(t.redEdges, st.redEdges), addEdge(t.greenEdges, st.greenEdges), addEdge(t.blueEdges, st.blueEdges);
+              for (const it of (st.numbers || [])) {
+                const q = String(it[0]).split(","), r = (+q[0]) + dr, c = (+q[1]) + dc;
+                inB(r, c) && t.numbers.set(r + "," + c, Array.isArray(it[1]) ? it[1].slice() : it[1])
+              }
+              for (const v of (st.starts || [])) {
+                const r = (v.r | 0) + dr, c = (v.c | 0) + dc;
+                inB(r, c) && t.starts.push({ r: r, c: c, i: mapG(v.i) })
+              }
+              for (const v of (st.ends || [])) {
+                const r = (v.r | 0) + dr, c = (v.c | 0) + dc;
+                inB(r, c) && t.ends.push({ r: r, c: c, i: mapG(v.i) })
+              }
+              for (const it of (st.subpixels || [])) {
+                const q = String(it[0]).split(","), r = (+q[0]) + dr, c = (+q[1]) + dc;
+                inB(r, c) && t.subpixels.set(r + "," + c, JSON.parse(JSON.stringify(it[1])))
+              }
+              _syncSEObjects(t);
+              t.start = t.starts.length ? [t.starts[0].r, t.starts[0].c] : t.start;
+              t.end = t.ends.length ? [t.ends[0].r, t.ends[0].c] : t.end;
+              return { added: added, first: first, ids: ids }
+            };
+          const _ste = L("st-export");
+          _ste && _ste.addEventListener("click", (function() {
+            const ref = _stCell((L("st-ref") || {}).value) || _stPickCell() || _stFreeRef();
+            const st = _stGather(ref);
+            _stLib.unshift(st), _stLib = _stLib.slice(0, 40), _stPick = 0, _stSave(), _stRefresh();
+            App.toast("📤 已导出结构「" + st.name + "」到本地结构库（参考格 " + ref.r + "," + ref.c + "，物体 " + st.objects.length + " 个）")
+          }));
+          const _stl = L("st-list");
+          _stl && _stl.addEventListener("change", (function() {
+            _stPick = Math.max(0, parseInt(_stl.value, 10) || 0);
+            const s = _stCur();
+            s && App.toast("📦 已选择结构「" + s.name + "」")
+          }));
+          const _stp = L("st-pick");
+          _stp && _stp.addEventListener("click", (function() {
+            if (!_stLib.length) return void App.toast("结构库还是空的：先把当前关卡「📤 导出为结构」");
+            const lines = _stLib.map(((s, i) => (i + 1) + ". " + s.name + "（参考格 " + s.ref[0] + "," + s.ref[1] + "，物体 " + s.objects.length + "）"));
+            const v = window.prompt("选择结构（填序号）：\n" + lines.join("\n"), String(_stPick + 1));
+            if (null == v) return;
+            const i = Math.round(Number(v)) - 1;
+            if (!(i >= 0 && i < _stLib.length)) return void App.toast("序号无效");
+            _stPick = i, _stRefresh(),
+              App.toast("📦 已选择结构「" + _stLib[i].name + "」")
+          }));
+          const _stputEl = L("st-put");
+          _stputEl && _stputEl.addEventListener("input", (function() {
+            const v = _stCell(_stputEl.value);
+            _stTgt = v ? { r: v.r, c: v.c } : null
+          }));
+          const _stpl = L("st-place");
+          _stpl && _stpl.addEventListener("click", (function() {
+            const st = _stCur();
+            if (!st) return void App.toast("结构库是空的，先导出一个");
+            let tgt = _stCell((L("st-put") || {}).value) || _stPickCell();
+            if (!tgt) return void App.toast("先在「目标格」里填 行,列，或者直接点画布上任意一格（空格也行）把它设为目标格");
+            const got = _stApply(st, tgt);
+            if (!got.added) return void App.toast("放不进去：结构全部落在棋盘外了");
+            _oSelSet.clear(), (got.ids || []).forEach((function(_i) { _i && _oSelSet.add(_i | 0) })), selObjId = got.first, x(), _oSync(), $(), te(ee()),
+              App.toast("📐 已放置「" + st.name + "」：参考格对齐到 (" + tgt.r + "," + tgt.c + ")，新增物体 " + got.added + " 个，已全部选中（" + _oSelSet.size + " 个）")
+          }));
+          const _std = L("st-del");
+          _std && _std.addEventListener("click", (function() {
+            const st = _stCur();
+            if (!st) return void App.toast("没有可删的结构");
+            if (!window.confirm("删除结构「" + st.name + "」？")) return;
+            _stLib.splice(_stPick >= 0 ? _stPick : 0, 1), _stPick = _stLib.length ? 0 : -1, _stSave(), _stRefresh();
+            App.toast("🗑 已删除该结构")
+          }));
+          _stRefresh();
+          const _gnx = L("obj-gnext");
+          _gnx && _gnx.addEventListener("click", (function() {
+            const n = _nextFreeGroup(), _ge = L("obj-groups");
+            _ge && (_ge.value = String(n));
+            const tg = _oGroupTargets();
+            if (!tg.length) return void App.toast("🆕 下一个空分组号：" + n + "（先选中物体才会写进去）");
+            for (const o of tg) o.groups = [String(n)];
+            x(), _oSync(), te(ee()), App.toast("🆕 已把 " + tg.length + " 个物体设到分组 " + n)
+          }));
+          const _gcl = L("obj-gclear");
+          _gcl && _gcl.addEventListener("click", (function() {
+            _oSelSet.clear(), selObjId = 0, _oSync(), $(), te(ee()), App.toast("☐ 已全部取消选择")
           }));
           const _ol = L("obj-list");
           _ol && _ol.addEventListener("click", (ev => {
+            const _tog = ev.target && ev.target.closest ? ev.target.closest("[data-oidtog]") : null;
+            if (_tog) {
+              const tid = Number(_tog.getAttribute("data-oidtog")) || 0;
+              const _tg = tid ? _oToggleSel(tid) : { on: !1, n: _oSelSet.size };
+              _oSync();
+              return void App.toast(_tg.on ? "☑ 已选择 #" + tid + "（共 " + _tg.n + " 个）" : tid ? "☐ 已取消选择 #" + tid + (_tg.n ? "（还剩 " + _tg.n + " 个）" : "（已全部取消选择）") : "☐ 已全部取消选择")
+            }
             const del = ev.target && ev.target.closest ? ev.target.closest("[data-actdel]") : null;
             if (del) {
               const o = _oSel(),
@@ -7616,7 +8211,9 @@ function analyzePath(s, e) {
             if (!el) return;
             const id = Number(el.getAttribute("data-oid")) || 0;
             if (!id) return;
-            selObjId = id, _oSync(), $(), te(ee())
+            const _tg = _oToggleSel(id);
+            _oSync(), $(), te(ee()),
+              App.toast(_tg.on ? "☑ 已选择 #" + id + "（共 " + _tg.n + " 个）" : "☐ 已取消选择 #" + id + (_tg.n ? "（还剩 " + _tg.n + " 个）" : "（已全部取消选择）"))
           }));
           const _otrigSel = L("obj-trigger");
           _otrigSel && _otrigSel.addEventListener("change", (() => {
@@ -7627,7 +8224,7 @@ function analyzePath(s, e) {
           L("obj-spawnkind") && L("obj-spawnkind").addEventListener("change", _oActRowSync);
           L("obj-tmode") && L("obj-tmode").addEventListener("change", _oActRowSync);
           L("obj-condop") && L("obj-condop").addEventListener("change", _oCondRowSync);
-          ["obj-condmetric", "obj-condop", "obj-condmin", "obj-condmax", "obj-condevery"].forEach((function(id) {
+          ["obj-condmetric", "obj-condmetricvar", "obj-condop", "obj-condmin", "obj-condmax", "obj-condevery"].forEach((function(id) {
             const el = L(id);
             el && el.addEventListener("change", (function() {
               const _sl = L("obj-trigger");
@@ -9438,6 +10035,26 @@ function analyzePath(s, e) {
         _lvx._used = _usedCells();
         const a = canExtendPath(_lvx, i, s);
         if (!a.ok) return !quiet && a.reason && App.toast(a.reason), !1;
+        /* fix51: the last S/E pair may only be closed when the level is actually complete. */
+        if (i.length && _lv().isEnd(a.hypo[a.hypo.length - 1][0], a.hypo[a.hypo.length - 1][1])) {
+          const _e0 = _lv(),
+            _q0 = a.hypo[a.hypo.length - 1],
+            _si0 = _e0.startIndex(i[0][0], i[0][1]),
+            _ei0 = _e0.endIndex(_q0[0], _q0[1]),
+            _tot0 = Math.max(1, (_e0.starts || []).length, (_e0.ends || []).length);
+          if (_tot0 > 1 && _ei0 && (!_si0 || _si0 === _ei0) && done.length + 1 >= _tot0) {
+            const _probe = done.concat([a.hypo.map((u => [u[0], u[1]]))]),
+              _pr = analyzeStrokes(_e0, _probe);
+            if (!_pr || !_pr.complete) {
+              const _mc = _pr && _pr.missingCells ? _pr.missingCells.length : 0,
+                _mh = _pr && _pr.missingHubs ? _pr.missingHubs.length : 0,
+                _mg = _pr && _pr.missingGreens ? _pr.missingGreens.length : 0,
+                _er = _pr && _pr.errors && _pr.errors.length ? _pr.errors[0] : "";
+              App.toast("⏳ last S/E pair: still need " + _mc + " cells / " + _mh + " hubs / " + _mg + " green edges" + (_er ? " (" + _er + ")" : "") + ", cannot finish here");
+              return !1
+            }
+          }
+        }
         const q = a.hypo[a.hypo.length - 1];
         i = a.hypo, _advance(pv), _recRun(pv), n = _an();
         if (i.length && _lv().isEnd(q[0], q[1])) {
@@ -15551,7 +16168,7 @@ function analyzePath(s, e) {
           }), !0);
           try {
             const e = "v2.0.1-dev";
-            window.__ver = e, window.__build = "fix49", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            window.__ver = e, window.__build = "fix53", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
