@@ -2011,8 +2011,8 @@
         <button class="tool" data-tool="subpixel" title="亚像素：每格再分成 6×6 小格，可逐小格上色作画（先点格子，再在下方调色板点小格）">🎨 亚像素</button>
         <button class="tool" data-tool="fog" title="雾霾格：不可进入（可被按钮/触发器动态开关）">🌫 雾霾</button>
         <button class="tool" data-tool="redBlock" title="红障碍：碰到就重置路径">🚫 红障碍</button>
-        <button class="tool" data-tool="scorePlus" title="得分点：经过 +1 分">➕ 得分</button>
-        <button class="tool" data-tool="scoreMinus" title="扣分点：经过 -1 分">➖ 扣分</button>
+        <button class="tool" data-tool="scorePlus" title="得分点：经过加分（默认 +1，选中后可在「分值」里改）">➕ 得分</button>
+        <button class="tool" data-tool="scoreMinus" title="扣分点：经过扣分（默认 -1，选中后可在「分值」里改）">➖ 扣分</button>
         <button class="tool" data-tool="button" title="按钮：点击/经过/条件触发动作（点击后在下方面板配置）">🔘 按钮</button>
               </div>
       <div class="tool-row">
@@ -2068,29 +2068,11 @@
       </div>
       <div class="tool-row" id="subpixel-row" style="display:none">
         <span class="levelname">🎨 亚像素 6×6</span>
-        <button id="obj-subbycoord" class="act" style="font-weight:700;border-color:#1a73e8;color:#1a73e8" title="按坐标改亚像素：直接输入格子行/列 + 小格序号 + 颜色，不用在画布上点小格">⌨️ 按坐标改亚像素</button>
         <input id="obj-subcolor" type="color" value="#ff7043" title="当前画笔颜色">
-        <div id="subcoord-row" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;padding:6px 0;border-top:1px dashed #cfd8dc">
-          <span class="levelname">⌨️ 按坐标</span>
-          <label class="field">行
-            <input id="obj-sr" type="number" min="0" max="98" value="0" style="width:60px" title="格子所在行（从 0 开始）">
-          </label>
-          <label class="field">列
-            <input id="obj-sc" type="number" min="0" max="98" value="0" style="width:60px" title="格子所在列（从 0 开始）">
-          </label>
-          <label class="field">小格
-            <select id="obj-si" style="max-width:160px" title="这一格里 6×6 共 36 个小格，选「全部」= 整格一起处理"></select>
-          </label>
-          <input id="obj-scc" type="color" value="#ff7043" title="要写入的小格颜色">
-          <button id="obj-sapply" class="act primary" title="把所选小格（或全部 36 小格）设成这个颜色">✔ 应用</button>
-          <button id="obj-serase" class="act" title="擦掉所选小格；选「全部」= 清空整格的亚像素">⌫ 擦除</button>
-          <button id="obj-sread" class="act" title="读这一格已有的亚像素，并把选中格同步到 6×6 调色板">📖 读取</button>
-          <span id="obj-sinfo" style="color:#78909c">输入行/列与小格，点 ✔ 应用</span>
-        </div>
         <div id="obj-subgrid" style="display:grid;grid-template-columns:repeat(6,20px);gap:1px;background:#cfd8dc;padding:1px;border-radius:3px"></div>
         <button id="obj-subfill" class="act" title="把这一格的 36 个小格全填成当前颜色">填满</button>
         <button id="obj-subclear" class="act" title="清空这一格的全部亚像素">清空</button>
-        <span id="obj-subinfo" style="color:#78909c">先在画布点一个格子，或直接在上面「⌨️按坐标」里输行/列</span>
+        <span id="obj-subinfo" style="color:#78909c">先在画布点一个格子，再在 6×6 调色板里点小格</span>
       </div>
       <div class="tool-row" id="view-row">
         <span class="levelname">👁 视野</span>
@@ -2115,12 +2097,12 @@
         </label>
         <label class="field" id="obj-cond-row" style="display:none">条件
           <select id="obj-condmetric" title="检测哪个量">
-            <option value="score">得分</option>
-            <option value="time">时间(秒)</option>
-            <option value="steps">步数</option>
+            <option value="score">得分（s）</option>
+            <option value="time">时间（t）</option>
+            <option value="steps">步数（steps）</option>
             <option value="__var">变量…</option>
           </select>
-          <input id="obj-condmetricvar" list="obj-varlist" style="width:72px;display:none" placeholder="t / x1 / a1" title="变量：t = 当前用时（秒）；xn = 编号 n 物体的 x 坐标（列）；yn = y 坐标（行）；a1、a2… = 关卡变量">
+          <input id="obj-condmetricvar" list="obj-varlist" style="width:72px;display:none" placeholder="s / t / x1 / a1" title="变量：s = 当前得分；t = 当前用时（秒）；steps = 步数；xn = 编号 n 物体的 x 坐标（列）；yn = y 坐标（行）；a1、a2… = 关卡变量。这里填 s / t / steps 与上面的内置指标等价">
           <datalist id="obj-varlist"></datalist>
           <select id="obj-condop" title="≥：不小于下界；≤：不大于上界；区间：介于两者之间">
             <option value="ge">≥</option>
@@ -2133,6 +2115,10 @@
           <span style="margin-left:4px">间隔<input id="obj-condevery" type="number" min="0.05" step="0.1" placeholder="1" style="width:58px" title="脉冲检测间隔（秒）：每隔这么多秒检测一次，成立就执行动作，可以反复执行；留空 = 只在条件成立那一刻触发一次">s</span>
           <button id="obj-cond-save" class="act" title="只把这里的条件写进按钮的触发条件，不改已有动作">✔ 应用条件</button>
         </label>
+        <span class="field" id="obj-pulse-row" style="display:none">脉冲
+          <input id="obj-pulseevery" type="number" min="0" step="0.1" placeholder="留空=只触发一次" style="width:88px" title="脉冲间隔（秒）：留空 = 只在被点击 / 被踩到的那一刻触发一次；填了数字 = 只要条件一直成立，每隔这么多秒就再执行一次动作，可以反复触发，不会只触发一次">
+          <label id="obj-clickswipe-wrap" title="勾上后，手指（鼠标）从这一格划过去，不用点下去也算按下这个按钮"><input type="checkbox" id="obj-clickswipe" style="vertical-align:-2px"> 手指划过也算触发</label>
+        </span>
         <label class="field">动作
           <select id="obj-act" title="按钮触发后执行的动作">
             <option value="score">加分</option>
@@ -2164,8 +2150,18 @@
           <span id="obj-tcell-wrap" style="display:none"><input id="obj-tcell" style="width:86px" placeholder="行,列 如 2,3" title="目标格子：触发时找该格上的物体"></span>
           <span id="obj-tgroup-wrap" style="display:none"><input id="obj-tgroup" style="width:118px" placeholder="如 enemy,wall" title="目标分组：填一个或多个分组名（逗号分隔），触发时把所有属于这些分组的物体一起处理"></span>
         </label>
+        <label class="field" id="obj-delexclude-row" style="display:none" title="删除物体时是否跳过「触发这次动作的物体自己」；不勾就按 id 从小到大选目标">
+          <span>删除</span>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-weight:400;margin-left:2px">
+            <input id="obj-delexcludeself" type="checkbox">不考虑自己
+          </label>
+        </label>
         <label class="field">数值
           <input id="obj-value" type="number" value="1" style="width:62px" title="加分/扣分的数值；条件触发的得分阈值">
+        </label>
+        <label class="field" id="obj-scoredelta-row" style="display:none">分值
+          <input id="obj-scoredelta" type="text" style="width:64px" placeholder="1" title="这个得分点/扣分点经过时的分值（默认 1）：填正数（可带小数），也可以填变量名（a1 / t / x1）；加还是扣由物体类型决定">
+          <span id="obj-scoredelta-tip" style="color:#78909c">分</span>
         </label>
         <label class="field" id="obj-var-row" style="display:none">变量
           <input id="obj-varname" style="width:56px" placeholder="a1" title="变量名：字母开头，最多 8 位字母/数字/下划线，例如 a1、a2、spd、hp2（xn / yn / t 是保留的坐标与时间变量，不要占用）">
@@ -2178,7 +2174,7 @@
           <input id="obj-paintgroups" style="width:126px" placeholder="如 note" title="画笔分组：填好之后新放置的物体都会自动带上这些分组（可留空）">
         </label>
         <label class="field" id="obj-move-row" style="display:none">移动
-          <select id="obj-movedir" title="移动方向（上下左右，逐格推进）">
+          <select id="obj-movedir" title="移动方向（上下左右，逐格推进）。重复触发会从物体当前位置接着走，多条移动会同时叠加，不会弹回原坐标">
             <option value="right">→ 右</option>
             <option value="left">← 左</option>
             <option value="up">↑ 上</option>
@@ -2198,8 +2194,8 @@
             <option value="end">终点 E</option>
             <option value="fog">雾霾</option>
             <option value="redBlock">红障碍</option>
-            <option value="score+">得分+1</option>
-            <option value="score-">扣分-1</option>
+            <option value="score+">得分点</option>
+            <option value="score-">扣分点</option>
             <option value="button">按钮</option>
             <option value="text">文本</option>
             <option value="edgeRed">红边</option>
@@ -3994,6 +3990,8 @@ function _reachSet(s) {
           motion: o.motion ? Object.assign({}, o.motion) : null,
           groups: Array.isArray(o.groups) ? o.groups.map((q => String(q))).slice(0, 8) : [],
           _anim: null,
+          _anims: [],
+          _pos: null,
           _cond: [],
           _pulse: []
         }
@@ -4011,7 +4009,7 @@ function _reachSet(s) {
             for (const k of Object.keys(st)) Object.prototype.hasOwnProperty.call(base, k) || delete st[k];
             Object.assign(st, base)
           }(this.level.settings, this._set0);
-        this.viewId = this._view0, this.map = new Map, this.score = 0, this._view = null, this._dirty = !0, this._self = null,
+        this.viewId = this._view0, this.map = new Map, this.score = 0, this._view = null, this._dirty = !0, this._self = null, this._ptr = null, this._press = !1, this._stand = null,
           this.vars = Object.assign({}, (this.level && this.level.vars) || {});
         const src = (this.level && this.level.objects) || [];
         let maxId = 0;
@@ -4133,16 +4131,19 @@ function _reachSet(s) {
           this.map && this.map.forEach(_dropEdge), this._virt && this._virt.forEach(_dropEdge);
           v.viewId = this.viewId, v.viewRect = this.level && this.level.viewRectById ? this.level.viewRectById(this.viewId) : null;
           v.movers = [];
-          for (const o of arr)
-            if (o && o._vis && o.place && "cell" === o.place.type && !o.deleted && !1 !== o.visible && !1 !== o.enabled) v.movers.push({
-              r: o._vis.r,
-              c: o._vis.c,
-              r0: o.place.r | 0,
-              c0: o.place.c | 0,
+          for (const o of arr) {
+            /* fix55：连续位置优先（移动中或移动结束后带小数都按真实位置画） */
+            const _pp = o && (o._vis || o._pos);
+            if (o && _pp && o.place && "cell" === o.place.type && !o.deleted && !1 !== o.visible && !1 !== o.enabled) v.movers.push({
+              r: _pp.r,
+              c: _pp.c,
+              r0: Math.round(o.place.r),
+              c0: Math.round(o.place.c),
               id: o.id,
               kind: o.kind,
               props: o.props || {}
-            });
+            })
+          }
           v.objects = arr, v.__world = this, this._view = v, this._dirty = !1
         }
         return this._view
@@ -4192,6 +4193,9 @@ function _reachSet(s) {
           const tv = ctx && isFinite(Number(ctx.time)) ? Number(ctx.time) : Number(this.now) || 0;
           return Math.max(0, tv)
         }
+        /* fix54：s / score = 当前得分；steps / step = 当前步数（与条件里的内置指标合并） */
+        if ("s" === s2 || "score" === s2) return Number(this.score) || 0;
+        if ("steps" === s2 || "step" === s2) return Number(ctx && ctx.steps) || 0;
         const m = /^([xyXY])(\d{1,6})$/.exec(s2);
         if (m) {
           const id = parseInt(m[2], 10),
@@ -4201,7 +4205,11 @@ function _reachSet(s) {
             c = 0;
           if ("edge" === o.place.type && Array.isArray(o.place.a) && Array.isArray(o.place.b)) {
             r = (+o.place.a[0] + +o.place.b[0]) / 2, c = (+o.place.a[1] + +o.place.b[1]) / 2
-          } else r = +o.place.r || 0, c = +o.place.c || 0;
+          } else {
+            /* fix55：移动中取连续位置（可以是小数），不取整 */
+            const _pp = o._vis || o._pos;
+            _pp && isFinite(_pp.r) && isFinite(_pp.c) ? (r = +_pp.r, c = +_pp.c) : (r = +o.place.r || 0, c = +o.place.c || 0)
+          }
           return "x" === m[1].toLowerCase() ? c : r
         }
         const v = Number(this.vars && this.vars[s2]);
@@ -4448,12 +4456,12 @@ function _reachSet(s) {
             t = cand.length ? cand[0] : t
           }
         }
-        /* fix50：按格子删除时，永远不删「触发这次动作的物体自己」。
-           以前按钮和音符同格，点按钮删音符会把按钮一起带走，后面的音符就点不动了。
-           需要自删的关卡给动作加 allowSelf:true 即恢复旧行为。 */
-        if ("delete" === op && t && this._self && t === this._self && !0 !== act.allowSelf) {
+        /* fix55：删除默认只按 id 从小到大取第一个，不再硬性跳过触发者自己。
+           想跳过自己就给动作勾上「不考虑自己」（excludeSelf:true）——
+           以前 fix50 是默认跳过，作者反而没法自删。 */
+        if ("delete" === op && t && !0 === act.excludeSelf && this._self && t === this._self) {
           const _p = this._self.place && "cell" === this._self.place.type ? this._self.place : null,
-            _alt = _p ? this.at(_p.r | 0, _p.c | 0).filter((o => o && !o.deleted && o !== this._self)).sort(((a, b) => (a.id | 0) - (b.id | 0))) : [];
+            _alt = _p ? this.at(Math.round(+_p.r || 0), Math.round(+_p.c || 0)).filter((o => o && !o.deleted && o !== this._self)).sort(((a, b) => (a.id | 0) - (b.id | 0))) : [];
           t = _alt.length ? _alt[0] : null
         }
         if (!t || t.deleted) return out;
@@ -4468,8 +4476,9 @@ function _reachSet(s) {
               dc = "left" === mv.dir ? -1 : "right" === mv.dir ? 1 : 0,
               R = this.level ? this.level.rows : 1e9,
               C = this.level ? this.level.cols : 1e9,
-              r0 = t.place.r | 0,
-              c0 = t.place.c | 0,
+              _cp = this._curPos(t) || { r: +t.place.r || 0, c: +t.place.c || 0 },
+              r0 = Math.round(_cp.r),
+              c0 = Math.round(_cp.c),
               cells = [[r0, c0]];
             for (let k = 1; k <= want; k++) {
               const rr = r0 + dr * k,
@@ -4479,29 +4488,29 @@ function _reachSet(s) {
             }
             const steps = cells.length - 1;
             if (!steps) return out;
-            const ms = Math.max(30, steps / sp * 1e3);
-            return t._anim = {
-              cells: cells,
-              perMs: ms / steps,
-              t: 0,
-              ms: ms
-            }, this.touch(), out.ok = !0, out.moved = steps, out
+            const ms = Math.max(30, steps / sp * 1e3),
+              _dst = { type: "cell", r: r0 + dr * steps, c: c0 + dc * steps };
+            /* fix55：不再从原来那一格重新出发，而是从物体「现在的位置」接着走；
+               已经有一条移动在跑时继续叠加 —— 多条移动同时进行。 */
+            return this._pushMove(t, _cp, _dst, ms, cells), this.touch(), out.ok = !0, out.moved = steps, out
           }
           const to = act.to,
             i = act.index;
           if ("list" === (to && to.type) && t.motion && Array.isArray(t.motion.points)) {
             const pt = t.motion.points[i | 0];
             if (pt) {
-              const dest = { type: "cell", r: pt[0] | 0, c: pt[1] | 0 },
-                ms = Math.max(0, Number(act.duration || (t.motion && t.motion.duration) || 0));
-              return ms > 0 ? t._anim = { from: t.place, to: dest, t: 0, ms: ms } : this._movePlaceSync(t, dest), this.touch(), out.ok = !0, out
+              const dest = { type: "cell", r: +pt[0] || 0, c: +pt[1] || 0 },
+                ms = Math.max(0, Number(act.duration || (t.motion && t.motion.duration) || 0)),
+                _cp2 = this._curPos(t) || { r: +t.place.r || 0, c: +t.place.c || 0 };
+              return ms > 0 ? this._pushMove(t, _cp2, dest, ms) : this._movePlaceSync(t, dest), this.touch(), out.ok = !0, out
             }
             return out
           }
           if (!to) return out;
-          const dest = "edge" === to.type ? { type: "edge", a: to.a.slice(), b: to.b.slice() } : { type: "cell", r: to.r | 0, c: to.c | 0 },
-            ms = Math.max(0, Number(act.duration || (t.motion && t.motion.duration) || 0));
-          return ms > 0 ? t._anim = { from: t.place, to: dest, t: 0, ms: ms } : this._movePlaceSync(t, dest), this.touch(), out.ok = !0, out
+          const dest = "edge" === to.type ? { type: "edge", a: to.a.slice(), b: to.b.slice() } : { type: "cell", r: +to.r || 0, c: +to.c || 0 },
+            ms = Math.max(0, Number(act.duration || (t.motion && t.motion.duration) || 0)),
+            _cp3 = this._curPos(t) || { r: +t.place.r || 0, c: +t.place.c || 0 };
+          return ms > 0 ? this._pushMove(t, _cp3, dest, ms) : this._movePlaceSync(t, dest), this.touch(), out.ok = !0, out
         }
         if ("enable" === op) t.enabled = !0;
         else if ("disable" === op) t.enabled = !1;
@@ -4536,14 +4545,15 @@ function _reachSet(s) {
         if (!(score >= lo(cond.scoreMin, -Infinity) && score <= lo(cond.scoreMax, Infinity) && steps >= lo(cond.stepsMin, -Infinity) && steps <= lo(cond.stepsMax, Infinity))) return !1;
         if (cond.metric) {
           let v;
-          if ("time" === cond.metric) v = time;
-          else if ("steps" === cond.metric) v = steps;
-          else if ("score" === cond.metric) v = score;
+          const _mk = "time" === cond.metric || "t" === cond.metric ? "time" : "score" === cond.metric || "s" === cond.metric ? "score" : "steps" === cond.metric || "step" === cond.metric ? "steps" : "";
+          if ("time" === _mk) v = time;
+          else if ("steps" === _mk) v = steps;
+          else if ("score" === _mk) v = score;
           else {
             const mv = self.varValue("__var" === cond.metric ? (cond.metricVar || "") : cond.metric, ctx);
             v = null == mv || !isFinite(mv) ? 0 : mv
           }
-          return v >= lo(cond.min, -Infinity) && v <= lo(cond.max, Infinity)
+          return v >= lo(cond.min, -Infinity) - 1e-9 && v <= lo(cond.max, Infinity) + 1e-9
         }
         const rng = function(spec, val) {
           if (!spec || "object" != typeof spec) return !0;
@@ -4570,11 +4580,18 @@ function _reachSet(s) {
       World.prototype.pass = function(r, c, ctx) {
         ctx = ctx || {};
         isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
+        /* fix56：记住玩家当前站的格子，「经过」类触发器的脉冲检测靠它 */
+        this._stand = { r: r | 0, c: c | 0 };
         const out = [];
         for (const o of this.at(r, c)) {
           if (o.enabled) {
-            if ("score+" === o.kind) this.score += 1, out.push({ kind: "score", delta: 1, id: o.id });
-            else if ("score-" === o.kind) this.score -= 1, out.push({ kind: "score", delta: -1, id: o.id });
+            if ("score+" === o.kind || "score-" === o.kind) {
+              /* fix54：分值可编辑，props.delta 存绝对值（也可以是变量名），加减由 kind 决定 */
+              const _sg = "score+" === o.kind ? 1 : -1,
+                _mg = Math.abs(this.numv(o.props && o.props.delta, 1)) || 1,
+                _dd = _sg * _mg;
+              this.score += _dd, out.push({ kind: "score", delta: _dd, id: o.id })
+            }
             else if ("score" === o.kind) {
               const d = this.numv(o.props.delta, 0);
               this.score += d, out.push({ kind: "score", delta: d, id: o.id })
@@ -4589,8 +4606,37 @@ function _reachSet(s) {
         return out
       };
 
+            /* fix56：手指/鼠标当前指着的格子 + 是否按住——「点击」类按钮的脉冲检测靠它 */
+      World.prototype.point = function(r, c, pressed) {
+        null == r || null == c ? (this._ptr = null) : (this._ptr = { r: r | 0, c: c | 0 }),
+          this._press = !!pressed;
+        return this._ptr
+      };
+      World.prototype.release = function() {
+        this._press = !1, this._ptr = null
+      };
+      World.prototype._cellOf = function(o) {
+        if (!o) return null;
+        const p = o._vis || o._pos || (o.place && "cell" === o.place.type ? o.place : null);
+        return p ? { r: Math.round(Number(p.r) || 0), c: Math.round(Number(p.c) || 0) } : null
+      };
+      /* fix56（需求2）：手指从这一格划过去也算触发——只对勾了「划过也算」的点击按钮生效 */
+      World.prototype.swipe = function(r, c, ctx) {
+        ctx = ctx || {}, this._ptr = { r: r | 0, c: c | 0 };
+        const out = [];
+        for (const o of this.at(r, c)) {
+          if (!o.enabled) continue;
+          const tr = (o.triggers || [])[0];
+          if (!tr || "click" !== (tr.type || "click") || !tr.swipe) continue;
+          const f = this.fire(o.id, "click", ctx);
+          f.length && out.push({ kind: "actions", id: o.id, actions: f })
+        }
+        return out
+      };
       World.prototype.click = function(r, c, ctx) {
         ctx && isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
+        /* fix56：点一下 = 手指正按在这一格上，脉冲检测从这一刻开始计时 */
+        this._ptr = { r: r | 0, c: c | 0 }, this._press = !0;
         const out = [];
         for (const o of this.at(r, c)) {
           if (!o.enabled) continue;
@@ -4603,88 +4649,99 @@ function _reachSet(s) {
       World.prototype.step = function(ctx, dt) {
         ctx && isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
         const out = [],
-          _ms = Math.max(0, Number(dt) || 0);
+          _ms = Math.max(0, Number(dt) || 0),
+          _ptr = this._ptr || null,
+          _stand = this._stand || null,
+          _fire = (o) => {
+            this._self = o;
+            for (const a of (o.actions || [])) out.push(this.apply(a));
+            this._self = null
+          };
+        /* fix56：统一脉冲判定。on = 本帧条件是否成立；per = 间隔毫秒（0 = 不脉冲）。
+           per > 0 时只要 on 一直成立，每隔 per 毫秒就再执行一次，可以无限次重复；
+           first = 条件刚变成成立的那一帧是否立刻触发（cond 是；click / pass 不是，它们进入时已经触发过一次）。 */
+        const _beat = (o, i, on, per, first) => {
+          if (!(per > 0)) return 0;
+          const prev = !!o._cond[i];
+          if (!on) return o._pulse[i] = 0, o._cond[i] = !1, 0;
+          if (!prev) {
+            o._pulse[i] = 0, o._cond[i] = !0;
+            if (first) return 1
+          }
+          let acc = (prev ? Math.max(0, Number(o._pulse[i]) || 0) : 0) + _ms,
+            n = 0;
+          for (; acc >= per && n < 64; n++) acc -= per;
+          return o._pulse[i] = acc, n
+        };
         for (const o of this.map.values()) {
           if (o.deleted || !o.enabled) continue;
-          o._pulse || (o._pulse = []);
-          const trs = o.triggers || [];
+          o._pulse || (o._pulse = []), o._cond || (o._cond = []);
+          const trs = o.triggers || [],
+            _cell = this._cellOf(o);
           for (let i = 0; i < trs.length; i++) {
-            const tr = trs[i];
-            if ("cond" !== tr.type) continue;
-            const on = this.checkCond(tr.cond, ctx),
-              prev = !!o._cond[i],
+            const tr = trs[i],
+              ty = tr.type || "click",
               per = Math.max(0, Number(tr.every) || 0) * 1e3;
-            if (per > 0) {
-              let fire = !1;
-              if (!on) o._pulse[i] = 0;
-              else if (!prev) fire = !0, o._pulse[i] = 0;
-              else {
-                let acc = Math.max(0, Number(o._pulse[i]) || 0) + _ms,
-                  guard = 0;
-                for (; acc >= per && guard < 64; guard++) acc -= per, fire = !0;
-                o._pulse[i] = acc
-              }
-              if (fire) {
-                this._self = o;
-                for (const a of (o.actions || [])) out.push(this.apply(a));
-                this._self = null
-              }
-            } else if (on && !prev) {
-              this._self = o;
-              for (const a of (o.actions || [])) out.push(this.apply(a));
-              this._self = null
+            if ("cond" === ty) {
+              const on = !!this.checkCond(tr.cond, ctx);
+              if (per > 0) {
+                for (let n = _beat(o, i, on, per, !0); n > 0; n--) _fire(o)
+              } else on && !o._cond[i] && _fire(o), o._cond[i] = on;
+              continue
             }
-            o._cond[i] = on
+            if (!(per > 0)) continue;
+            /* fix56（需求3）：点击 / 经过也支持脉冲间隔——
+               点击 = 手指按在这一格上（勾了「划过也算」则手划到这一格也算）；
+               经过 = 玩家此刻就站在这一格上。 */
+            let on = !1;
+            _cell && ("click" === ty ? on = !!(_ptr && _ptr.r === _cell.r && _ptr.c === _cell.c && (this._press || tr.swipe)) : "pass" === ty && (on = !!(_stand && _stand.r === _cell.r && _stand.c === _cell.c)));
+            for (let n = _beat(o, i, on, per, !1); n > 0; n--) _fire(o)
           }
         }
         return out
       };
-
       World.prototype.tick = function(dt) {
         let moving = !1,
-          dirtyFeat = !1;
+          dirtyFeat = !1,
+          _edgeLand = null;
+        const dd = Math.max(0, Number(dt) || 0);
         for (const o of this.map.values()) {
-          const an = o._anim;
-          if (!an) continue;
-          const p0 = o.place && "cell" === o.place.type ? [o.place.r | 0, o.place.c | 0] : null;
-          moving = !0, an.t += Math.max(0, Number(dt) || 0);
-          if (Array.isArray(an.cells) && an.cells.length) {
-            const per = an.perMs > 0 ? an.perMs : Math.max(1, an.ms || 1),
-              last = an.cells.length - 1,
-              tp = Math.min(last, an.t / per),
-              idx = Math.min(last, Math.floor(tp)),
-              frac = an.t >= an.ms ? 0 : tp - idx,
-              pos = Math.min(last, idx + (frac >= .5 ? 1 : 0)),
-              cl = an.cells[pos] || an.cells[last],
-              v0 = an.cells[Math.min(last, idx)] || an.cells[0],
-              v1 = an.cells[Math.min(last, idx + 1)] || v0;
-            o.place = {
-              type: "cell",
-              r: cl[0] | 0,
-              c: cl[1] | 0
-            }, o._vis = {
-              r: (v0[0] | 0) + ((v1[0] | 0) - (v0[0] | 0)) * frac,
-              c: (v0[1] | 0) + ((v1[1] | 0) - (v0[1] | 0)) * frac
-            }, an.t >= an.ms && (o.place = {
-              type: "cell",
-              r: an.cells[last][0] | 0,
-              c: an.cells[last][1] | 0
-            }, o._anim = null, o._vis = null);
-            p0 && this._featSyncMove(o, p0) && (dirtyFeat = !0);
+          const list = Array.isArray(o._anims) ? o._anims : null;
+          if (!list || !list.length) continue;
+          if (!o.place || "cell" !== o.place.type) {
+            o._anims = [], o._anim = null, o._vis = null;
             continue
           }
-          const k = an.ms > 0 ? Math.min(1, an.t / an.ms) : 1;
-          if (an.from && "cell" === an.from.type && an.to && "cell" === an.to.type) o.place = {
-            type: "cell",
-            r: Math.round(an.from.r + (an.to.r - an.from.r) * k),
-            c: Math.round(an.from.c + (an.to.c - an.from.c) * k)
-          }, o._vis = {
-            r: an.from.r + (an.to.r - an.from.r) * k,
-            c: an.from.c + (an.to.c - an.from.c) * k
-          };
-          else if (k >= 1) o.place = an.to;
-          k >= 1 && (o.place = an.to, o._anim = null, o._vis = null),
-            p0 && this._featSyncMove(o, p0) && (dirtyFeat = !0)
+          moving = !0;
+          const p0 = [Math.round(o.place.r), Math.round(o.place.c)],
+            cur = this._curPos(o) || { r: +o.place.r || 0, c: +o.place.c || 0 };
+          let pr = cur.r,
+            pc = cur.c;
+          _edgeLand = null;
+          for (let i = list.length - 1; i >= 0; i--) {
+            const an = list[i];
+            an.t = (Number(an.t) || 0) + dd;
+            const k = an.ms > 0 ? Math.min(1, an.t / an.ms) : 1,
+              lk = Number(an.lastK) || 0;
+            if (an.from && an.to && "cell" === an.to.type) {
+              const dk = k - lk;
+              /* 每帧只叠加「这一帧新的位移量」，多条移动互相独立、同时生效 */
+              dk > 0 && (pr += (+an.to.r - +an.from.r) * dk, pc += (+an.to.c - +an.from.c) * dk)
+            }
+            an.lastK = k;
+            if (k >= 1) {
+              an.to && "cell" !== an.to.type && (_edgeLand = an.to);
+              list.splice(i, 1)
+            }
+          }
+         /* fix57：浮点累加会在终点留下 3.0000000000000044 这类残差，
+            距整数 1e-6 内直接吸附（只影响肉眼不可见的末位误差） */
+         const _snapInt = (v) => { const q = Math.round(v); return Math.abs(v - q) < 1e-6 ? q : v; };
+         pr = _snapInt(pr), pc = _snapInt(pc);
+         /* fix55：位置保持连续（不取整），只有 place（给玩家路径判定用）才取整 */
+          if (_edgeLand) o.place = _edgeLand, o._pos = null, o._vis = null, o._anim = null, o._anims = [];
+          else o._pos = { r: pr, c: pc }, o.place = { type: "cell", r: Math.round(pr), c: Math.round(pc) }, o._vis = list.length ? { r: pr, c: pc } : null, o._anim = list.length ? list[list.length - 1] : null;
+          p0 && this._featSyncMove(o, p0) && (dirtyFeat = !0)
         }
         return dirtyFeat && this._indexVirt(), moving && this.touch(), moving
       };
@@ -4710,7 +4767,16 @@ function _reachSet(s) {
             ms: Number(o._anim.ms) || 0,
             perMs: Number(o._anim.perMs) || 0
           } : null,
-          _vis: o._vis ? { r: Number(o._vis.r) || 0, c: Number(o._vis.c) || 0 } : null
+          _vis: o._vis ? { r: Number(o._vis.r) || 0, c: Number(o._vis.c) || 0 } : null,
+          _pos: o._pos ? { r: Number(o._pos.r) || 0, c: Number(o._pos.c) || 0 } : null,
+          _anims: Array.isArray(o._anims) ? o._anims.map((an => ({
+            from: an.from ? JSON.parse(JSON.stringify(an.from)) : null,
+            to: an.to ? JSON.parse(JSON.stringify(an.to)) : null,
+            cells: Array.isArray(an.cells) ? JSON.parse(JSON.stringify(an.cells)) : null,
+            t: Number(an.t) || 0,
+            ms: Number(an.ms) || 0,
+            lastK: Number(an.lastK) || 0
+          }))) : []
         });
         return {
           objs: out,
@@ -4818,9 +4884,38 @@ function _reachSet(s) {
         }
         return hit && (this._indexVirt(), this.touch()), hit
       };
+      /* fix55：物体的连续位置（可以是小数）。没有就退回格子坐标。 */
+      World.prototype._curPos = function(o) {
+        if (!o) return null;
+        if (o._pos && isFinite(o._pos.r) && isFinite(o._pos.c)) return { r: +o._pos.r, c: +o._pos.c };
+        if (o.place && "cell" === o.place.type) return { r: +o.place.r || 0, c: +o.place.c || 0 };
+        return null
+      };
+      /* fix55：把一条新的移动压进去，不覆盖正在跑的那条 —— 多条移动同时进行。
+         每条动画只负责「从创建那一刻起自己走了多远」，tick 里按帧叠加。 */
+      World.prototype._pushMove = function(o, from, to, ms, cells) {
+        const an = {
+          from: { r: +from.r, c: +from.c },
+          to: to && "cell" === to.type ? { type: "cell", r: +to.r, c: +to.c } : (to ? JSON.parse(JSON.stringify(to)) : null),
+          t: 0,
+          ms: Math.max(0, Number(ms) || 0),
+          lastK: 0
+        };
+        Array.isArray(cells) && cells.length && (an.cells = cells.map((q => [+q[0], +q[1]])));
+        o._anims = Array.isArray(o._anims) ? o._anims : [], o._anims.push(an),
+          o._pos = { r: +from.r, c: +from.c }, o._anim = o._anims[o._anims.length - 1];
+        return an
+      };
       World.prototype._movePlaceSync = function(o, dest) {
-        const p0 = o.place && "cell" === o.place.type ? [o.place.r | 0, o.place.c | 0] : null;
-        return o.place = dest, p0 && this._featSyncMove(o, p0) && this._indexVirt(), dest
+        const p0 = o.place && "cell" === o.place.type ? [Math.round(o.place.r), Math.round(o.place.c)] : null;
+        if (dest && "cell" === dest.type) {
+          const r = +dest.r || 0,
+            c = +dest.c || 0;
+          o._pos = { r: r, c: c }, o.place = { type: "cell", r: Math.round(r), c: Math.round(c) }
+        } else o._pos = null, o.place = dest;
+        o._anims = [], o._anim = null, o._vis = null,
+          p0 && this._featSyncMove(o, p0) && this._indexVirt();
+        return dest
       };
       /* fix51: hub object vs required-set consistency sweep. */
       World.prototype._hubResync = function() {
@@ -4886,6 +4981,16 @@ function _reachSet(s) {
               t: Number(so._anim.t) || 0, ms: Number(so._anim.ms) || 0, perMs: Number(so._anim.perMs) || 0
             } : null,
             o._vis = so._vis ? { r: Number(so._vis.r) || 0, c: Number(so._vis.c) || 0 } : null,
+            o._pos = so._pos ? { r: Number(so._pos.r) || 0, c: Number(so._pos.c) || 0 } : null,
+            o._anims = Array.isArray(so._anims) ? so._anims.map((an => ({
+              from: an.from ? JSON.parse(JSON.stringify(an.from)) : null,
+              to: an.to ? JSON.parse(JSON.stringify(an.to)) : null,
+              cells: Array.isArray(an.cells) ? JSON.parse(JSON.stringify(an.cells)) : null,
+              t: Number(an.t) || 0,
+              ms: Number(an.ms) || 0,
+              lastK: Number(an.lastK) || 0
+            }))) : [],
+            Array.isArray(so._anims) && so._anims.length && (o._anim = o._anims[o._anims.length - 1]),
             o._hubAt = o.place && "cell" === o.place.type ? [o.place.r | 0, o.place.c | 0] : null
         }
         snap.feat && this._featRestore(snap.feat), void 0 !== snap.viewId && (this.viewId = snap.viewId), this.score = Number(snap.score) || 0, this.nextId = Number(snap.nextId) || this.nextId, this._pruneFeatures(), this._indexVirt(), this._hubResync(), this.touch()
@@ -5748,7 +5853,7 @@ function _reachSet(s) {
                       if (_mvIdSet && _mvIdSet.has(ob.id) && _mvDraw[ob.kind]) continue;
                       if ("score+" === ob.kind || "score-" === ob.kind) {
                         const pos = "score+" === ob.kind;
-                        t.globalAlpha = ob.enabled ? 1 : .28, t.shadowColor = pos ? "rgba(46,224,110,0.95)" : "rgba(240,74,74,0.95)", t.shadowBlur = Math.max(4, .22 * s), t.fillStyle = pos ? "#2ee06e" : "#f04a4a", t.beginPath(), t.arc(f, g, .2 * s, 0, 2 * Math.PI), t.fill(), t.shadowBlur = 0, t.globalAlpha = 1, t.strokeStyle = "rgba(255,255,255,0.85)", t.lineWidth = Math.max(1, .03 * s), t.beginPath(), t.arc(f, g, .2 * s, 0, 2 * Math.PI), t.stroke()
+                        t.globalAlpha = ob.enabled ? 1 : .28, t.shadowColor = pos ? "rgba(46,224,110,0.95)" : "rgba(240,74,74,0.95)", t.shadowBlur = Math.max(4, .22 * s), t.fillStyle = pos ? "#2ee06e" : "#f04a4a", t.beginPath(), t.arc(f, g, .2 * s, 0, 2 * Math.PI), t.fill(), t.shadowBlur = 0, t.globalAlpha = 1, t.strokeStyle = "rgba(255,255,255,0.85)", t.lineWidth = Math.max(1, .03 * s), t.beginPath(), t.arc(f, g, .2 * s, 0, 2 * Math.PI), t.stroke(), (function() { const _mv = Math.abs(Number((ob.props || {}).delta)) || 1; 1 === _mv || (t.fillStyle = pos ? "#0b3d1f" : "#4a0f0f", t.font = "bold " + Math.max(7, .18 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText(String(_mv), f, g + .01 * s)) })()
                       } else if ("text" === ob.kind) {
                         t.globalAlpha = ob.enabled ? 1 : .35, t.fillStyle = "#ffffff", t.strokeStyle = "#1a73e8", t.lineWidth = Math.max(1, .04 * s), i(t, c + .18 * s, h + .16 * s, .64 * s, .5 * s, .12 * s), t.fill(), t.stroke(), t.fillStyle = "#1a73e8", t.font = "bold " + Math.max(8, .26 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText("T", f, g + .02 * s), t.globalAlpha = 1
                       } else if ("button" === ob.kind) {
@@ -5818,7 +5923,7 @@ function _reachSet(s) {
                           t.beginPath(), t.moveTo(_cx - _zz, _cy - _zz), t.lineTo(_cx + _zz, _cy + _zz), t.moveTo(_cx - _zz, _cy + _zz), t.lineTo(_cx + _zz, _cy - _zz), t.stroke()
                         } else if ("score+" === kd || "score-" === kd) {
                           const _pos = "score+" === kd;
-                          t.shadowColor = _pos ? "rgba(46,224,110,0.95)" : "rgba(240,74,74,0.95)", t.shadowBlur = Math.max(4, .22 * s), t.fillStyle = _pos ? "#2ee06e" : "#f04a4a", t.beginPath(), t.arc(_cx, _cy, .2 * s, 0, 2 * Math.PI), t.fill(), t.shadowBlur = 0, t.strokeStyle = "rgba(255,255,255,0.85)", t.lineWidth = Math.max(1, .03 * s), t.beginPath(), t.arc(_cx, _cy, .2 * s, 0, 2 * Math.PI), t.stroke()
+                          t.shadowColor = _pos ? "rgba(46,224,110,0.95)" : "rgba(240,74,74,0.95)", t.shadowBlur = Math.max(4, .22 * s), t.fillStyle = _pos ? "#2ee06e" : "#f04a4a", t.beginPath(), t.arc(_cx, _cy, .2 * s, 0, 2 * Math.PI), t.fill(), t.shadowBlur = 0, t.strokeStyle = "rgba(255,255,255,0.85)", t.lineWidth = Math.max(1, .03 * s), t.beginPath(), t.arc(_cx, _cy, .2 * s, 0, 2 * Math.PI), t.stroke(), (function() { const _mv = Math.abs(Number((_pr2 || {}).delta)) || 1; 1 === _mv || (t.fillStyle = _pos ? "#0b3d1f" : "#4a0f0f", t.font = "bold " + Math.max(7, .18 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText(String(_mv), _cx, _cy + .01 * s)) })()
                         } else if ("text" === kd) {
                           t.fillStyle = "#ffffff", t.strokeStyle = "#1a73e8", t.lineWidth = Math.max(1, .04 * s), i(t, _hx + .18 * s, _hy + .16 * s, .64 * s, .5 * s, .12 * s), t.fill(), t.stroke(), t.fillStyle = "#1a73e8", t.font = "bold " + Math.max(8, .26 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText("T", _cx, _cy + .02 * s)
                         } else if ("button" === kd) {
@@ -6099,8 +6204,8 @@ function _reachSet(s) {
         erase: "擦除格子上的标记以及与该格相连的红/绿边",
         fog: "点击格子放置/移除雾霾（不可进入；可以让按钮把它关掉来开路）",
         redBlock: "点击格子放置/移除红障碍（踩到就把路径重置）",
-        scorePlus: "点击格子放置/移除得分点（经过 +1 分）",
-        scoreMinus: "点击格子放置/移除扣分点（经过 -1 分）",
+        scorePlus: "点击格子放置/移除得分点（默认 +1 分，可改）",
+        scoreMinus: "点击格子放置/移除扣分点（默认 -1 分，可改）",
         button: "点击格子放置按钮并在下方面板配置「触发 + 动作」；再点同一格是选中它（删除请用擦除工具或面板的删除按钮）",
         ms: "多笔画起点：点一格加一个 S（自动编号 S1、S2…），同一格再点是移除",
         me: "多笔画终点：点一格加一个 E（自动编号 E1、E2…），同一格再点是移除",
@@ -6789,17 +6894,30 @@ function _reachSet(s) {
             };
           return _applyTargetMode(out)
         }
-        return _applyTargetMode({
+        const _ga = {
           op: op,
           target: target | 0
-        })
+        };
+        /* fix55：删除动作可以勾「不考虑自己」 */
+        "delete" === op && L("obj-delexcludeself") && !0 === L("obj-delexcludeself").checked && (_ga.excludeSelf = !0);
+        return _applyTargetMode(_ga)
       }
 
       function _oMakeTrigger(type, val) {
         const tr = {
           type: type || "click"
         };
-        if ("cond" !== tr.type) return tr;
+        if ("cond" !== tr.type) {
+          /* fix56：点击 / 经过也可以设脉冲间隔；点击还能勾「手指划过也算触发」 */
+          const _peEl = L("obj-pulseevery"),
+            _pe = _peEl && "" !== String(_peEl.value || "").trim() ? Math.max(.05, Number(_peEl.value) || 0) : 0;
+          _pe > 0 && (tr.every = _pe);
+          if ("click" === tr.type) {
+            const _swEl = L("obj-clickswipe");
+            _swEl && _swEl.checked && (tr.swipe = !0)
+          }
+          return tr
+        }
         const mEl = L("obj-condmetric"),
           mnEl = L("obj-condmin"),
           mxEl = L("obj-condmax"),
@@ -6810,14 +6928,22 @@ function _reachSet(s) {
             if (!raw) return void 0;
             const n = Number(raw);
             return isFinite(n) ? n : raw
-          },
-          metricVar = "",
+          };
+        let metricVar = "",
           metric = _mRaw;
         if ("__var" === _mRaw) {
           const _mvEl = L("obj-condmetricvar");
-          metricVar = String((_mvEl && _mvEl.value) || "").trim(),
-            metric = /^[A-Za-z_]/.test(metricVar) && metricVar.length <= 16 ? metricVar : "score",
-            metricVar = "score" === metric ? "" : metricVar
+          metricVar = String((_mvEl && _mvEl.value) || "").trim();
+          /* fix54：变量名与内置指标合并——s=得分、t=时间、steps=步数，写哪个都行 */
+          const _alias = {
+            s: "score",
+            score: "score",
+            t: "time",
+            time: "time",
+            steps: "steps",
+            step: "steps"
+          }[_mRaw === "__var" ? metricVar : ""];
+          _alias ? (metric = _alias, metricVar = "") : (metric = /^[A-Za-z_]/.test(metricVar) && metricVar.length <= 16 ? metricVar : "score", metricVar = "score" === metric ? "" : metricVar)
         }
         const opEl = L("obj-condop"),
           cop = (opEl && opEl.value) || "ge";
@@ -6865,7 +6991,7 @@ function _reachSet(s) {
         if (!o || "button" !== o.kind) return !1;
         const tr = _oMakeTrigger(ty || "click", void 0),
           old = (o.triggers || [])[0];
-        "cond" === ty && old && "cond" === old.type && old.cond && (tr.cond = Object.assign({}, old.cond)),
+        "cond" === ty && old && "cond" === old.type && old.cond && (tr.cond = Object.assign({}, old.cond, tr.cond)),
           "cond" === ty && (function() {
             const _evEl = L("obj-condevery"),
               _ev = _evEl && "" !== String(_evEl.value || "").trim() ? Math.max(.05, Number(_evEl.value) || 0) : 0;
@@ -6902,6 +7028,7 @@ function _reachSet(s) {
             el && (el.value = v)
           };
         setv("obj-trigger", tr.type || "click");
+        "cond" !== (tr.type || "click") && (setv("obj-pulseevery", tr.every ? tr.every : ""), L("obj-clickswipe") && (L("obj-clickswipe").checked = !0 === tr.swipe)), _oTrigRowSync();
         ((tr && tr.cond) || null) && (function(c) {
           (function() {
             const _known = {
@@ -6958,7 +7085,8 @@ function _reachSet(s) {
             setv("obj-setkey", k), setv("obj-setval", b[k] ? "true" : "false")
           })(a.patch || {}) :
           setv("obj-value", "");
-        setv("obj-spawng", _groupsStr(a.groups))
+        L("obj-delexcludeself") && (L("obj-delexcludeself").checked = !0 === a.excludeSelf),
+          setv("obj-spawng", _groupsStr(a.groups))
       }
       function _oCondRowSync() {
         const _mSel = L("obj-condmetric"),
@@ -6971,6 +7099,25 @@ function _reachSet(s) {
         mn && (mn.style.display = "le" === op ? "none" : ""),
           mx && (mx.style.display = "ge" === op ? "none" : ""),
           sep && (sep.style.display = "range" === op ? "" : "none")
+      }
+      /* fix56：脉冲行只在「点击 / 经过」类按钮上出现；「手指划过也算触发」只对点击类有意义 */
+      function _oTrigRowSync() {
+        const o = _oSel(),
+          tr = o && (o.triggers || [])[0],
+          ty = (tr && tr.type) || "click",
+          isBtn = !!o && "button" === o.kind,
+          box = (id, on) => {
+            const el = L(id);
+            if (!el) return;
+            const w = el.closest ? el.closest("label") : null;
+            (w || el).style.display = on ? "" : "none"
+          },
+          _pe = L("obj-pulseevery"),
+          _sw = L("obj-clickswipe");
+        if (_pe && document.activeElement !== _pe) _pe.value = isBtn && tr && tr.every ? tr.every : "";
+        _sw && (_sw.checked = !!(isBtn && tr && !0 === tr.swipe));
+        box("obj-pulse-row", isBtn && ("click" === ty || "pass" === ty)),
+          box("obj-clickswipe-wrap", isBtn && "click" === ty)
       }
       function _oActRowSync() {
         const act = (L("obj-act") || {}).value || "score",
@@ -6985,7 +7132,8 @@ function _reachSet(s) {
           };
         box("obj-spawn-row", isSpawn), box("obj-spawnedge-row", isSpawn && 0 === String((L("obj-spawnkind") || {}).value || "").indexOf("edge")), box("obj-set-row", isSet), box("obj-setview-row", "setview" === act), box("obj-move-row", "move" === act), box("obj-subpx-row", "subpixel" === act), box("obj-var-row", 0 === String(act).indexOf("var")),
           box("obj-target", ("disable" === act || "enable" === act || "hide" === act || "show" === act || "delete" === act || "move" === act) && "button" === ((o || {}).kind || "")),
-          box("obj-value", "score" === act || "scoreMinus" === act || "move" === act);
+          box("obj-value", "score" === act || "scoreMinus" === act || "move" === act),
+          box("obj-delexclude-row", "delete" === act);
         "setview" === act && _oViewSelFill();
         const _tmode = _targetMode(),
           isCellT = "cell" === _tmode,
@@ -7014,6 +7162,7 @@ function _reachSet(s) {
             props: "改属性"
           }[a.op] || a.op),
           detail = a => {
+            const _ex = "delete" === a.op && !0 === a.excludeSelf ? "（不考虑自己）" : "";
             if ("score" === a.op) return " " + ((Number(a.delta) || 0) >= 0 ? "+" : "") + (Number(a.delta) || 0);
             if ("spawn" === a.op) return " " + (a.kind || "fog") + (a.place && "cell" === a.place.type ? "@(" + a.place.r + "," + a.place.c + ")" : "");
             if ("settings" === a.op) return " " + JSON.stringify(a.patch || {});
@@ -7023,9 +7172,9 @@ function _reachSet(s) {
               if (Array.isArray(a.pat)) return _head + (a.pat.length ? "画了 " + a.pat.length + " 个小格" : "清空这一格的亚像素");
               return _head + (a.erase ? "擦除" : (-1 === (a.index | 0) ? "全部 36 小格" : "小格 " + (a.index | 0))) + " " + (a.erase ? "" : "#" + ("000000" + ((Number(a.color) || 0) >>> 0).toString(16)).slice(-6))
             }
-            if (Array.isArray(a.targetGroups) && a.targetGroups.length) return " 组:" + a.targetGroups.join(",");
-            if (a.targetCell) return " @(" + a.targetCell.r + "," + a.targetCell.c + ")";
-            return void 0 === a.target ? "" : " #" + a.target
+            if (Array.isArray(a.targetGroups) && a.targetGroups.length) return _ex + " 组:" + a.targetGroups.join(",");
+            if (a.targetCell) return _ex + " @(" + a.targetCell.r + "," + a.targetCell.c + ")";
+            return _ex + (void 0 === a.target ? "" : " #" + a.target)
           };
         return '<div style="margin-top:3px">' + acts.map(((a, i) => '<span style="display:inline-block;margin:2px 3px;padding:1px 6px;border:1px solid #b0bec5;border-radius:8px;background:#fff">' +
           (i + 1) + ". " + name(a) + detail(a) +
@@ -7070,8 +7219,8 @@ function _reachSet(s) {
           end: "终点",
           fog: "雾霾",
           redBlock: "红障碍",
-          "score+": "得分+1",
-          "score-": "扣分-1",
+          "score+": "得分点",
+          "score-": "扣分点",
           button: "按钮",
           text: "文本",
           score: "得分物"
@@ -7118,10 +7267,11 @@ function _reachSet(s) {
         (function() {
           const dl = L("obj-varlist");
           if (!dl) return;
-          const names = ["t"];
+          const names = ["s", "t", "steps"];
           for (const oo of (t.objects || [])) oo && oo.id && (names.push("x" + oo.id), names.push("y" + oo.id));
           for (const kk of Object.keys((t && t.vars) || {})) names.push(kk);
-          dl.innerHTML = names.map((n) => '<option value="' + n + '"></option>').join("")
+          const _uniq = names.filter((n, i) => names.indexOf(n) === i);
+          dl.innerHTML = _uniq.map((n) => '<option value="' + n + '"></option>').join("")
         })();
         const _mEl = L("obj-multinfo");
         _mEl && (_mEl.textContent = _oSelSet.size ? "☑ 已多选 " + _oSelSet.size + " 个（改分组/删除会作用于这些物体）" : "");
@@ -7145,10 +7295,20 @@ function _reachSet(s) {
         box("obj-trigger", isBtn), box("obj-act", isBtn), box("obj-target", isBtn), box("obj-add", isBtn), box("obj-clear", isBtn);
         const _trCur = (L("obj-trigger") || {}).value || "click";
         box("obj-cond-row", isBtn && ("cond" === _trCur || ((o || {}).triggers || []).some((function(t){ return t && "cond" === t.type }))));
+        _oTrigRowSync();
         const _addBtn = L("obj-add");
         _addBtn && (_addBtn.textContent = _editActIdx >= 0 ? "💾 保存动作" : "➕ 加动作"), _oActRowSync();
         /* fix33:「数值」只对 加分/扣分/移动 有意义；按钮的显隐统一交给 _oActRowSync 按动作判断 */
         box("obj-value", isText), box("obj-shape-row", isBtn), box("obj-color-row", isBtn);
+        /* fix54：选中得分点/扣分点时显示「分值」 */
+        box("obj-scoredelta-row", isScore);
+        const _sdEl = L("obj-scoredelta");
+        if (_sdEl) {
+          const _sdv = isScore ? (o.props || {}).delta : void 0;
+          _sdEl.value = !isScore ? "" : void 0 === _sdv || null === _sdv || "" === _sdv ? "1" : String(_sdv).replace(/^-/, "");
+          const _sdt = L("obj-scoredelta-tip");
+          _sdt && (_sdt.textContent = isScore ? ("score+" === kd ? "分（经过时加）" : "分（经过时扣）") : "分")
+        }
         if (isBtn) {
           const sh = L("obj-shape"),
             co = L("obj-color");
@@ -7184,7 +7344,11 @@ function _reachSet(s) {
             _oSelSet.size > 1 && (txt = "☑ 多选 " + _oSelSet.size + " 个 ｜ " + txt);
             if (o.place && "cell" === o.place.type) txt += " (" + o.place.r + "," + o.place.c + ")";
             if (o.groups && o.groups.length) txt += " 分组[" + o.groups.join(",") + "]";
-            if (isScore) txt += " 经过自动 " + ("score+" === kd ? "+1" : "-1") + " 分";
+            if (isScore) {
+              const _sd0 = (o.props || {}).delta,
+                _sdv = void 0 === _sd0 || null === _sd0 || "" === _sd0 ? 1 : _sd0;
+              txt += " 经过自动 " + ("score+" === kd ? "+" : "-") + _sdv + " 分"
+            }
             else if (isBtn) txt += " 触发[" + (o.triggers || []).map(trName).join(",") + "] 动作[" + (acts.length ? acts.join(",") : "无") + "]";
             else if (isText) txt += " 触发[" + (o.triggers || []).map(trName).join(",") + "]";
             info.textContent = txt
@@ -8219,12 +8383,47 @@ function _reachSet(s) {
           _otrigSel && _otrigSel.addEventListener("change", (() => {
             _oApplyTrigger(_otrigSel.value || "click"), _oSync()
           }));
+          const _opeL = L("obj-pulseevery");
+          _opeL && _opeL.addEventListener("change", (function() {
+            const o = _oSel();
+            if (!o || "button" !== o.kind) return;
+            const tr = (o.triggers || [])[0];
+            if (!tr || "cond" === (tr.type || "click")) return void App.toast("这条按钮是「条件」触发，间隔请填在上面的条件行里");
+            const _v = "" !== String(_opeL.value || "").trim() ? Math.max(.05, Number(_opeL.value) || 0) : 0;
+            _v > 0 ? (tr.every = _v) : delete tr.every, x(), _oSync(), $();
+            App.toast(_v > 0 ? "✅ 已设为每 " + _v + " 秒脉冲检测一次（可反复触发）" : "✅ 已改为只在触发那一刻执行一次")
+          }));
+          const _oswL = L("obj-clickswipe");
+          _oswL && _oswL.addEventListener("change", (function() {
+            const o = _oSel();
+            if (!o || "button" !== o.kind) return;
+            const tr = (o.triggers || [])[0];
+            if (!tr || "click" !== (tr.type || "click")) return;
+            _oswL.checked ? (tr.swipe = !0) : delete tr.swipe, x(), _oSync(), $(),
+              App.toast(_oswL.checked ? "✅ 手指划过这一格也算按下" : "✅ 只认真正的点击")
+          }));
           const _oactSel = L("obj-act");
           _oactSel && _oactSel.addEventListener("change", _oActRowSync);
           L("obj-spawnkind") && L("obj-spawnkind").addEventListener("change", _oActRowSync);
           L("obj-tmode") && L("obj-tmode").addEventListener("change", _oActRowSync);
           L("obj-condop") && L("obj-condop").addEventListener("change", _oCondRowSync);
-          ["obj-condmetric", "obj-condmetricvar", "obj-condop", "obj-condmin", "obj-condmax", "obj-condevery"].forEach((function(id) {
+          L("obj-condmetric") && L("obj-condmetric").addEventListener("change", (function() {
+            _oCondRowSync();
+            const _sl = L("obj-trigger");
+            if ("__var" === String((L("obj-condmetric") || {}).value || "")) {
+              /* fix54：选了「变量…」先别写回（否则会被判定成 score 又把下拉打回「得分」），把光标送进输入框 */
+              const _mv = L("obj-condmetricvar");
+              _mv && _mv.focus && _mv.focus();
+              return
+            }
+            _sl && "cond" === _sl.value && (_oApplyTrigger("cond"), _oSync())
+          }));
+          L("obj-condmetricvar") && L("obj-condmetricvar").addEventListener("change", (function() {
+            const _sl = L("obj-trigger"),
+              _v = String((L("obj-condmetricvar") || {}).value || "").trim();
+            _v && _sl && "cond" === _sl.value && (_oApplyTrigger("cond"), _oSync())
+          }));
+          ["obj-condop", "obj-condmin", "obj-condmax", "obj-condevery"].forEach((function(id) {
             const el = L(id);
             el && el.addEventListener("change", (function() {
               const _sl = L("obj-trigger");
@@ -8244,6 +8443,22 @@ function _reachSet(s) {
           };
           _osh && _osh.addEventListener("change", (() => _oProp("shape", _osh.value || "circle"))),
             _oco && _oco.addEventListener("change", (() => _oProp("color", _oco.value || "#7c4dff")))
+          const _osdEl = L("obj-scoredelta");
+          _osdEl && _osdEl.addEventListener("change", (function() {
+            const o = _oSel();
+            if (!o || ("score+" !== o.kind && "score-" !== o.kind)) return;
+            const raw = String(_osdEl.value || "").trim(),
+              sg = "score+" === o.kind ? 1 : -1;
+            let v;
+            if (!raw) v = 1;
+            else if (/^[A-Za-z_]/.test(raw)) v = raw.slice(0, 16);
+            else {
+              const n = Math.abs(Number(raw));
+              v = isFinite(n) && n > 0 ? n : 1
+            }
+            o.props = o.props || {}, o.props.delta = v, x(), _oSync(), $(), te(ee()),
+              App.toast("✅ 分值已设为 " + (sg > 0 ? "+" : "-") + v + " 分")
+          }));
           const t = L("in-diff-prefix");
           t && t.addEventListener("change", H);
         const _vrEl2 = L("in-viewrects");
@@ -9894,13 +10109,17 @@ function _reachSet(s) {
         el && (el.classList.add("hidden"), el.style.display = "none", el.textContent = "")
       }
 
+      function _kdv(pr) {
+        const d = (pr || {}).delta;
+        return void 0 === d || null === d || "" === d ? 1 : d
+      }
       function _kindText(o) {
         const k = o.kind || "",
           pr = o.props || {};
         if ("fog" === k) return "🌫 雾霾（不可进入）";
         if ("redBlock" === k) return "🧱 红障碍（碰到会重置）";
-        if ("score+" === k) return "➕ 得分点（经过 +1 分）";
-        if ("score-" === k) return "➖ 扣分点（经过 -1 分）";
+        if ("score+" === k) return "➕ 得分点（经过 +" + _kdv(pr) + " 分）";
+        if ("score-" === k) return "➖ 扣分点（经过 -" + _kdv(pr) + " 分）";
         if ("score" === k) {
           const d = Number(pr.delta) || 0;
           return "🎯 得分物（经过 " + (d >= 0 ? "+" + d : String(d)) + " 分）"
@@ -10089,8 +10308,10 @@ function _reachSet(s) {
           return
         }
         const s = Render.cellAt(t, _lv(), r.clientX, r.clientY, p);
-        if (!s) return;
+        if (!s) return void(_world && _world.point(null, null, !1));
         _tipStart(s);
+        /* fix56：告诉 World「手指此刻按在这一格」，脉冲检测从这一刻开始计时 */
+        _world && _world.point(s[0], s[1], !0);
         if (!i.length && done.length) {
           const _si2 = _lv().startIndex(s[0], s[1]);
           _si2 && done.some((function(st) {
@@ -10157,7 +10378,16 @@ function _reachSet(s) {
         if (!a) return;
         if (!1 === (e.settings || {}).dragDraw) return;
         const s = Render.cellAt(t, _lv(), r.clientX, r.clientY, p);
-        if (!s) return;
+        if (!s) return void(_world && _world.point(null, null, _world._press));
+        /* fix56（需求2）：手指（鼠标）划过这一格——勾了「划过也算触发」的点击按钮直接算按下一次 */
+        if (_world) {
+          const _pc = _world._ptr;
+          if (!_pc || _pc.r !== (s[0] | 0) || _pc.c !== (s[1] | 0)) {
+            const _swEvs = _world.swipe(s[0], s[1], _ctx());
+            _swEvs.length && (_events(_swEvs), _act(), App.toast("🔘划过了按钮"))
+          }
+          _world.point(s[0], s[1], _world._press)
+        }
         /* fix45：拖动也能往回走 —— 手指（鼠标）拖过路径上的上一格就退一步，
            继续往回拖可以连续退多步，和点击回退完全一致（状态一起回滚）。 */
         if (i.length >= 2) {
@@ -10173,6 +10403,7 @@ function _reachSet(s) {
       }
 
       function R() {
+        _world && _world.release();
         _cdFrom >= 0 && e && !1 === (e.settings || {}).clickDraw && _cdFrom === i.length && App.toast("本关只支持拖动连线：按住拖过相邻格才连"), _cdFrom = -1, a = !1, f = !1, L = null, S()
       }
 
@@ -16168,7 +16399,7 @@ function _reachSet(s) {
           }), !0);
           try {
             const e = "v2.0.1-dev";
-            window.__ver = e, window.__build = "fix53", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            window.__ver = e, window.__build = "fix57", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
