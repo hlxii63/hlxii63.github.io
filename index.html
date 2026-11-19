@@ -2002,6 +2002,7 @@
         <button class="tool" data-tool="diagonal" title="斜向连线格（可斜向进出；可与灰格/起终点叠加）">╳ 斜向</button>
         <button class="tool" data-tool="gray" title="灰色格：可以不经过（可与枢纽/斜向/起终点叠加）">⬜ 灰格</button>
         <button class="tool" data-tool="number" title="数字格：要求第 a~b 步之间到达（两个框都填=区间；可与终点/斜向/灰格重合，不可与枢纽重合）">🔢 数字</button>
+        <button class="tool" data-tool="tunnel" title="隧道口：同组号的隧道口互通——从任一口进去，可从同组任意另一个口出来（也可以不走）；刚出来不能马上回去，至少要兜一圈；口子本身是普通格，重复经过照样要套枢纽">🕳 隧道</button>
         <button class="tool" data-tool="solution" title="答案路径（官方解，试玩时隐藏）">🛤️ 答案路径</button>
         <button class="tool" data-tool="erase" title="擦除格子标记及相连红/绿边">🧽 擦除</button>
         <button class="tool" data-tool="redEdge" title="红边：禁止通过">🟥 红边</button>
@@ -2033,6 +2034,9 @@
           <input id="in-number" type="number" min="1" max="999" placeholder="步数" value="1" style="width:64px" title="下界 a">
           <span style="color:#78909c">~</span>
           <input id="in-number2" type="number" min="1" max="999" placeholder="同左" style="width:64px" title="上界 b（留空＝精确 a）">
+        </label>
+        <label class="field">隧道组
+          <input id="in-tunnel-group" type="number" min="1" max="99" value="1" style="width:64px" title="同组号的隧道口互通（1~99）">
         </label>
         <button id="btn-password" class="act">🔒 密码</button>
         <button id="btn-clear" class="act">🧹 清空</button>
@@ -2102,7 +2106,7 @@
             <option value="steps">步数（steps）</option>
             <option value="__var">变量…</option>
           </select>
-          <input id="obj-condmetricvar" list="obj-varlist" style="width:72px;display:none" placeholder="s / t / x1 / a1" title="变量：s = 当前得分；t = 当前用时（秒）；steps = 步数；xn = 编号 n 物体的 x 坐标（列）；yn = y 坐标（行）；a1、a2… = 关卡变量。这里填 s / t / steps 与上面的内置指标等价">
+          <input id="obj-condmetricvar" list="obj-varlist" style="width:72px;display:none" placeholder="s / t / x1 / x0" title="变量：s = 当前得分；t = 当前用时（秒）；steps = 步数；xn = 编号 n 物体的 x 坐标（列）；yn = y 坐标（行）；x0 / y0 = 玩家路径末端（最后走过的那一格）的 x / y 坐标；a1、a2… = 关卡变量。这里填 s / t / steps 与上面的内置指标等价">
           <datalist id="obj-varlist"></datalist>
           <select id="obj-condop" title="≥：不小于下界；≤：不大于上界；区间：介于两者之间">
             <option value="ge">≥</option>
@@ -2116,7 +2120,7 @@
           <button id="obj-cond-save" class="act" title="只把这里的条件写进按钮的触发条件，不改已有动作">✔ 应用条件</button>
         </label>
         <span class="field" id="obj-pulse-row" style="display:none">脉冲
-          <input id="obj-pulseevery" type="number" min="0" step="0.1" placeholder="留空=只触发一次" style="width:88px" title="脉冲间隔（秒）：留空 = 只在被点击 / 被踩到的那一刻触发一次；填了数字 = 只要条件一直成立，每隔这么多秒就再执行一次动作，可以反复触发，不会只触发一次">
+          <input id="obj-pulseevery" type="number" min="0" step="0.1" placeholder="留空=只触发一次" style="width:88px" title="脉冲间隔（秒）：留空 = 只在被点击 / 被踩到的那一刻触发一次；填了数字 = 取消那一次瞬间触发，改成「每隔这么多秒检测一次按钮此刻是否被按下 / 玩家是否还站在这一格」，成立才执行，可以反复触发；填 0 = 每一帧检测一次（等于间隔无穷小，最快，不会卡）">
           <label id="obj-clickswipe-wrap" title="勾上后，手指（鼠标）从这一格划过去，不用点下去也算按下这个按钮"><input type="checkbox" id="obj-clickswipe" style="vertical-align:-2px"> 手指划过也算触发</label>
         </span>
         <label class="field">动作
@@ -2162,6 +2166,13 @@
         <label class="field" id="obj-scoredelta-row" style="display:none">分值
           <input id="obj-scoredelta" type="text" style="width:64px" placeholder="1" title="这个得分点/扣分点经过时的分值（默认 1）：填正数（可带小数），也可以填变量名（a1 / t / x1）；加还是扣由物体类型决定">
           <span id="obj-scoredelta-tip" style="color:#78909c">分</span>
+        </label>
+        <label class="field" id="obj-ask-row" style="display:none;flex-wrap:wrap">输入框
+          <label style="display:inline-flex;align-items:center;gap:4px;font-weight:400"><input id="obj-ask-on" type="checkbox">启用</label>
+          <input id="obj-ask-min" type="number" min="0" step="1" style="width:62px" placeholder="最小" title="区间下限（自然数，含）；玩家在文本弹窗里填的数字落在这个区间内，就强制触发右边选中的按钮">
+          <span style="color:#78909c">~</span>
+          <input id="obj-ask-max" type="number" min="0" step="1" style="width:62px" placeholder="最大" title="区间上限（自然数，含）；上下限写反了也能用（自动取小/大为区间）">
+          <select id="obj-ask-btn" style="max-width:132px" title="数字落在区间内时，强制触发的按钮（按物体编号）"></select>
         </label>
         <label class="field" id="obj-var-row" style="display:none">变量
           <input id="obj-varname" style="width:56px" placeholder="a1" title="变量名：字母开头，最多 8 位字母/数字/下划线，例如 a1、a2、spd、hp2（xn / yn / t 是保留的坐标与时间变量，不要占用）">
@@ -2796,6 +2807,10 @@
             <td>数字格：路径第 5 个格子必须是它（第 1 个 = 起点）。填两个数 <b>a~b</b> 表示「第 a~b 步之间到达该格」即可。可与终点/斜向/灰格重合，不可与枢纽重合</td>
           </tr>
           <tr>
+            <td><b>🕳</b></td>
+            <td>隧道口：<b>同组号</b>的隧道口互相连通——从任一口进去，可以从同组任意另一个口出来（也可以不进去，直接走开）；<b>刚出来不能马上回去</b>，至少要兜一圈；口子本身算普通格（要覆盖，重复经过照样要套枢纽）；斜向传送也算</td>
+          </tr>
+          <tr>
             <td><span class="sym sym-hd">◎╳</span></td>
             <td>斜向枢纽 = 枢纽 + 斜向格（可多次经过且可斜向）</td>
           </tr>
@@ -2815,7 +2830,51 @@
             <td><span class="sym sym-sol">┅</span></td>
             <td>答案路径（灰色虚线）：编辑器中用「答案路径」工具绘制，<b>试玩时隐藏</b>；关卡必须有有效答案才能游玩</td>
           </tr>
+          <tr>
+            <td><b>🌫</b></td>
+            <td>雾霾格：<b>不可进入</b>（只挡路，不遮画面）；可以被按钮「生成物体」动态铺开，也能用「删除物体」清掉</td>
+          </tr>
+          <tr>
+            <td><b>🚫</b></td>
+            <td>红障碍：碰到就<b>整轮重置</b>（路径清空、计时归零，得分与机关回到初始）；可被按钮动态开关</td>
+          </tr>
+          <tr>
+            <td><b>➕</b> <b>➖</b></td>
+            <td>得分点 / 扣分点：经过就加分 / 扣分，<b>分值可以改</b>（默认 ±1，可填别的数或变量名）；分数只影响排行榜，扣成负数也不会判负</td>
+          </tr>
+          <tr>
+            <td><b>🔘</b></td>
+            <td>按钮：三种触发方式（点击 / 经过 / 条件），触发后按<b>动作列表从上到下</b>执行——加减分、生成 / 删除 / 移动 / 隐藏物体、开关雾霾、切视野、改变量……可设<b>脉冲间隔</b>反复触发（见下面「按钮与触发器」）</td>
+          </tr>
+          <tr>
+            <td><b>💬</b></td>
+            <td>文本：路径经过时弹出文本框，内容自己写（不占格、不影响判定）</td>
+          </tr>
+          <tr>
+            <td><b>🎨</b></td>
+            <td>亚像素：把一格切成 6×6 小格逐个上色，<b>只影响外观</b>，不参与判定</td>
+          </tr>
+          <tr>
+            <td><b>🔗</b></td>
+            <td>S/E 分组：一关可以有<b>多组 S 与 E</b>（S1、S2…与 E1、E2…同组号配对），每组都要从自己的 S 走到自己的 E，<b>全部组走完</b>才算通关</td>
+          </tr>
+          <tr>
+            <td><b>🖼</b></td>
+            <td>底图：铺在棋盘下面的背景图，<b>只影响外观</b>，不参与判定，会跟着关卡一起导出</td>
+          </tr>
         </table>
+        <p><b>按钮与触发器（造关重点）</b>：按钮的触发方式三选一：<br>
+          · <b>点击</b>：手指 / 鼠标按在这一格上。只有<b>这一下连不成路径</b>时才算点击（比如这格已经走过、不相邻、被红边/雾霾挡住、或者路径已经到终点）；<b>顺着路径正常走过去不会触发点击</b>。勾了「手指划过也算触发」后，手划过这一格也算按了一下。<br>
+          · <b>经过</b>：玩家<b>站到这一格上</b>就触发（路径踩上来 / 落到这格），可以加「只由某人触发」的限制。<br>
+          · <b>条件</b>：与点击 / 经过都无关，<b>每帧都在判</b>；条件可以是得分 / 用时 / 步数 / 任意变量的区间（变量里 <code>x0</code>、<code>y0</code> = 路径末端的横 / 纵坐标）。<br>
+          <b>触发优先级顺序</b>（同一下落、同一帧里谁先谁后，造关时按这个算）：<br>
+          ① <b>先判路，再判按钮</b>——这一格能连上路径就只走路径（触发这一格的「经过」类），连不上才去判「点击」；<br>
+          ② <b>同一格多个物体：按物体 #编号 从小到大</b> 依次处理（格子上原有的得分点 / 扣分点 / 文本 / 红障碍先结算，再跑按钮的经过触发）；<br>
+          ③ <b>同一个按钮挂了多个触发器：按触发器列表从上到下</b> 全部执行；<br>
+          ④ <b>一个按钮的多个动作：按动作列表从上到下</b> 依次执行；<br>
+          ⑤ <b>带脉冲间隔的触发排在最后</b>：它们不参与上面这些「瞬间触发」，只在每帧的脉冲轮询里按间隔命中。</p>
+        <p><b>脉冲间隔（可反复触发）</b>：按钮的「脉冲间隔（秒）」<b>留空</b> = 只在点击 / 踩到的那一刻触发一次；<b>填了数字</b> = <b>取消那一次瞬间触发</b>，改成「每隔这么多秒检测一次——此刻按钮是否还被按着 / 玩家是否还站在这一格——成立才执行一次」，按住不放 / 站住不动就会一直重复。<b>填 0</b> = 每一帧检测一次（等于间隔无穷小，最快，不会卡）。条件触发器的「一成立立刻触发一次」仍然保留，只是之后接着按间隔重复。</p>
+        <p><b>得分 / 扣分与变量</b>：得分点、扣分点、按钮的加减分都能改分值（可填负数，也可填变量名）；变量是每关独立的一本小账本，动作能设值 / 加减 / 乘除，条件里能读；<code>x0</code> / <code>y0</code> 是<b>玩家路径末端</b>的横 / 纵坐标（和 <code>x1</code> / <code>y1</code> 指第 1 号物体的位置并列）。</p>
         <p><b>操作</b>：编辑器里选好工具后点击格子；红/绿边先点一格再点相邻格（含斜向）；数字格先在「数字」输入框填范围（两个框都填 = 区间 a~b，只填第一个 = 精确步数；都留空点击可移除数字）再点格子；答案路径从 S 开始点或拖动画线（与试玩规则相同），可用「撤销一步答案」逐步回退；试玩时从 S 开始点或拖动画线、可显示序号。</p>
         <p><b>上传关卡</b>：本地关卡通关后，结算页有 <b>⬆ 上传关卡</b> 按钮（<b>这是唯一的上传入口</b>），登录社区账号后即可把这一关分享到社区；<b>社区关卡</b>本身已经在社区里，结算页不再显示这个按钮。</p>
         <p><b>进度保存</b>：试玩中途切后台、关页面、被系统回收，进度都会自动存下来（当前笔画、已完成笔画、暂停笔画、草稿线、用时、机关与物体的位置/得分/动画），下次进来接着走；也可点 <b>⏏ 返回编辑</b>手动存档。</p>
@@ -2978,7 +3037,7 @@
     }
     class Level {
       constructor(s, e, t) {
-        this.rows = clampInt(s, 2, 99, 6), this.cols = clampInt(e, 2, 99, 6), this.name = "string" == typeof t && t.trim() ? t.trim().slice(0, 40) : "未命名关卡", this.start = null, this.end = null, this.obstacles = new Set, this.hubs = new Set, this.diagonals = new Set, this.redEdges = new Set, this.greenEdges = new Set, this.solution = null, this.password = null, this.desc = "", this.numbers = new Map, this.difficulty = 0, this.difficultyPrefix = "", this.grays = new Set, this.timeLimit = 0, this.musicId = "", this.musicUrl = "", this.musicRepo = "", this.bg = "", this.starts = [], this.ends = [], this.blueEdges = new Set, this.objects = [], this.subpixels = new Map, this.settings = { allowZoom: !0, initialZoom: 0, clickDraw: !0, dragDraw: !0, allowUndo: !0, undoMode: "legacy", showBorder: !0, showGrid: !0, batchMode: "brush" }, this.nextObjectId = 1, this.viewRects = [], this.viewId = "", this.vars = {}, this.now = 0, this.schemaVersion = 2
+        this.rows = clampInt(s, 2, 99, 6), this.cols = clampInt(e, 2, 99, 6), this.name = "string" == typeof t && t.trim() ? t.trim().slice(0, 40) : "未命名关卡", this.start = null, this.end = null, this.obstacles = new Set, this.hubs = new Set, this.diagonals = new Set, this.redEdges = new Set, this.greenEdges = new Set, this.solution = null, this.password = null, this.desc = "", this.numbers = new Map, this.difficulty = 0, this.difficultyPrefix = "", this.grays = new Set, this.tunnels = new Map, this.timeLimit = 0, this.musicId = "", this.musicUrl = "", this.musicRepo = "", this.bg = "", this.starts = [], this.ends = [], this.blueEdges = new Set, this.objects = [], this.subpixels = new Map, this.settings = { allowZoom: !0, initialZoom: 0, clickDraw: !0, dragDraw: !0, allowUndo: !0, undoMode: "legacy", showBorder: !0, showGrid: !0, batchMode: "brush" }, this.nextObjectId = 1, this.viewRects = [], this.viewId = "", this.vars = {}, this.now = 0, this.schemaVersion = 2
       }
       inBounds(s, e) {
         return s >= 0 && s < this.rows && e >= 0 && e < this.cols
@@ -3021,6 +3080,34 @@
       }
       isGray(s, e) {
         return this.grays.has(KEY(s, e))
+      }
+      /* fix58：隧道。同组隧道口互相连通：从任一口进入，可从同组任意另一口出来。
+         口子本身是普通格（算覆盖、必须踩），重复经过照样要套枢纽。
+         允许「不进入」：正常走到口子上、从旁边走开就行。 */
+      isTunnel(s, e) {
+        return this.tunnels ? this.tunnels.has(KEY(s, e)) : !1
+      }
+      tunnelGroup(s, e) {
+        const t = this.tunnels ? this.tunnels.get(KEY(s, e)) : void 0;
+        return void 0 === t ? 0 : t | 0
+      }
+      /* 两格是否构成一次隧道传送：都是隧道口、组号相同、且不是同一格。
+         斜向/远距离一律算（传送不分方向）。 */
+      isTunnelJump(a, b) {
+        if (!a || !b) return !1;
+        if ((a[0] | 0) === (b[0] | 0) && (a[1] | 0) === (b[1] | 0)) return !1;
+        if (!this.tunnels || !this.tunnels.size) return !1;
+        const ga = this.tunnels.get(KEY(a[0] | 0, a[1] | 0)), gb = this.tunnels.get(KEY(b[0] | 0, b[1] | 0));
+        return void 0 !== ga && void 0 !== gb && (ga | 0) === (gb | 0)
+      }
+      setTunnel(s, e, t) {
+        const g = Math.max(1, Math.min(99, Math.round(Number(t)) || 1));
+        this.tunnels.set(KEY(s, e), g);
+        const o = this.featureAt("tunnel", s, e);
+        return o ? (o.props = o.props || {}, o.props.group = g) : this.addFeature("tunnel", s, e, { group: g }), g
+      }
+      removeTunnel(s, e) {
+        return this.tunnels.delete(KEY(s, e)), this.removeFeature("tunnel", s, e)
       }
       isFog(s, e) {
         return this.objects.some((t => t && t.enabled && "fog" === t.kind && t.place && "cell" === t.place.type && t.place.r === s && t.place.c === e))
@@ -3106,7 +3193,7 @@
         return 1 === t && 1 === r
       }
       canMove(s, e) {
-        return !!this.isAdjacent(s, e) && (!this.isDiagMove(s, e) || this.isDiagonal(s[0], s[1]) || this.isDiagonal(e[0], e[1]))
+        return !!this.isAdjacent(s, e) && (!this.isDiagMove(s, e) || this.isDiagonal(s[0], s[1]) || this.isDiagonal(e[0], e[1])) || !!this.isTunnelJump(s, e)
       }
       hasEdge(s, e, t) {
         const r = Level.edgeKey(e, t);
@@ -3149,7 +3236,7 @@
       }
       // ===== 统一物体化：格子特性与三色边也都是真物体（共用 1..N 号段）=====
       static featureKinds() {
-        return ["obstacle", "gray", "diagonal", "hub", "number", "start", "end", "edgeRed", "edgeGreen", "edgeBlue"]
+        return ["obstacle", "gray", "diagonal", "hub", "number", "tunnel", "start", "end", "edgeRed", "edgeGreen", "edgeBlue"]
       }
       isFeatureKind(k) {
         return Level.featureKinds().indexOf(k) >= 0
@@ -3248,7 +3335,7 @@
           re = new Set,
           ge = new Set,
           be = new Set,
-          nu = new Map,
+          nu = new Map, tu = new Map,
           st = [],
           en = [];
         for (const o of (this.objects || [])) {
@@ -3263,7 +3350,7 @@
           if ("cell" !== p.type) continue;
           const key = KEY(p.r | 0, p.c | 0),
             pr = o.props || {};
-          "obstacle" === k ? ob.add(key) : "hub" === k ? hu.add(key) : "diagonal" === k ? dg.add(key) : "gray" === k ? gr.add(key) : "number" === k ? nu.set(key, null != pr.value ? pr.value : null != pr.min ? pr.min : 1) : "start" === k ? st.push({
+          "obstacle" === k ? ob.add(key) : "hub" === k ? hu.add(key) : "diagonal" === k ? dg.add(key) : "gray" === k ? gr.add(key) : "tunnel" === k ? tu.set(key, (pr.group | 0) || 1) : "number" === k ? nu.set(key, null != pr.value ? pr.value : null != pr.min ? pr.min : 1) : "start" === k ? st.push({
             r: p.r | 0,
             c: p.c | 0,
             i: (pr.group | 0) || st.length + 1
@@ -3277,7 +3364,7 @@
            这里统一按 红 > 绿 > 蓝 归一，避免加载时报「同一条边同时标为红与绿」把关卡拦死。 */
         for (const k of re) ge.delete(k), be.delete(k);
         for (const k of ge) be.delete(k);
-        return this.obstacles = ob, this.hubs = hu, this.diagonals = dg, this.grays = gr, this.redEdges = re, this.greenEdges = ge, this.blueEdges = be, this.numbers = nu, this.starts = st, this.ends = en, this.start = st.length ? [st[0].r, st[0].c] : null, this.end = en.length ? [en[0].r, en[0].c] : null, this
+        return this.obstacles = ob, this.hubs = hu, this.diagonals = dg, this.grays = gr, this.redEdges = re, this.greenEdges = ge, this.blueEdges = be, this.numbers = nu, this.tunnels = tu, this.starts = st, this.ends = en, this.start = st.length ? [st[0].r, st[0].c] : null, this.end = en.length ? [en[0].r, en[0].c] : null, this
       }
       migrateFeatureObjects() {
         const known = new Set,
@@ -3294,7 +3381,13 @@
         /* fix49：start / end 不受「该类已有物件就整类跳过」的限制——S/E 天生可以有很多个，
            整类跳过会让「集合里有 3 个 S、objects 里只有 1 个」的关卡永远补不齐（新加的 S 每次快照都被吃掉）。
            其它特征（枢纽会移动等）保持 fix38 的整类跳过行为不变。 */
-        const _multiKind = (kind) => "start" === kind || "end" === kind,
+        /* fix58：有的关卡只把隧道口写成物件（旧数据/手写），Map 空时从物件补一次。 */
+        if (this.tunnels && !this.tunnels.size)
+          for (const o of (this.objects || [])) {
+            if (!o || "tunnel" !== o.kind || !o.place || "cell" !== o.place.type) continue;
+            this.tunnels.set(KEY(o.place.r | 0, o.place.c | 0), ((o.props || {}).group | 0) || 1)
+          }
+                const _multiKind = (kind) => "start" === kind || "end" === kind,
           push = function(kind, r, c, props) {
           if (kindHasObj.has(kind) && !_multiKind(kind)) return;
           const kk = kind + "@" + KEY(r | 0, c | 0);
@@ -3317,6 +3410,11 @@
             const p = String(key).split(",");
             isFinite(p[0]) && isFinite(p[1]) && push("number", p[0], p[1], { value: val })
           }
+          if (this.tunnels)
+            for (const [key, g] of this.tunnels) {
+              const p = String(key).split(",");
+              isFinite(p[0]) && isFinite(p[1]) && push("tunnel", p[0], p[1], { group: (g | 0) || 1 })
+            }
         for (const v of (this.starts || [])) v && push("start", v.r, v.c, { group: v.i | 0 || 1 });
         for (const v of (this.ends || [])) v && push("end", v.r, v.c, { group: v.i | 0 || 1 });
         (this.starts || []).length || !this.start || push("start", this.start[0], this.start[1], { group: 1 });
@@ -3357,6 +3455,9 @@
           e = s => [...s].map((s => s.split("|").map((s => s.split(",").map(Number))))),
           t = {};
         for (const [s, e] of [...this.numbers].sort(((s, e) => s[0] < e[0] ? -1 : s[0] > e[0] ? 1 : 0))) t[s] = Array.isArray(e) ? e.slice() : e;
+          const _tun = {};
+        if (this.tunnels && this.tunnels.size)
+          for (const [s, g] of [...this.tunnels].sort(((s, e) => s[0] < e[0] ? -1 : s[0] > e[0] ? 1 : 0))) _tun[s] = (g | 0) || 1;
         const r = encryptSolution(this.solution);
         return {
           version: 3,
@@ -3405,6 +3506,7 @@
           redEdges: e(this.redEdges),
           greenEdges: e(this.greenEdges),
           numbers: t,
+          tunnels: _tun,
           difficulty: this.difficulty,
           difficultyPrefix: String(this.difficultyPrefix || "").trim().slice(0, 12),
           bg: String(this.bg || "").trim().slice(0, 20),
@@ -3558,6 +3660,21 @@
             const n = new Map;
             for (const [s, e] of r.numbers) Array.isArray(e) || (n.has(e) ? t.push("多个数字格要求同一第 " + e + " 步（不可同时满足）: " + n.get(e) + " 与 " + s) : n.set(e, s))
           } else t.push("numbers 字段格式无效，已忽略");
+        /* fix58：隧道口（同组互通） */
+        if (null != s.tunnels) {
+          if (s.tunnels && "object" == typeof s.tunnels && !Array.isArray(s.tunnels)) {
+            for (const key of Object.keys(s.tunnels)) {
+              const mm = /^(\d+),(\d+)$/.exec(key);
+              if (!mm || !r.inBounds(+mm[1], +mm[2])) { e.push("隧道口坐标无效: " + key); continue }
+              const _tr = +mm[1],
+                _tc = +mm[2],
+                _tgv = Number(s.tunnels[key]);
+              if (!Number.isInteger(_tgv) || _tgv < 1 || _tgv > 99) { e.push("隧道组号无效: " + key + " = " + JSON.stringify(s.tunnels[key])); continue }
+              if (r.isObstacle(_tr, _tc)) { t.push("隧道口与障碍重合，已忽略: (" + key + ")"); continue }
+              r.tunnels.set(KEY(_tr, _tc), _tgv)
+            }
+          } else t.push("tunnels 字段格式无效，已忽略");
+        }
         /* fix42b: 已上传的旧关卡里 solution 可能就是「作者走的那一局」——先到终点又继续走 / 末尾多几步，
            这种值会被判无效，导致「有答案但答案无效 → 别人点开就报错」。
            这里按终点截断或从尾部递减找合法前缀；实在修不了就置空，
@@ -3837,7 +3954,7 @@ function _reachSet(s) {
           o = e[r],
           a = KEY(n[0], n[1]),
           l = KEY(o[0], o[1]);
-        s.isAdjacent(n, o) ? (!s.isDiagMove(n, o) || s.isDiagonal(n[0], n[1]) || s.isDiagonal(o[0], o[1]) || t.errors.push("斜向移动需要斜向连线格: (" + a + ") → (" + l + ")"), s.hasEdge("red", n, o) && (t.errors.push("跨越红边: (" + a + ")-(" + l + ")"), t.redCells.push(a, l)), s.hasEdge("green", n, o) && i.add(Level.edgeKey(n, o))) : t.errors.push("非法移动: (" + a + ") → (" + l + ")"), s.isObstacle(o[0], o[1]) && t.errors.push("进入障碍格: (" + l + ")"), s.isFog(o[0], o[1]) && !s.isObstacle(o[0], o[1]) && t.errors.push("进入雾霾格: (" + l + ")"), s.isRedBlock(o[0], o[1]) && t.errors.push("碰到红障碍: (" + l + ")"), s.isStart(o[0], o[1]) && !s.isHub(o[0], o[1]) && t.errors.push("不能重复进入起点: (" + l + ")"), !_inScope(s, o[0], o[1]) && t.errors.push("这一格不属于任何视野范围: (" + l + ")")
+        s.isAdjacent(n, o) ? (!s.isDiagMove(n, o) || s.isDiagonal(n[0], n[1]) || s.isDiagonal(o[0], o[1]) || t.errors.push("斜向移动需要斜向连线格: (" + a + ") → (" + l + ")"), s.hasEdge("red", n, o) && (t.errors.push("跨越红边: (" + a + ")-(" + l + ")"), t.redCells.push(a, l)), s.hasEdge("green", n, o) && i.add(Level.edgeKey(n, o))) : s.isTunnelJump(n, o) || t.errors.push("非法移动: (" + a + ") → (" + l + ")"), s.isObstacle(o[0], o[1]) && t.errors.push("进入障碍格: (" + l + ")"), s.isFog(o[0], o[1]) && !s.isObstacle(o[0], o[1]) && t.errors.push("进入雾霾格: (" + l + ")"), s.isRedBlock(o[0], o[1]) && t.errors.push("碰到红障碍: (" + l + ")"), s.isStart(o[0], o[1]) && !s.isHub(o[0], o[1]) && t.errors.push("不能重复进入起点: (" + l + ")"), !_inScope(s, o[0], o[1]) && t.errors.push("这一格不属于任何视野范围: (" + l + ")")
       }
       for (let s = 0; s + 2 < e.length; s++)
         if (e[s][0] === e[s + 2][0] && e[s][1] === e[s + 2][1]) {
@@ -4027,7 +4144,7 @@ function _reachSet(s) {
             w.map && w.map.forEach(setHub), w._virt && w._virt.forEach(setHub)
           }(this), this._hubResync()
       };
-      World.CELL_KINDS = ["obstacle", "gray", "diagonal", "hub", "number", "start", "end"];
+      World.CELL_KINDS = ["obstacle", "gray", "diagonal", "hub", "number", "tunnel", "start", "end"];
       World.isCellKind = function(k) {
         return World.CELL_KINDS.indexOf(k) >= 0
       };
@@ -4083,6 +4200,13 @@ function _reachSet(s) {
           if (!isFinite(r) || !isFinite(c)) continue;
           add("number", r, c, { value: val })
         }
+          if (L.tunnels && L.tunnels.size) for (const [key, g] of L.tunnels) {
+            const p = String(key).split(","),
+              r = Number(p[0]),
+              c = Number(p[1]);
+            if (!isFinite(r) || !isFinite(c)) continue;
+            add("tunnel", r, c, { group: (g | 0) || 1 })
+          }
         const multi = (L.starts || []).length + (L.ends || []).length > 2;
         for (const st of (L.starts || [])) st && add("start", st.r, st.c, { group: st.i | 0 || 1 });
         for (const en of (L.ends || [])) en && add("end", en.r, en.c, { group: en.i | 0 || 1 });
@@ -4158,6 +4282,8 @@ function _reachSet(s) {
         if (this._virt) this._virt.forEach((o => {
           o.place && o.place.type === "cell" && o.place.r === r && o.place.c === c && out.push(o)
         }));
+        /* fix60：同一格多物体按 #编号 从小到大处理，规则和图例里写的一致（可预期的执行顺序） */
+        out.sort(((a, b) => (a.id | 0) - (b.id | 0)));
         return out
       };
 
@@ -4196,6 +4322,16 @@ function _reachSet(s) {
         /* fix54：s / score = 当前得分；steps / step = 当前步数（与条件里的内置指标合并） */
         if ("s" === s2 || "score" === s2) return Number(this.score) || 0;
         if ("steps" === s2 || "step" === s2) return Number(ctx && ctx.steps) || 0;
+        /* fix59：x0 / y0 = 玩家路径末端的横 / 纵坐标。
+           必须抢在 xN / yN 正则前面，否则会被当成「编号 0 的物体」，恒为 0。 */
+        const _lo0 = s2.toLowerCase();
+        if ("x0" === _lo0 || "y0" === _lo0) {
+          const _hasPe = ctx && isFinite(Number(ctx.pr)) && isFinite(Number(ctx.pc));
+          _hasPe && (this._pe = { r: Number(ctx.pr), c: Number(ctx.pc) });
+          const _pe0 = _hasPe ? { r: Number(ctx.pr), c: Number(ctx.pc) } : this._pe;
+          const _out0 = "x0" === _lo0 ? (_pe0 ? Number(_pe0.c) : NaN) : (_pe0 ? Number(_pe0.r) : NaN);
+          return isFinite(_out0) ? _out0 : 0
+        }
         const m = /^([xyXY])(\d{1,6})$/.exec(s2);
         if (m) {
           const id = parseInt(m[2], 10),
@@ -4301,6 +4437,7 @@ function _reachSet(s) {
           else if ("diagonal" === act.kind) L.diagonals.add(key);
           else if ("hub" === act.kind) L.hubs.add(key);
           else if ("number" === act.kind) L.numbers.set(key, (act.props && act.props.value) | 0 || 1);
+          else if ("tunnel" === act.kind) L.tunnels && L.tunnels.set(key, (act.props && act.props.group) | 0 || 1);
           else if ("start" === act.kind || "end" === act.kind) {
             const arr = "start" === act.kind ? L.starts : L.ends;
             grp || (grp = (arr || []).reduce(((m, x) => Math.max(m, (x.i | 0) || 1)), 0) + 1);
@@ -4355,6 +4492,8 @@ function _reachSet(s) {
         if ("varset" === op || "varadd" === op || "varsub" === op || "varmul" === op || "vardiv" === op) {
           const nm = String(act.varName || act.name || "").trim().slice(0, 8);
           if (!/^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(nm)) return out;
+          /* fix59：x0 / y0（以及 xN / yN）是保留的坐标变量，不许拿来当关卡变量 */
+          if (/^[xyXY]\d{1,6}$/.test(nm)) return out;
           const v = this.numv(act.value, 0),
             cur = Number(this.vars && this.vars[nm]) || 0;
           let nv = cur;
@@ -4562,14 +4701,32 @@ function _reachSet(s) {
         return rng(cond.score, score) && rng(cond.steps, steps) && rng(cond.time, time)
       };
 
-      World.prototype.fire = function(id, type, ctx) {
+      /* fix60：这个触发器是不是「设了脉冲间隔」。留空 / null = 不脉冲（走进入瞬间触发）；
+         填 0 也算脉冲（= 极小间隔，每帧检测一次）。 */
+      function _trPulse(tr) {
+        if (!tr) return !1;
+        const v = tr.every;
+        return null != v && "" !== v && isFinite(Number(v))
+      }
+      World.prototype.fire = function(id, type, ctx, force) {
         const o = this.map.get(id | 0);
         if (!o || o.deleted || !o.enabled) return [];
         const res = [];
+        /* fix61：force = 强制触发（跳过脉冲拦截、没有 click 触发器也照做一遍动作） */
+        let _fired = 0;
         for (const tr of (o.triggers || [])) {
           if ((tr.type || "click") !== type) continue;
           if ("cond" === type && !this.checkCond(tr.cond, ctx)) continue;
           if ("pass" === type && tr.by && tr.by !== (ctx && ctx.by)) continue;
+          /* fix60：设了脉冲间隔的点击 / 经过，进入那一刻不再触发——只由 step() 按间隔轮询触发。
+             （以前是「进入即触发 + 之后按间隔重复」，所以设了脉冲还是会一按就响一次。） */
+          if (!force && "cond" !== type && _trPulse(tr)) continue;
+          this._self = o;
+          for (const a of (o.actions || [])) res.push(this.apply(a));
+          this._self = null,
+            _fired++
+        }
+        if (force && !_fired) {
           this._self = o;
           for (const a of (o.actions || [])) res.push(this.apply(a));
           this._self = null
@@ -4597,7 +4754,22 @@ function _reachSet(s) {
               this.score += d, out.push({ kind: "score", delta: d, id: o.id })
             }
           }
-          if ("text" === o.kind) out.push({ kind: "text", text: o.props.text || "", id: o.id });
+          /* fix61：文本可以挂输入框——经过时弹窗让玩家填自然数，落在 [askMin, askMax] 内就强制触发 askBtn */
+          if ("text" === o.kind) {
+            const _tp = o.props || {},
+              _am = _tp.askMin,
+              _aM = _tp.askMax,
+              _hasAsk = !!_tp.ask && null != _am && "" !== _am && null != _aM && "" !== _aM && isFinite(Number(_am)) && isFinite(Number(_aM));
+            out.push({
+              kind: "text",
+              text: _tp.text || "",
+              id: o.id,
+              ask: _hasAsk,
+              askMin: _hasAsk ? Number(_am) : 0,
+              askMax: _hasAsk ? Number(_aM) : 0,
+              askBtn: Number(_tp.askBtn) || 0
+            })
+          }
           else if ("redBlock" === o.kind) out.push({ kind: "reset", id: o.id });
           if (!o.enabled) continue;
           const f = this.fire(o.id, "pass", ctx);
@@ -4614,6 +4786,14 @@ function _reachSet(s) {
       };
       World.prototype.release = function() {
         this._press = !1, this._ptr = null
+      };
+      /* fix60：往回走 / 换起点之后，把「玩家站着的那一格」同步过去，
+         否则经过类脉冲会拿旧格子一直触发（撤销后凭空掉血那种）。 */
+      World.prototype.standTo = function(p) {
+        return this._stand = p && Array.isArray(p) && isFinite(Number(p[0])) && isFinite(Number(p[1])) ? {
+          r: Number(p[0]) | 0,
+          c: Number(p[1]) | 0
+        } : null, this._stand
       };
       World.prototype._cellOf = function(o) {
         if (!o) return null;
@@ -4657,17 +4837,19 @@ function _reachSet(s) {
             for (const a of (o.actions || [])) out.push(this.apply(a));
             this._self = null
           };
-        /* fix56：统一脉冲判定。on = 本帧条件是否成立；per = 间隔毫秒（0 = 不脉冲）。
+        /* fix56：统一脉冲判定。on = 本帧条件是否成立；per = 间隔毫秒。
            per > 0 时只要 on 一直成立，每隔 per 毫秒就再执行一次，可以无限次重复；
-           first = 条件刚变成成立的那一帧是否立刻触发（cond 是；click / pass 不是，它们进入时已经触发过一次）。 */
+           first = 条件刚变成成立的那一帧是否立刻触发（cond 是；click / pass 不是，它们只在轮询里触发）。
+           fix60：per = 0（或小于一帧）时不要跑毫秒累加器——直接退化成「每帧最多 1 次」，
+           效果和「间隔无穷小」完全一样，但不会每帧空转 for 循环、也不会把 n 顶到 64 次的性能灾难。 */
         const _beat = (o, i, on, per, first) => {
-          if (!(per > 0)) return 0;
           const prev = !!o._cond[i];
           if (!on) return o._pulse[i] = 0, o._cond[i] = !1, 0;
           if (!prev) {
             o._pulse[i] = 0, o._cond[i] = !0;
             if (first) return 1
           }
+          if (!(per > 8)) return o._pulse[i] = 0, 1;
           let acc = (prev ? Math.max(0, Number(o._pulse[i]) || 0) : 0) + _ms,
             n = 0;
           for (; acc >= per && n < 64; n++) acc -= per;
@@ -4681,15 +4863,16 @@ function _reachSet(s) {
           for (let i = 0; i < trs.length; i++) {
             const tr = trs[i],
               ty = tr.type || "click",
-              per = Math.max(0, Number(tr.every) || 0) * 1e3;
+              _pl = _trPulse(tr),
+              per = _pl ? Math.max(0, Number(tr.every) || 0) * 1e3 : 0;
             if ("cond" === ty) {
               const on = !!this.checkCond(tr.cond, ctx);
-              if (per > 0) {
+              if (_pl) {
                 for (let n = _beat(o, i, on, per, !0); n > 0; n--) _fire(o)
               } else on && !o._cond[i] && _fire(o), o._cond[i] = on;
               continue
             }
-            if (!(per > 0)) continue;
+            if (!_pl) continue;
             /* fix56（需求3）：点击 / 经过也支持脉冲间隔——
                点击 = 手指按在这一格上（勾了「划过也算」则手划到这一格也算）；
                经过 = 玩家此刻就站在这一格上。 */
@@ -4947,7 +5130,7 @@ function _reachSet(s) {
           const arr = set instanceof Set ? [...set.values()] : Array.isArray(set) ? set : [];
           for (const k of arr) keep.add(kind + "@" + k)
         };
-        walk(L.obstacles, "obstacle"), walk(L.grays, "gray"), walk(L.diagonals, "diagonal"), walk(L.hubs, "hub"), L.numbers && walk(new Set(L.numbers.keys()), "number");
+        walk(L.obstacles, "obstacle"), walk(L.grays, "gray"), walk(L.diagonals, "diagonal"), walk(L.hubs, "hub"), L.numbers && walk(new Set(L.numbers.keys()), "number"), L.tunnels && walk(new Set(L.tunnels.keys()), "tunnel");
         (L.starts || []).forEach((v => v && keep.add("start@" + (v.r | 0) + "," + (v.c | 0))));
         (L.ends || []).forEach((v => v && keep.add("end@" + (v.r | 0) + "," + (v.c | 0))));
         const ew = function(set, kind) {
@@ -5033,6 +5216,10 @@ function _reachSet(s) {
       if (s.isFog(r, n)) return i.reason = "这里是雾霾，无法进入", i;
       if (s.isObstacle(r, n)) return i.reason = "这里是障碍格", i;
       if (s.isStart(r, n) && !s.isHub(r, n)) return i.reason = "不能重复进入起点", i;
+      if (e.length >= 2 && !s.isAdjacent(o, t) && s.isTunnelJump(o, t)) {
+        const _tpPrev = e[e.length - 2];
+        if (_tpPrev[0] === r && _tpPrev[1] === n) return i.reason = "刚出隧道不能马上回去：先走到别的格子再回来", i
+      }
       if (e.length >= 2 && s.isHub(r, n)) {
         const s = e[e.length - 2];
         if (s[0] === r && s[1] === n) return i.reason = "不能立即折返：禁止从同一方向出去再进来", i
@@ -5713,6 +5900,14 @@ function _reachSet(s) {
         t.beginPath(), t.moveTo(e[0][0], e[0][1]);
         for (let o = 1; o < e.length; o++) t.lineTo(e[o][0], e[o][1])
       }
+      /* fix58：隧道传送两格相距很远，不能连一条横跨全盘的直线，遇到不相邻的一步就断开重起。 */
+      function _poly(t, cells, pts, level) {
+        t.beginPath(), t.moveTo(pts[0][0], pts[0][1]);
+        for (let o = 1; o < pts.length; o++) {
+          const adj = !cells || !level || "function" != typeof level.isAdjacent || level.isAdjacent(cells[o - 1], cells[o]);
+          adj ? t.lineTo(pts[o][0], pts[o][1]) : t.moveTo(pts[o][0], pts[o][1])
+        }
+      }
       const c = new WeakMap;
       return {
         draw: function c(h, f, g, d) {
@@ -5800,6 +5995,7 @@ function _reachSet(s) {
                     gray: 1,
                     diagonal: 1,
                     number: 1,
+                    tunnel: 1,
                     start: 1,
                     "end": 1,
                     redBlock: 1,
@@ -5844,6 +6040,11 @@ function _reachSet(s) {
                       t.fillStyle = "rgba(26,115,232,0.10)", i(t, c + 1.5, h + 1.5, s - 3, s - 3, .18 * s), t.fill(), t.strokeStyle = "#1a73e8", t.lineWidth = Math.max(1.5, .05 * s), i(t, c + 1.5, h + 1.5, s - 3, s - 3, .18 * s), t.stroke(), t.fillStyle = "#0d47a1";
                       const e = x && x[0] !== x[1] ? x[0] + "~" + x[1] : String(b);
                       t.font = "bold " + Math.max(8, s * (e.length > 2 ? .3 : .38)) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText(e, f, g + 1)
+                    }
+                    const _tunSkip = _mvHit("tunnel", _skc),
+                      _tg = _tunSkip ? 0 : (n.tunnelGroup ? n.tunnelGroup(a, r) : 0);
+                    if (_tg > 0) {
+                      t.fillStyle = "rgba(63,81,181,0.14)", i(t, c + 1.5, h + 1.5, s - 3, s - 3, .26 * s), t.fill(), t.strokeStyle = "#3f51b5", t.lineWidth = Math.max(1.5, .06 * s), t.setLineDash([Math.max(2, .1 * s), Math.max(2, .08 * s)]), i(t, c + 1.5, h + 1.5, s - 3, s - 3, .26 * s), t.stroke(), t.setLineDash([]), t.fillStyle = "#283593", t.font = "bold " + Math.max(7, .3 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText(String(_tg), f, g + 1)
                     }
                     const _fogged = !!(n.isFog && n.isFog(a, r)),
                       _obs = _fogged ? [] : n.objectsAt(a, r).filter((ob => ob && ob.place)),
@@ -5914,6 +6115,9 @@ function _reachSet(s) {
                           const _nv = _pr2.value,
                             _nt = Array.isArray(_nv) ? _nv[0] + "~" + _nv[1] : String(_nv);
                           t.fillStyle = "rgba(26,115,232,0.10)", i(t, _hx + 1.5, _hy + 1.5, s - 3, s - 3, .18 * s), t.fill(), t.strokeStyle = "#1a73e8", t.lineWidth = Math.max(1.5, .05 * s), i(t, _hx + 1.5, _hy + 1.5, s - 3, s - 3, .18 * s), t.stroke(), t.fillStyle = "#0d47a1", t.font = "bold " + Math.max(8, s * (_nt.length > 2 ? .3 : .38)) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText(_nt, _cx, _cy + 1)
+                        } else if ("tunnel" === kd) {
+                          const _tg = (_pr2.group | 0) || 1;
+                          t.fillStyle = "rgba(63,81,181,0.14)", i(t, _hx + 1.5, _hy + 1.5, s - 3, s - 3, .26 * s), t.fill(), t.strokeStyle = "#3f51b5", t.lineWidth = Math.max(1.5, .06 * s), i(t, _hx + 1.5, _hy + 1.5, s - 3, s - 3, .26 * s), t.stroke(), t.fillStyle = "#283593", t.font = "bold " + Math.max(7, .3 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText(String(_tg), _cx, _cy + 1)
                         } else if ("start" === kd || "end" === kd) {
                           const _gg = (_pr2.group | 0) || 0;
                           l(t, _cx, _cy, s, "start" === kd ? e.startFill : e.endFill, ("start" === kd ? "S" : "E") + (_gg > 1 ? _gg : ""), !1)
@@ -5970,7 +6174,7 @@ function _reachSet(s) {
               }(M, k, f), g.solution && g.solution.path && g.solution.path.length && function(t, e, o, i) {
                 const s = e.cs,
                   l = i.path.map((t => n(e, t[0], t[1])));
-                if (l.length >= 1 && (t.lineJoin = "round", t.lineCap = "round", t.strokeStyle = "rgba(38,50,56,0.30)", t.lineWidth = Math.max(2, .14 * s), t.setLineDash([6, 5]), r(t, l), t.stroke(), t.setLineDash([])), i.showNumbers && s >= 24) {
+                if (l.length >= 1 && (t.lineJoin = "round", t.lineCap = "round", t.strokeStyle = "rgba(38,50,56,0.30)", t.lineWidth = Math.max(2, .14 * s), t.setLineDash([6, 5]), _poly(t, i.path, l, o), t.stroke(), t.setLineDash([])), i.showNumbers && s >= 24) {
                   t.font = "bold " + Math.max(8, .26 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle";
                   for (let s = 0; s < i.path.length; s++) {
                     const l = i.path[s];
@@ -5988,7 +6192,7 @@ function _reachSet(s) {
                 for (const stroke of list) {
                   if (!Array.isArray(stroke) || !stroke.length) continue;
                   const a = stroke.map((t => n(o, t[0], t[1])));
-                  a.length >= 1 && (t.strokeStyle = e.pathCase, t.lineWidth = c + 5, r(t, a), t.stroke(), t.strokeStyle = e.pathMain, t.lineWidth = c, r(t, a), t.stroke());
+                  a.length >= 1 && (t.strokeStyle = e.pathCase, t.lineWidth = c + 5, _poly(t, stroke, a, i), t.stroke(), t.strokeStyle = e.pathMain, t.lineWidth = c, _poly(t, stroke, a, i), t.stroke());
                   const [h, f2] = n(o, stroke[0][0], stroke[0][1]);
                   if (t.beginPath(), t.arc(h, f2, c / 2 + 1, 0, 2 * Math.PI), t.fillStyle = e.startFill, t.fill(), s.showNumbers && l >= 26) {
                     t.font = "bold " + Math.max(8, .3 * l) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle";
@@ -6908,10 +7112,12 @@ function _reachSet(s) {
           type: type || "click"
         };
         if ("cond" !== tr.type) {
-          /* fix56：点击 / 经过也可以设脉冲间隔；点击还能勾「手指划过也算触发」 */
+          /* fix56：点击 / 经过也可以设脉冲间隔；点击还能勾「手指划过也算触发」
+             fix60：填 0 是合法值（= 极小间隔，每帧检测一次），只有留空才是「不脉冲」 */
           const _peEl = L("obj-pulseevery"),
-            _pe = _peEl && "" !== String(_peEl.value || "").trim() ? Math.max(.05, Number(_peEl.value) || 0) : 0;
-          _pe > 0 && (tr.every = _pe);
+            _peRaw = _peEl ? String(_peEl.value || "").trim() : "",
+            _pe = "" !== _peRaw ? Math.max(0, Number(_peRaw) || 0) : -1;
+          _pe >= 0 && (tr.every = _pe);
           if ("click" === tr.type) {
             const _swEl = L("obj-clickswipe");
             _swEl && _swEl.checked && (tr.swipe = !0)
@@ -7028,7 +7234,7 @@ function _reachSet(s) {
             el && (el.value = v)
           };
         setv("obj-trigger", tr.type || "click");
-        "cond" !== (tr.type || "click") && (setv("obj-pulseevery", tr.every ? tr.every : ""), L("obj-clickswipe") && (L("obj-clickswipe").checked = !0 === tr.swipe)), _oTrigRowSync();
+        "cond" !== (tr.type || "click") && (setv("obj-pulseevery", null != tr.every && "" !== tr.every ? tr.every : ""), L("obj-clickswipe") && (L("obj-clickswipe").checked = !0 === tr.swipe)), _oTrigRowSync();
         ((tr && tr.cond) || null) && (function(c) {
           (function() {
             const _known = {
@@ -7114,7 +7320,7 @@ function _reachSet(s) {
           },
           _pe = L("obj-pulseevery"),
           _sw = L("obj-clickswipe");
-        if (_pe && document.activeElement !== _pe) _pe.value = isBtn && tr && tr.every ? tr.every : "";
+        if (_pe && document.activeElement !== _pe) _pe.value = isBtn && tr && null != tr.every && "" !== tr.every ? tr.every : "";
         _sw && (_sw.checked = !!(isBtn && tr && !0 === tr.swipe));
         box("obj-pulse-row", isBtn && ("click" === ty || "pass" === ty)),
           box("obj-clickswipe-wrap", isBtn && "click" === ty)
@@ -7215,6 +7421,7 @@ function _reachSet(s) {
           diagonal: "斜向格",
           hub: "枢纽",
           number: "数字格",
+          tunnel: "隧道口",
           start: "起点",
           end: "终点",
           fog: "雾霾",
@@ -7232,7 +7439,7 @@ function _reachSet(s) {
         (t.starts || []).forEach((v => v.r === r && v.c === c && out.push("起点 S" + (v.i || 1)))),
           (t.ends || []).forEach((v => v.r === r && v.c === c && out.push("终点 E" + (v.i || 1)))),
           t.isObstacle(r, c) && out.push("障碍"), t.isHub(r, c) && out.push("枢纽"),
-          t.isDiagonal(r, c) && out.push("斜向"), t.isGray(r, c) && out.push("灰格");
+          t.isDiagonal(r, c) && out.push("斜向"), t.isGray(r, c) && out.push("灰格"), t.isTunnel && t.isTunnel(r, c) && out.push("隧道 " + t.tunnelGroup(r, c) + " 组");
         const nr = t.getNumberRange(r, c);
         nr && out.push("数字 " + (nr[0] !== nr[1] ? nr[0] + "~" + nr[1] : nr[0]));
         for (const ob of _oAt(r, c)) out.push("#" + ob.id + " " + _kindName(ob.kind));
@@ -7267,7 +7474,7 @@ function _reachSet(s) {
         (function() {
           const dl = L("obj-varlist");
           if (!dl) return;
-          const names = ["s", "t", "steps"];
+          const names = ["s", "t", "steps", "x0", "y0"];
           for (const oo of (t.objects || [])) oo && oo.id && (names.push("x" + oo.id), names.push("y" + oo.id));
           for (const kk of Object.keys((t && t.vars) || {})) names.push(kk);
           const _uniq = names.filter((n, i) => names.indexOf(n) === i);
@@ -7302,6 +7509,27 @@ function _reachSet(s) {
         box("obj-value", isText), box("obj-shape-row", isBtn), box("obj-color-row", isBtn);
         /* fix54：选中得分点/扣分点时显示「分值」 */
         box("obj-scoredelta-row", isScore);
+        /* fix61：选中文本时显示「输入框」设置 */
+        box("obj-ask-row", isText);
+        if (isText) {
+          const _pr = (o && o.props) || {},
+            _onEl = L("obj-ask-on"),
+            _mnEl = L("obj-ask-min"),
+            _mxEl = L("obj-ask-max"),
+            _btEl = L("obj-ask-btn");
+          _onEl && (_onEl.checked = !!_pr.ask);
+          _mnEl && (_mnEl.value = null == _pr.askMin || "" === _pr.askMin ? "" : String(_pr.askMin));
+          _mxEl && (_mxEl.value = null == _pr.askMax || "" === _pr.askMax ? "" : String(_pr.askMax));
+          if (_btEl) {
+            const _bs = [];
+            for (const _oo of (t.objects || []))
+              if (_oo && "button" === _oo.kind && !_oo.deleted) _bs.push(_oo);
+            _bs.sort((a, b) => (a.id | 0) - (b.id | 0));
+            const _curB = Number(_pr.askBtn) || 0;
+            _btEl.innerHTML = '<option value="">（不触发）</option>' + _bs.map((b) => '<option value="' + (b.id | 0) + '">#' + (b.id | 0) + "</option>").join("");
+            _btEl.value = _curB && _bs.some((b) => (b.id | 0) === _curB) ? String(_curB) : ""
+          }
+        }
         const _sdEl = L("obj-scoredelta");
         if (_sdEl) {
           const _sdv = isScore ? (o.props || {}).delta : void 0;
@@ -7350,7 +7578,15 @@ function _reachSet(s) {
               txt += " 经过自动 " + ("score+" === kd ? "+" : "-") + _sdv + " 分"
             }
             else if (isBtn) txt += " 触发[" + (o.triggers || []).map(trName).join(",") + "] 动作[" + (acts.length ? acts.join(",") : "无") + "]";
-            else if (isText) txt += " 触发[" + (o.triggers || []).map(trName).join(",") + "]";
+            else if (isText) {
+              txt += " 触发[" + (o.triggers || []).map(trName).join(",") + "]";
+              const _pr2 = o.props || {};
+              if (_pr2.ask && null != _pr2.askMin && "" !== _pr2.askMin && null != _pr2.askMax && "" !== _pr2.askMax) {
+                const _q1 = Number(_pr2.askMin) || 0,
+                  _q2 = Number(_pr2.askMax) || 0;
+                txt += " 输入框[" + Math.min(_q1, _q2) + "~" + Math.max(_q1, _q2) + (Number(_pr2.askBtn) ? " → 强制触发 #" + (Number(_pr2.askBtn) | 0) : "") + "]"
+              }
+            }
             info.textContent = txt
           }
         }
@@ -7575,11 +7811,19 @@ function _reachSet(s) {
                 x();
                 break
               }
+              case "tunnel": {
+                if (t.isObstacle(o, s)) return void App.toast("该格是障碍，请先擦除");
+                if (t.isTunnel(o, s)) { t.removeTunnel(o, s), x(), App.toast("已移除隧道口"); break }
+                const _tg = parseInt(L("in-tunnel-group") ? L("in-tunnel-group").value : "1", 10);
+                if (!Number.isInteger(_tg) || _tg < 1 || _tg > 99) return void App.toast("隧道组号请填 1~99");
+                t.setTunnel(o, s, _tg), x(), App.toast("🕳 已放置隧道口（第 " + _tg + " 组）");
+                break
+              }
               case "erase": {
                 const e = KEY(o, s);
-                ["obstacle", "hub", "diagonal", "gray", "number", "start", "end"].forEach((function(kd) {
+                ["obstacle", "hub", "diagonal", "gray", "number", "tunnel", "start", "end"].forEach((function(kd) {
                   t.removeFeature(kd, o, s)
-                })), t.isStart(o, s) && (t.start = null), t.isEnd(o, s) && (t.end = null), _oDel(o, s), t.starts = (t.starts || []).filter((v => !(v.r === o && v.c === s))).map(((v, k) => ({
+                })), t.tunnels && t.tunnels.delete(KEY(o, s)), t.isStart(o, s) && (t.start = null), t.isEnd(o, s) && (t.end = null), _oDel(o, s), t.starts = (t.starts || []).filter((v => !(v.r === o && v.c === s))).map(((v, k) => ({
                   r: v.r,
                   c: v.c,
                   i: k + 1
@@ -8389,9 +8633,10 @@ function _reachSet(s) {
             if (!o || "button" !== o.kind) return;
             const tr = (o.triggers || [])[0];
             if (!tr || "cond" === (tr.type || "click")) return void App.toast("这条按钮是「条件」触发，间隔请填在上面的条件行里");
-            const _v = "" !== String(_opeL.value || "").trim() ? Math.max(.05, Number(_opeL.value) || 0) : 0;
-            _v > 0 ? (tr.every = _v) : delete tr.every, x(), _oSync(), $();
-            App.toast(_v > 0 ? "✅ 已设为每 " + _v + " 秒脉冲检测一次（可反复触发）" : "✅ 已改为只在触发那一刻执行一次")
+            const _raw = "" !== String(_opeL.value || "").trim() ? String(_opeL.value).trim() : "",
+              _v = "" !== _raw ? Math.max(0, Number(_raw) || 0) : -1;
+            _v >= 0 ? (tr.every = _v) : delete tr.every, x(), _oSync(), $();
+            App.toast(0 === _v ? "✅ 已设为脉冲 0 秒 = 每一帧检测一次（最快；不再一按就触发，只按间隔检测）" : _v > 0 ? "✅ 已设为每 " + _v + " 秒脉冲检测一次（不再一按就触发，可反复触发）" : "✅ 已改为不设脉冲：只在点击 / 踩到那一刻执行一次")
           }));
           const _oswL = L("obj-clickswipe");
           _oswL && _oswL.addEventListener("change", (function() {
@@ -8458,6 +8703,33 @@ function _reachSet(s) {
             }
             o.props = o.props || {}, o.props.delta = v, x(), _oSync(), $(), te(ee()),
               App.toast("✅ 分值已设为 " + (sg > 0 ? "+" : "-") + v + " 分")
+          }));
+          /* fix61：文本「输入框」设置的写回 */
+          ["obj-ask-on", "obj-ask-min", "obj-ask-max", "obj-ask-btn"].forEach((function(id) {
+            const el = L(id);
+            el && el.addEventListener("change", (function() {
+              const o = _oSel();
+              if (!o || "text" !== o.kind) return;
+              o.props = o.props || {};
+              const _on = !!(L("obj-ask-on") || {}).checked,
+                _mnS = String((L("obj-ask-min") || {}).value || "").trim(),
+                _mxS = String((L("obj-ask-max") || {}).value || "").trim(),
+                _btS = String((L("obj-ask-btn") || {}).value || "").trim(),
+                _nat = function(v) {
+                  if ("" === v) return null;
+                  const n = Math.floor(Number(v));
+                  return isFinite(n) && n >= 0 ? n : null
+                },
+                _a = _nat(_mnS),
+                _b = _nat(_mxS),
+                _c = _btS ? (_btS | 0) : 0;
+              o.props.ask = _on;
+              null === _a ? delete o.props.askMin : o.props.askMin = _a;
+              null === _b ? delete o.props.askMax : o.props.askMax = _b;
+              _c ? o.props.askBtn = _c : delete o.props.askBtn;
+              x(), _oSync(), $();
+              App.toast(_on && null !== _a && null !== _b && _c ? "✅ 输入框：填 " + Math.min(_a, _b) + "~" + Math.max(_a, _b) + " 命中就强制触发 #" + _c : "✅ 输入框设置已更新（要勾「启用」+ 填区间 + 选按钮才会生效）")
+            }))
           }));
           const t = L("in-diff-prefix");
           t && t.addEventListener("change", H);
@@ -9985,13 +10257,38 @@ function _reachSet(s) {
         return _world ? _world.view() : e
       }
 
+      /* fix59：x0 / y0 = 玩家路径末端（最后走过的那一格）的横 / 纵坐标。
+         取法：当前笔画末格 → 已完成笔画末格 → 整局轨迹末格 → 起点 S（还没画线时就是起点）。
+         World 不认识 Player，所以在这算好塞进 ctx，并顺手缓存在 _world._pe 上，
+         这样「数值字段填变量名」那条路（numv 不带 ctx）也能拿到最新值。 */
+      function _pathEnd() {
+        const _tail = function(a) {
+          return Array.isArray(a) && a.length ? [Number(a[a.length - 1][0]) || 0, Number(a[a.length - 1][1]) || 0] : null;
+        };
+        let pe = _tail(i);
+        if (!pe && done.length) pe = _tail(done[done.length - 1]);
+        if (!pe && _run.length) {
+          const r2 = _run[_run.length - 1];
+          r2 && (pe = [Number(r2.r) || 0, Number(r2.c) || 0]);
+        }
+        if (!pe) {
+          const lv = _world ? _world.view() : e;
+          if (lv && Array.isArray(lv.start) && lv.start.length >= 2) pe = [Number(lv.start[0]) || 0, Number(lv.start[1]) || 0];
+          else if (lv && Array.isArray(lv.starts) && lv.starts.length) pe = [Number(lv.starts[0].r) || 0, Number(lv.starts[0].c) || 0];
+        }
+        return pe || [0, 0];
+      }
       function _ctx() {
+        const pe = _pathEnd();
+        _world && (_world._pe = { r: pe[0], c: pe[1] });
         return {
           steps: _steps(),
           score: _world ? _world.score : 0,
           time: Math.max(0, (("number" == typeof y ? y : 0) + (Date.now() - ("number" == typeof c ? c : Date.now()))) / 1e3) || 0,
-          by: "path"
-        }
+          by: "path",
+          pr: pe[0],
+          pc: pe[1]
+        };
       }
 
       function _showScore() {
@@ -10035,7 +10332,7 @@ function _reachSet(s) {
         let hit = !1;
         for (const ev of evs) {
           if ("score" === ev.kind) hit = !0, ev.delta >= 0 ? App.toast("🎯 得分 +" + ev.delta + "（当前 " + _world.score + "）") : App.toast("💔 得分 " + ev.delta + "（当前 " + _world.score + "）");
-          else if ("text" === ev.kind) hit = !0, _showTextModal(ev.text);
+          else if ("text" === ev.kind) hit = !0, _showTextModal(ev.text, ev);
           else if ("reset" === ev.kind) {
             _totalMs = ("number" == typeof _totalMs ? _totalMs : 0) + ("number" == typeof y ? y : 0) + (Date.now() - ("number" == typeof c ? c : Date.now())), y = 0, c = Date.now(), _snaps = [], _run = [], i = [], done = [], paused = [], r = !1, b = new Set, m = null,
               function() { try { _tipHide() } catch (e) {} }(), _world && _world.reset(), hit = !0, _hud(), z(), S(),
@@ -10088,20 +10385,82 @@ function _reachSet(s) {
         return _hud(), rec
       }
 
-      function _showTextModal(txt) {
+      function _showTextModal(txt, ev) {
         const t = x("p-textbox");
         if (!t) return App.toast("💬 " + (txt || "（空文本）")), 0;
+        /* fix61：文本可以配「输入框」——填一个落在区间内的自然数，就强制触发指定按钮 */
+        const ask = !!(ev && ev.ask),
+          _q1 = Number(ev && ev.askMin) || 0,
+          _q2 = Number(ev && ev.askMax) || 0,
+          _mn = Math.min(_q1, _q2),
+          _mx = Math.max(_q1, _q2),
+          _btn = (Number(ev && ev.askBtn) || 0) | 0;
+        const hide = function() {
+          t.classList.add("hidden"), t.style.display = "none",
+            t._closer && (document.removeEventListener("keydown", t._closer, true), t._closer = null)
+        };
         t.onclick = function(e) {
-          e.target === t && (t.classList.add("hidden"), t.style.display = "none")
+          e.target === t && hide()
         };
         const body = x("p-textbox-body");
-        body && (body.textContent = String(txt || "（空文本）")),
-          t.classList.remove("hidden"), t.style.display = "flex",
+        body && (body.textContent = String(txt || "（空文本）"));
+        const askBox = x("p-textbox-ask");
+        if (askBox) {
+          if (!ask) askBox.style.display = "none", askBox.innerHTML = "";
+          else {
+            askBox.innerHTML = '<div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+              '<span style="font-size:13px;color:#4a5568">输入 ' + _mn + ' ~ ' + _mx + ' 的自然数：</span>' +
+              '<input id="p-textbox-num" type="number" min="0" step="1" inputmode="numeric" style="width:104px;padding:7px 9px;border:1px solid #cfd6e0;border-radius:8px;font-size:15px;color:#25303f;background:#fff">' +
+              '<button id="p-textbox-ok" type="button" style="padding:7px 16px;border:0;border-radius:8px;background:#7c4dff;color:#fff;font-size:14px;cursor:pointer">确定</button>' +
+              '<span id="p-textbox-hint" style="font-size:12px;color:#98a2b3"></span></div>', askBox.style.display = "";
+            const _inp = x("p-textbox-num"),
+              _ok = x("p-textbox-ok"),
+              _hint = x("p-textbox-hint"),
+              submit = function() {
+                const raw = String((_inp || {}).value || "").trim();
+                if (!/^\d+$/.test(raw)) return _hint && (_hint.textContent = "⚠ 请输入自然数（0 或正整数）"), App.toast("⚠ 请输入自然数（0 或正整数）"), 0;
+                const n = parseInt(raw, 10);
+                if (!(n >= _mn && n <= _mx)) return _hint && (_hint.textContent = "❌ " + n + " 不在 " + _mn + " ~ " + _mx + " 内"), App.toast("❌ " + n + " 不在 " + _mn + " ~ " + _mx + " 内"), 0;
+                hide(), _forceFire(_btn, n)
+              };
+            _ok && (_ok.onclick = submit),
+              _inp && (_inp.onkeydown = function(e) {
+                "Enter" === e.key && (e.preventDefault(), e.stopPropagation(), submit())
+              }),
+              setTimeout(function() {
+                try {
+                  _inp && _inp.focus && _inp.focus()
+                } catch (e) {}
+              }, 30)
+          }
+        }
+        t.classList.remove("hidden"), t.style.display = "flex",
           t._closer && document.removeEventListener("keydown", t._closer, true);
         const close = function(e) {
-          e && "Escape" !== e.key && "Enter" !== e.key || (t.classList.add("hidden"), t.style.display = "none", document.removeEventListener("keydown", close, true))
+          /* fix61：带输入框时 Enter 交给输入框（避免误关丢输入），只认 Esc */
+          if (ask && e && "Enter" === e.key) return;
+          e && "Escape" !== e.key && "Enter" !== e.key || hide()
         };
         t._closer = close, document.addEventListener("keydown", close, true)
+      }
+      /* fix61：文本输入框命中区间后「强制触发」指定按钮（force = 无视脉冲间隔；没配 click 触发器也照做一遍动作） */
+      function _forceFire(btnId, val) {
+        const _b = Number(btnId) || 0;
+        if (!_b) return App.toast("⚠ 这个文本没有配置要触发的按钮"), 0;
+        if (!_world) return 0;
+        const o = _world.map.get(_b | 0);
+        if (!o || o.deleted) return App.toast("⚠ 目标按钮 #" + _b + " 不存在"), 0;
+        if (!o.enabled) return App.toast("⚠ 目标按钮 #" + _b + " 已被禁用"), 0;
+        let res = [];
+        try {
+          res = _world.fire(_b, "click", _ctx(), !0)
+        } catch (e) {
+          return App.toast("⚠ 触发失败：" + (e && e.message ? e.message : e)), 0
+        }
+        try {
+          _act()
+        } catch (e) {}
+        App.toast("🔘 输入 " + val + " 命中区间，已强制触发按钮 #" + _b + (res && res.length ? "（" + res.length + " 个动作）" : ""))
       }
       function _tipHide() {
         _lpTimer && (clearTimeout(_lpTimer), _lpTimer = 0), _lpIds = null, _lpAt = null;
@@ -10125,7 +10484,13 @@ function _reachSet(s) {
           return "🎯 得分物（经过 " + (d >= 0 ? "+" + d : String(d)) + " 分）"
         }
         if ("button" === k) return "🔘 按钮";
-        if ("text" === k) return "💬 文本：" + (pr.text || "（空）");
+        if ("text" === k) {
+          const _t2 = "💬 文本：" + (pr.text || "（空）");
+          if (!(pr.ask && null != pr.askMin && "" !== pr.askMin && null != pr.askMax && "" !== pr.askMax)) return _t2;
+          const _q1 = Number(pr.askMin) || 0,
+            _q2 = Number(pr.askMax) || 0;
+          return _t2 + "（输入框 " + Math.min(_q1, _q2) + "~" + Math.max(_q1, _q2) + (Number(pr.askBtn) ? " → 强制触发 #" + (Number(pr.askBtn) | 0) : "") + "）"
+        }
         return "物体 " + (k || "?")
       }
 
@@ -10436,6 +10801,8 @@ function _reachSet(s) {
           rec = _undoWorld(cnt);
         if (!rec) return void App.toast("已经回到起点，不能再往回走了");
         r = !1, B(), n = _an(), P(), S(), z();
+        /* fix60：撤销后站立格跟到新的路径末端（没有路径就清掉） */
+        _world && _world.standTo(i.length ? i[i.length - 1] : null);
         const _pathOnly = "path" === rec._mode;
         App.toast(cnt > 1 ? "↩ 已往回走 " + cnt + " 步（" + (_pathOnly ? "仅退路径：计时与物体不回退" : "时间和物体一起回到那一刻") + "）" : "↩ 已往回走一步（再点上一格可以继续退）")
       }
@@ -13078,17 +13445,75 @@ function _reachSet(s) {
           }, sc.src = "https://busuanzi.ibruce.info/busuanzi?jsonpCallback=" + encodeURIComponent(cb), document.head.appendChild(sc)
         })
       }
+      /* ===== fix61：按小时统计的网页访问次数（仅第一开发者可见）=====
+         存码云仓库的 visits.json：{"2026-11-19T14": 3, ...}（本地时间，精确到小时）。
+         为什么不用不蒜子：它只给「累计 pv / uv」，没有小时粒度，做不了按小时。 */
+      const _VISIT_PATH = "visits.json",
+        _VISIT_MAXH = 1200; /* 只保留最近 1200 个小时（50 天），避免文件无限膨胀 */
+      function _vhKey(ts) {
+        const d = new Date(Number(ts) || Date.now()),
+          p = (v) => (v < 10 ? "0" + v : String(v));
+        return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours())
+      }
+      async function _visitHit() {
+        /* 同一标签页同一个小时只记一次，免得反复刷新把数字刷爆 */
+        try {
+          const _k = "pg_vh_sess_" + _vhKey();
+          if (sessionStorage.getItem(_k)) return;
+          sessionStorage.setItem(_k, "1")
+        } catch (e) {}
+        try {
+          const cur = await Se(_VISIT_PATH),
+            obj = cur && "object" == typeof cur && !Array.isArray(cur) ? cur : {},
+            hk = _vhKey();
+          obj[hk] = (Number(obj[hk]) || 0) + 1;
+          const ks = Object.keys(obj).sort();
+          for (let i = 0; i < ks.length - _VISIT_MAXH; i++) delete obj[ks[i]];
+          await xe(_VISIT_PATH, obj)
+        } catch (e) {}
+      }
+      async function _visitHours(n) {
+        try {
+          const cur = await Se(_VISIT_PATH),
+            obj = cur && "object" == typeof cur && !Array.isArray(cur) ? cur : {},
+            out = [],
+            now = Date.now();
+          for (let i = 0; i < (n || 12); i++) {
+            const k = _vhKey(now - 36e5 * i);
+            out.push({ k: k, n: Number(obj[k]) || 0 })
+          }
+          return out
+        } catch (e) {
+          return null
+        }
+      }
       async function _libTips() {
         const eu = a("lib-usage-tip"),
           ev = a("lib-visit-tip");
-        if (ev && qt()) ev.style.display = "";
+        /* fix61：访问计数只给第一开发者看（devs 列表里的本人），本地 dev-key 不算 */
+        let _devV = !1;
+        if (ev) {
+          ev.style.display = "none";
+          try {
+            _devV = !!(await mt())
+          } catch (e) {
+            _devV = !1
+          }
+          _devV && (ev.style.display = "")
+        }
         eu && (async () => {
           const u = await _repoUsage();
           eu.textContent = u ? "📦 社区仓库：" + _mb(u.used) + " / 500 MB（" + u.files + " 个文件）· 剩余 " + _mb(Math.max(0, u.cap - u.used)) : "📦 社区仓库：暂时读不到用量（网络或权限问题）"
-        })(), ev && qt() && (async () => {
-          ev.textContent = "👀 网站访问次数：读取中…（仅开发者可见）";
-          const v = await _visitCount();
-          ev.textContent = v ? "👀 网站访问次数：总浏览 " + v.pv + " · 访客 " + v.uv + "（仅开发者可见）" : "👀 网站访问次数：暂时读不到（不蒜子未响应，仅开发者可见）"
+        })(), ev && _devV && (async () => {
+          ev.textContent = "👀 网页访问（按小时）：读取中…（仅第一开发者可见）";
+          const hs = await _visitHours(12);
+          if (!hs) return ev.textContent = "👀 网页访问（按小时）：暂时读不到（码云未响应，仅第一开发者可见）", 0;
+          const _nowH = _vhKey().slice(0, 13).replace("T", " ") + " 点",
+            _curN = hs[0].n || 0,
+            _day = hs.filter((h) => h.k.slice(0, 10) === _vhKey().slice(0, 10)).reduce((a, b) => a + b.n, 0),
+            _sum = hs.reduce((a, b) => a + b.n, 0),
+            _bars = hs.slice().reverse().map((h) => h.k.slice(11) + "点→" + h.n).join(" · ");
+          ev.innerHTML = "👀 网页访问（按小时，仅第一开发者可见）<br>本小时 " + _nowH + "：<b>" + _curN + "</b> 次｜今日 " + _day + " 次｜近 12 小时 " + _sum + " 次<br><span style=\"font-size:12px;color:#78909c\">" + _bars + "</span>"
         })()
       }
       async function Wt() {
@@ -15472,6 +15897,9 @@ function _reachSet(s) {
 
       return {
         init: function() {
+          try {
+            _visitHit()
+          } catch (e) {}
           a("btn-library").addEventListener("click", (() => {
             un() && (pn() ? App.toast("⚔️ 对战中不可打开关卡库") : (fi("local"), a("lib-dev").textContent = A() ? "👑 开发者模式" : "🔒 开发者", it(), Ue(), Ge(), App.openModal("modal-library")))
           }));
@@ -16187,7 +16615,13 @@ function _reachSet(s) {
         communityList: Oe,
         communityGet: je,
         communityDelete: Re,
-        loadIntoEditor: He
+        loadIntoEditor: He,
+        /* fix61：按小时访问计数的内部入口（供调试/自动化测试直接用） */
+        _visits: {
+          key: _vhKey,
+          hours: _visitHours,
+          hit: _visitHit
+        }
       }
     }();
   </script>
@@ -16196,6 +16630,7 @@ function _reachSet(s) {
     <div style="max-width:min(560px,86vw);max-height:70vh;overflow:auto;background:#fffdf6;color:#25303f;border-radius:14px;padding:18px 20px;box-shadow:0 18px 48px rgba(0,0,0,.35);font-size:15px;line-height:1.7;white-space:pre-wrap;word-break:break-word">
       <div style="font-size:12px;color:#8a94a6;letter-spacing:.08em;margin-bottom:8px">💬 文本</div>
       <div id="p-textbox-body"></div>
+      <div id="p-textbox-ask" style="display:none"></div>
       <div style="margin-top:14px;text-align:right;color:#98a2b3;font-size:12px">点击空白处 / Enter / Esc 关闭</div>
     </div>
   </div>
@@ -16399,7 +16834,7 @@ function _reachSet(s) {
           }), !0);
           try {
             const e = "v2.0.1-dev";
-            window.__ver = e, window.__build = "fix57", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            window.__ver = e, window.__build = "fix61", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
