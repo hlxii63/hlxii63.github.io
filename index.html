@@ -2010,7 +2010,7 @@
         <button class="tool" data-tool="blueEdge" title="蓝边：这段路可以重复经过，但不能刚过去就原路返回">🟦 蓝边</button>
         <button class="tool" data-tool="text" title="文本：路径经过时弹出文本框，内容自定（点格子后输入）">💬 文本</button>
         <button class="tool" data-tool="subpixel" title="亚像素：每格再分成 6×6 小格，可逐小格上色作画（先点格子，再在下方调色板点小格）">🎨 亚像素</button>
-        <button class="tool" data-tool="fog" title="雾霾格：不可进入（可被按钮/触发器动态开关）">🌫 雾霾</button>
+        <button class="tool" data-tool="fog" title="雾霾格：可以进入，但会盖住下面的物体、挡住视线——站在雾霾里只能看清自己这一格和一步能走到的格子（可被按钮/触发器动态开关）">🌫 雾霾</button>
         <button class="tool" data-tool="redBlock" title="红障碍：碰到就重置路径">🚫 红障碍</button>
         <button class="tool" data-tool="scorePlus" title="得分点：经过加分（默认 +1，选中后可在「分值」里改）">➕ 得分</button>
         <button class="tool" data-tool="scoreMinus" title="扣分点：经过扣分（默认 -1，选中后可在「分值」里改）">➖ 扣分</button>
@@ -2113,9 +2113,35 @@
             <option value="le">≤</option>
             <option value="range">区间</option>
           </select>
-          <span id="obj-condmin-wrap"><input id="obj-condmin" type="text" placeholder="-∞" style="width:72px" title="下界；留空 = 负无穷。可以填变量名（t / x1 / y2 / a1）"></span>
+          <span id="obj-condmin-wrap"><input id="obj-condmin" type="text" placeholder="-∞" style="width:72px" title="下界；留空 = 负无穷。可以填变量名（t / x1 / y2 / a1），也可以填 random(1,7)"></span>
           <span id="obj-condrange-sep" style="color:#78909c">~</span>
-          <span id="obj-condmax-wrap"><input id="obj-condmax" type="text" placeholder="+∞" style="width:72px" title="上界；留空 = 正无穷。可以填变量名（t / x1 / y2 / a1）"></span>
+          <span id="obj-condmax-wrap"><input id="obj-condmax" type="text" placeholder="+∞" style="width:72px" title="上界；留空 = 正无穷。可以填变量名（t / x1 / y2 / a1），也可以填 random(1,7)"></span>
+          <span style="margin-left:8px">逻辑
+            <select id="obj-condlogic" title="第二条条件与上面这条的关系：不用 = 只看上面这一条；且 = 两条都成立；或 = 任意一条成立；非 = 把上面这一条取反">
+              <option value="">不用</option>
+              <option value="and">且</option>
+              <option value="or">或</option>
+              <option value="not">非</option>
+            </select>
+          </span>
+          <span id="obj-cond2-row" style="display:none;margin-left:6px">第二条
+            <select id="obj-condmetric2" title="第二条检测哪个量">
+              <option value="score">得分（s）</option>
+              <option value="time">时间（t）</option>
+              <option value="steps">步数（steps）</option>
+              <option value="__var">变量…</option>
+            </select>
+            <input id="obj-condmetricvar2" list="obj-varlist" style="width:72px;display:none" placeholder="a1 / x0" title="第二条用的变量：s / t / steps / xn / yn / a1">
+            <select id="obj-condop2" title="大于等于：不小于下界；小于等于：不大于上界；区间：介于两者之间">
+              <option value="ge">≥</option>
+              <option value="le">≤</option>
+              <option value="range">区间</option>
+            </select>
+            <span id="obj-condmin2-wrap"><input id="obj-condmin2" type="text" placeholder="-∞" style="width:66px"></span>
+            <span id="obj-condrange2-sep" style="color:#78909c">~</span>
+            <span id="obj-condmax2-wrap"><input id="obj-condmax2" type="text" placeholder="+∞" style="width:66px"></span>
+            <span style="margin-left:2px" title="勾上 = 第二条取反（就是「且非」/「或非」）"><input type="checkbox" id="obj-condnot2" style="vertical-align:-2px">取反</span>
+          </span>
           <span style="margin-left:4px">间隔<input id="obj-condevery" type="number" min="0.05" step="0.1" placeholder="1" style="width:58px" title="脉冲检测间隔（秒）：每隔这么多秒检测一次，成立就执行动作，可以反复执行；留空 = 只在条件成立那一刻触发一次">s</span>
           <button id="obj-cond-save" class="act" title="只把这里的条件写进按钮的触发条件，不改已有动作">✔ 应用条件</button>
         </label>
@@ -2161,7 +2187,7 @@
           </label>
         </label>
         <label class="field">数值
-          <input id="obj-value" type="number" value="1" style="width:62px" title="加分/扣分的数值；条件触发的得分阈值">
+          <input id="obj-value" type="text" value="1" style="width:82px" title="加分/扣分的数值；条件触发的得分阈值。可以填变量名（a1 / t / x1），也可以填 random(1,7)（只出整数、含两端）">
         </label>
         <label class="field" id="obj-scoredelta-row" style="display:none">分值
           <input id="obj-scoredelta" type="text" style="width:64px" placeholder="1" title="这个得分点/扣分点经过时的分值（默认 1）：填正数（可带小数），也可以填变量名（a1 / t / x1）；加还是扣由物体类型决定">
@@ -2191,8 +2217,8 @@
             <option value="up">↑ 上</option>
             <option value="down">↓ 下</option>
           </select>
-          <input id="obj-movespeed" type="text" value="1" style="width:78px" title="速度：每秒走几格；也可以直接填变量名（a1 / t / x1 / y1），运行时按变量当前值走">格/秒
-          <input id="obj-movetime" type="number" min="0" step="0.1" value="1" style="width:60px" title="移动时长（秒）；格数 = 速度 × 时间">秒
+          <input id="obj-movespeed" type="text" value="1" style="width:78px" title="速度：每秒走几格；也可以直接填变量名（a1 / t / x1 / y1）或 random(2,3)，运行时按当前值走">格/秒
+          <input id="obj-movetime" type="text" value="1" style="width:70px" title="移动时长（秒）；格数 = 速度 × 时间。也可以填变量名或 random(1,3)">秒
         </label>
         <label class="field" id="obj-spawn-row" style="display:none">生成
           <select id="obj-spawnkind" title="要生成的物体类型（落在指定格）">
@@ -2320,6 +2346,9 @@
         </label>
         <label class="field check">
           <input id="in-set-grid" type="checkbox" checked title="关掉后棋盘不画内部网格线，适合用亚像素作画"> 显示网格
+        </label>
+        <label class="field check" title="开启后：玩家走到哪个「视野矩形」里，当前视野就自动切成那个矩形（不在任何矩形里时保持不动）。不开则完全按原来的方式，只有「设置视野范围」动作才能切视野">
+          <input id="in-set-autoview" type="checkbox"> 视野自动切换
         </label>
         <label class="field check" title="仅影响编辑器预览：显示/隐藏物体的 #编号（不写进关卡）">
            <input id="ed-showids" type="checkbox" checked> 显示编号
@@ -2832,7 +2861,7 @@
           </tr>
           <tr>
             <td><b>🌫</b></td>
-            <td>雾霾格：<b>不可进入</b>（只挡路，不遮画面）；可以被按钮「生成物体」动态铺开，也能用「删除物体」清掉</td>
+            <td>雾霾格：<b>可以进入</b>，但会<b>盖住下面的物体、挡住视线</b>——站在雾霾里只能看清<b>自己这一格 + 从这一格一步能走到的格子</b>（斜向格 / 隧道算走得到，红边 / 障碍 / 红障碍算走不到）；可以被按钮「生成物体」动态铺开，也能用「删除物体」清掉</td>
           </tr>
           <tr>
             <td><b>🚫</b></td>
@@ -2864,7 +2893,7 @@
           </tr>
         </table>
         <p><b>按钮与触发器（造关重点）</b>：按钮的触发方式三选一：<br>
-          · <b>点击</b>：手指 / 鼠标按在这一格上。只有<b>这一下连不成路径</b>时才算点击（比如这格已经走过、不相邻、被红边/雾霾挡住、或者路径已经到终点）；<b>顺着路径正常走过去不会触发点击</b>。勾了「手指划过也算触发」后，手划过这一格也算按了一下。<br>
+          · <b>点击</b>：手指 / 鼠标按在这一格上。只有<b>这一下连不成路径</b>时才算点击（比如这格已经走过、不相邻、被红边/红障碍挡住、或者路径已经到终点）；<b>顺着路径正常走过去不会触发点击</b>。勾了「手指划过也算触发」后，手划过这一格也算按了一下。<br>
           · <b>经过</b>：玩家<b>站到这一格上</b>就触发（路径踩上来 / 落到这格），可以加「只由某人触发」的限制。<br>
           · <b>条件</b>：与点击 / 经过都无关，<b>每帧都在判</b>；条件可以是得分 / 用时 / 步数 / 任意变量的区间（变量里 <code>x0</code>、<code>y0</code> = 路径末端的横 / 纵坐标）。<br>
           <b>触发优先级顺序</b>（同一下落、同一帧里谁先谁后，造关时按这个算）：<br>
@@ -2874,6 +2903,7 @@
           ④ <b>一个按钮的多个动作：按动作列表从上到下</b> 依次执行；<br>
           ⑤ <b>带脉冲间隔的触发排在最后</b>：它们不参与上面这些「瞬间触发」，只在每帧的脉冲轮询里按间隔命中。</p>
         <p><b>脉冲间隔（可反复触发）</b>：按钮的「脉冲间隔（秒）」<b>留空</b> = 只在点击 / 踩到的那一刻触发一次；<b>填了数字</b> = <b>取消那一次瞬间触发</b>，改成「每隔这么多秒检测一次——此刻按钮是否还被按着 / 玩家是否还站在这一格——成立才执行一次」，按住不放 / 站住不动就会一直重复。<b>填 0</b> = 每一帧检测一次（等于间隔无穷小，最快，不会卡）。条件触发器的「一成立立刻触发一次」仍然保留，只是之后接着按间隔重复。</p>
+        <p><b>条件的「且 / 或 / 非」</b>：条件触发器除了第一条子句，还能再挂一条——「逻辑」选 <b>且</b>（两条都成立）、<b>或</b>（任意一条成立）、<b>非</b>（把第一条取反）；选了且 / 或之后会多出「第二条」指标 + 区间，勾上它后面的「取反」就是 <b>且非 / 或非</b>。例：九宫格迷宫要「<code>x0&lt;10 且 y0&lt;10</code>」→ 第一条 <code>x0 &lt; 10</code>、逻辑选「且」、第二条 <code>y0 &lt; 10</code>。</p>
         <p><b>得分 / 扣分与变量</b>：得分点、扣分点、按钮的加减分都能改分值（可填负数，也可填变量名）；变量是每关独立的一本小账本，动作能设值 / 加减 / 乘除，条件里能读；<code>x0</code> / <code>y0</code> 是<b>玩家路径末端</b>的横 / 纵坐标（和 <code>x1</code> / <code>y1</code> 指第 1 号物体的位置并列）。</p>
         <p><b>操作</b>：编辑器里选好工具后点击格子；红/绿边先点一格再点相邻格（含斜向）；数字格先在「数字」输入框填范围（两个框都填 = 区间 a~b，只填第一个 = 精确步数；都留空点击可移除数字）再点格子；答案路径从 S 开始点或拖动画线（与试玩规则相同），可用「撤销一步答案」逐步回退；试玩时从 S 开始点或拖动画线、可显示序号。</p>
         <p><b>上传关卡</b>：本地关卡通关后，结算页有 <b>⬆ 上传关卡</b> 按钮（<b>这是唯一的上传入口</b>），登录社区账号后即可把这一关分享到社区；<b>社区关卡</b>本身已经在社区里，结算页不再显示这个按钮。</p>
@@ -2884,7 +2914,8 @@
           关卡设置里关掉「允许往回走」后就不能回退，只能点 <b>🧹 清空路径</b> 重开。</p>
         <p><b>物体分组（group）</b>：每个物体都可以填「分组」，<b>一个物体可以同时属于多个分组</b>（逗号分隔，如 <code>enemy,wall</code>）。按钮动作的「目标」除了 <b>按ID</b>、<b>按格子</b>，还有 <b>按分组</b>：填一个或多个分组名，触发时把这一组的物体<b>一次性全部处理</b>（移动、删除、禁用、隐藏、显示、启用），不用一个个填编号；「在指定格生成物体」时也能顺便写上分组，生成出来的物体直接归到这一组。</p>
         <p><b>删除物体 · 灰格也是物体</b>：灰色格、障碍、枢纽、斜向格、数字格、起终点、红/绿/蓝边都是<b>真正的物体</b>，各有自己的 <b>#编号</b>（编辑器物体面板里能看到），所以既能用「🗑 删除物体」删，也能被动作「删除物体 + 按格子 / 按分组」删掉。动作指向某个灰格时会把灰格从格子上抹掉（之后就是普通格，可以正常重复经过）；擦除工具同样能擦灰格。</p>
-        <p><b>雾霾 / 视野</b>：🌫 雾霾只遮挡画面，不影响判定；「视野」可定义若干矩形范围（写法 <code>id,行,列,宽,高</code>，多条用 <code>;</code> 分隔），锁定后棋盘只显示那一块、路径也只能画在里面，按钮可用「设置视野范围」动作随时切换或解除。</p>
+        <p><b>雾霾</b>：🌫 雾霾<b>可以进入</b>，但它是<b>看不穿的</b>——会盖住下面的物体；<b>站在雾霾格里</b>时，能看清的只有<b>这一格 + 从这一格一步能走到的所有格子</b>（斜向格 / 隧道会让「一步走到」变多，红边 / 障碍 / 红障碍算走不到），其余仍然被雾盖住、也走不过去。站在普通格上时雾霾只是画面遮挡，不影响走路。<br>
+          <b>视野</b>：可定义若干矩形范围（写法 <code>id,行,列,宽,高</code>，多条用 <code>;</code> 分隔），锁定后棋盘只显示那一块、路径也只能画在里面，按钮可用「设置视野范围」动作随时切换或解除。关卡设置里打开 <b>「视野自动切换」</b> 后，玩家走进哪个矩形，视野就自动切成那个矩形（九宫格迷宫用这个最省事）；不开则一切照旧，只有动作能切。</p>
         <p><b>草稿 / 亚像素 / 批量</b>：试玩页「📝 打草稿」点两个相邻格（含斜向）画一条灰色短线段做提示，不参与判定、对战也能用；「修改格子亚像素」把一个格子切成 6×6 小格逐个上色，可以作画；编辑器按住拖动可批量放物体（设置里「拖动批量」可选「刷子（轨迹）」或「矩形填充」）。</p>
         <p><b>PC 端移动地图</b>：按住 <b>右键/中键</b> 拖动即可平移（或点左上角 ✋ 切换拖动模式后用左键拖）；<b>方向键</b> 也能平移（Shift 加速）；<b>Shift+滚轮</b> 或触控板横向滑动 = 左右平移，普通滚轮 = 缩放，Ctrl+滚轮 = 缩放。</p>
         <p><b>隐藏答案</b>：编辑器默认「隐藏答案路径」（勾选状态），载入示例/导入关卡时不会显示灰色虚线官方解，防止偷看；取消勾选即可查看；绘制答案时会自动临时显示。</p>
@@ -3037,7 +3068,7 @@
     }
     class Level {
       constructor(s, e, t) {
-        this.rows = clampInt(s, 2, 99, 6), this.cols = clampInt(e, 2, 99, 6), this.name = "string" == typeof t && t.trim() ? t.trim().slice(0, 40) : "未命名关卡", this.start = null, this.end = null, this.obstacles = new Set, this.hubs = new Set, this.diagonals = new Set, this.redEdges = new Set, this.greenEdges = new Set, this.solution = null, this.password = null, this.desc = "", this.numbers = new Map, this.difficulty = 0, this.difficultyPrefix = "", this.grays = new Set, this.tunnels = new Map, this.timeLimit = 0, this.musicId = "", this.musicUrl = "", this.musicRepo = "", this.bg = "", this.starts = [], this.ends = [], this.blueEdges = new Set, this.objects = [], this.subpixels = new Map, this.settings = { allowZoom: !0, initialZoom: 0, clickDraw: !0, dragDraw: !0, allowUndo: !0, undoMode: "legacy", showBorder: !0, showGrid: !0, batchMode: "brush" }, this.nextObjectId = 1, this.viewRects = [], this.viewId = "", this.vars = {}, this.now = 0, this.schemaVersion = 2
+        this.rows = clampInt(s, 2, 99, 6), this.cols = clampInt(e, 2, 99, 6), this.name = "string" == typeof t && t.trim() ? t.trim().slice(0, 40) : "未命名关卡", this.start = null, this.end = null, this.obstacles = new Set, this.hubs = new Set, this.diagonals = new Set, this.redEdges = new Set, this.greenEdges = new Set, this.solution = null, this.password = null, this.desc = "", this.numbers = new Map, this.difficulty = 0, this.difficultyPrefix = "", this.grays = new Set, this.tunnels = new Map, this.timeLimit = 0, this.musicId = "", this.musicUrl = "", this.musicRepo = "", this.bg = "", this.starts = [], this.ends = [], this.blueEdges = new Set, this.objects = [], this.subpixels = new Map, this.settings = { allowZoom: !0, initialZoom: 0, clickDraw: !0, dragDraw: !0, allowUndo: !0, undoMode: "legacy", showBorder: !0, showGrid: !0, batchMode: "brush", autoView: !1 }, this.nextObjectId = 1, this.viewRects = [], this.viewId = "", this.vars = {}, this.now = 0, this.schemaVersion = 2
       }
       inBounds(s, e) {
         return s >= 0 && s < this.rows && e >= 0 && e < this.cols
@@ -3049,9 +3080,67 @@
       activeViewRect() {
         return this.viewRect || (this.viewRectById ? this.viewRectById(this.viewId) : null)
       }
+      /* fix62: fog sight from a fog cell = this cell + every cell reachable in one move */
+      fogSightOf(s, e) {
+        const out = new Set,
+          RR = this.rows | 0,
+          CC = this.cols | 0;
+        if (!(s >= 0 && e >= 0 && s < RR && e < CC)) return out;
+        out.add(s + "," + e);
+        const ds = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+        for (const d of ds) {
+          const nr = s + d[0], nc = e + d[1];
+          if (!(nr >= 0 && nc >= 0 && nr < RR && nc < CC)) continue;
+          const A = [s, e], B = [nr, nc];
+          if ("function" == typeof this.canMove && !this.canMove(A, B)) continue;
+          /* fix64：雾里「一步之内」的格子一律可见 —— 障碍格、红障碍格照样显示，
+             它们本来就在一步范围内（看得见 ≠ 走得过）；只有一步之外才被雾遮住。 */
+          out.add(nr + "," + nc)
+        }
+        const _g0 = this.tunnels && this.tunnels.size ? this.tunnels.get(s + "," + e) : void 0;
+        if (null != _g0 && this.tunnels) for (const [k, v] of this.tunnels) {
+          if ((v | 0) !== (_g0 | 0)) continue;
+          const p = String(k).split(",");
+          out.add((p[0] | 0) + "," + (p[1] | 0))
+        }
+        return out
+      }
+      /* fix63：站在雾外时，一步能走进雾霾的那些格子。
+         口径与 fogSightOf 对齐：斜向要有斜向格、隧道算一步、硬障碍不算；
+         红边 / 红障碍照样算 —— 踩上去只是重开，不是走不了。 */
+      fogEdgeOf(s, e) {
+        const out = new Set,
+          RR = this.rows | 0,
+          CC = this.cols | 0;
+        if (!(s >= 0 && e >= 0 && s < RR && e < CC)) return out;
+        if (this.isFog(s, e)) return out;
+        const ds = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+        for (const d of ds) {
+          const nr = s + d[0], nc = e + d[1];
+          if (!(nr >= 0 && nc >= 0 && nr < RR && nc < CC)) continue;
+          const A = [s, e], B = [nr, nc];
+          if ("function" == typeof this.canMove && !this.canMove(A, B)) continue;
+          if (this.isObstacle(nr, nc) || !this.isFog(nr, nc)) continue;
+          out.add(nr + "," + nc)
+        }
+        const _g0 = this.tunnels && this.tunnels.size ? this.tunnels.get(s + "," + e) : void 0;
+        if (null != _g0 && this.tunnels) for (const [k, v] of this.tunnels) {
+          if ((v | 0) !== (_g0 | 0)) continue;
+          const p = String(k).split(","),
+            rr = p[0] | 0,
+            cc = p[1] | 0;
+          rr === s && cc === e || !this.isFog(rr, cc) || this.isObstacle(rr, cc) || out.add(rr + "," + cc)
+        }
+        return out
+      }
       inView(s, e) {
         const q = this.activeViewRect ? this.activeViewRect() : null;
-        return !q || s >= q.r && s < q.r + q.rows && e >= q.c && e < q.c + q.cols
+        if (!!q && !(s >= q.r && s < q.r + q.rows && e >= q.c && e < q.c + q.cols)) return !1;
+        const fv = this.fogView;
+        const _vk = s + "," + e,
+          _fe = this.fogEdge;
+        if (fv && "function" == typeof fv.has) return fv.has(_vk) || !!(_fe && "function" == typeof _fe.has && _fe.has(_vk));
+        return !0
       }
       inViewEdge(a, b) {
         return !!(a && b && this.inView(a[0], a[1]) && this.inView(b[0], b[1]))
@@ -3116,7 +3205,7 @@
         return this.objects.some((t => t && t.enabled && "redBlock" === t.kind && t.place && "cell" === t.place.type && t.place.r === s && t.place.c === e))
       }
       isBlocked(s, e) {
-        return this.isObstacle(s, e) || this.isFog(s, e) || this.isRedBlock(s, e)
+        return this.isObstacle(s, e) || this.isRedBlock(s, e)
       }
       objectsAt(s, e) {
         return this.objects.filter((t => t && t.place && "cell" === t.place.type && t.place.r === s && t.place.c === e))
@@ -3791,7 +3880,7 @@
         // ---- v3: 作者设置 ----
         if (null != s.settings) {
           if (s.settings && "object" == typeof s.settings && !Array.isArray(s.settings)) {
-            for (const key of ["allowZoom", "clickDraw", "dragDraw", "allowUndo", "showBorder", "showGrid"]) {
+            for (const key of ["allowZoom", "clickDraw", "dragDraw", "allowUndo", "showBorder", "showGrid", "autoView"]) {
               if (key in s.settings) r.settings[key] = !!s.settings[key];
             }
             r.settings.undoMode = "path" === s.settings.undoMode ? "path" : "legacy";
@@ -3884,7 +3973,8 @@ function _edgeInScope(s, k) {
 }
 function _reachSet(s) {
       /* fix50：从任一 S 出发、按规则真的能走到的格子集合。
-         被红边/障碍/雾霾封死的区域不算进「必须踩遍」，否则那些关卡永远判定不完整。 */
+         被红边/障碍封死的区域不算进「必须踩遍」，否则那些关卡永远判定不完整。
+         （fix62：雾霾已经改成「可以进入」的普通格，所以不再出现在这里。） */
       const R = s.rows | 0, C = s.cols | 0, seen = new Set(), q = [];
       const ok = (r, c) => r >= 0 && c >= 0 && r < R && c < C && !s.isBlocked(r, c);
       const push = (r, c) => { const k = KEY(r, c); seen.has(k) || (seen.add(k), q.push([r, c])); };
@@ -3954,7 +4044,7 @@ function _reachSet(s) {
           o = e[r],
           a = KEY(n[0], n[1]),
           l = KEY(o[0], o[1]);
-        s.isAdjacent(n, o) ? (!s.isDiagMove(n, o) || s.isDiagonal(n[0], n[1]) || s.isDiagonal(o[0], o[1]) || t.errors.push("斜向移动需要斜向连线格: (" + a + ") → (" + l + ")"), s.hasEdge("red", n, o) && (t.errors.push("跨越红边: (" + a + ")-(" + l + ")"), t.redCells.push(a, l)), s.hasEdge("green", n, o) && i.add(Level.edgeKey(n, o))) : s.isTunnelJump(n, o) || t.errors.push("非法移动: (" + a + ") → (" + l + ")"), s.isObstacle(o[0], o[1]) && t.errors.push("进入障碍格: (" + l + ")"), s.isFog(o[0], o[1]) && !s.isObstacle(o[0], o[1]) && t.errors.push("进入雾霾格: (" + l + ")"), s.isRedBlock(o[0], o[1]) && t.errors.push("碰到红障碍: (" + l + ")"), s.isStart(o[0], o[1]) && !s.isHub(o[0], o[1]) && t.errors.push("不能重复进入起点: (" + l + ")"), !_inScope(s, o[0], o[1]) && t.errors.push("这一格不属于任何视野范围: (" + l + ")")
+        s.isAdjacent(n, o) ? (!s.isDiagMove(n, o) || s.isDiagonal(n[0], n[1]) || s.isDiagonal(o[0], o[1]) || t.errors.push("斜向移动需要斜向连线格: (" + a + ") → (" + l + ")"), s.hasEdge("red", n, o) && (t.errors.push("跨越红边: (" + a + ")-(" + l + ")"), t.redCells.push(a, l)), s.hasEdge("green", n, o) && i.add(Level.edgeKey(n, o))) : s.isTunnelJump(n, o) || t.errors.push("非法移动: (" + a + ") → (" + l + ")"), s.isObstacle(o[0], o[1]) && t.errors.push("进入障碍格: (" + l + ")"), s.isRedBlock(o[0], o[1]) && t.errors.push("碰到红障碍: (" + l + ")"), s.isStart(o[0], o[1]) && !s.isHub(o[0], o[1]) && t.errors.push("不能重复进入起点: (" + l + ")"), !_inScope(s, o[0], o[1]) && t.errors.push("这一格不属于任何视野范围: (" + l + ")")
       }
       for (let s = 0; s + 2 < e.length; s++)
         if (e[s][0] === e[s + 2][0] && e[s][1] === e[s + 2][1]) {
@@ -4142,7 +4232,7 @@ function _reachSet(s) {
               o && "hub" === o.kind && o.place && "cell" === o.place.type && (o._hubAt = [o.place.r | 0, o.place.c | 0])
             };
             w.map && w.map.forEach(setHub), w._virt && w._virt.forEach(setHub)
-          }(this), this._hubResync()
+          }(this), this._hubResync(), this._fogKey = "", this._standSync()
       };
       World.CELL_KINDS = ["obstacle", "gray", "diagonal", "hub", "number", "tunnel", "start", "end"];
       World.isCellKind = function(k) {
@@ -4234,6 +4324,81 @@ function _reachSet(s) {
         this._dirty = !0
       };
 
+      /* fix62: fog sight cache for the cell the player currently stands on */
+      World.prototype._fogViewSet = function() {
+        const L = this.level,
+          st = this._stand;
+        if (!L || "function" != typeof L.isFog || "function" != typeof L.fogSightOf) return null;
+        if (!st || !isFinite(Number(st.r)) || !isFinite(Number(st.c))) return null;
+        return L.isFog(st.r | 0, st.c | 0) ? L.fogSightOf(st.r | 0, st.c | 0) : null
+      };
+      /* fix63: 站在雾外时，一步能走进雾霾的格子（要求 3：雾外也看得见这些格） */
+      World.prototype._fogEdgeSet = function() {
+        const L = this.level,
+          st = this._stand;
+        if (!L || "function" != typeof L.isFog || "function" != typeof L.fogEdgeOf) return null;
+        if (!st || !isFinite(Number(st.r)) || !isFinite(Number(st.c))) return null;
+        const r = st.r | 0,
+          c = st.c | 0;
+        if (L.isFog(r, c)) return null;
+        const s = L.fogEdgeOf(r, c);
+        return s && s.size ? s : null
+      };
+      /* fix64: 只给「跨红边」画蓝边引导；红障碍格自己已经是红色方块，不再套蓝框 */
+      World.prototype._fogHintSet = function() {
+        const L = this.level,
+          st = this._stand;
+        if (!L || "function" != typeof L.isFog || "function" != typeof L.fogSightOf) return null;
+        if (!st || !isFinite(Number(st.r)) || !isFinite(Number(st.c))) return null;
+        const s = st.r | 0,
+          c = st.c | 0;
+        if (!L.isFog(s, c)) return null;
+        const out = new Set;
+        for (const k of L.fogSightOf(s, c)) {
+          const p = String(k).split(","),
+            rr = p[0] | 0,
+            cc = p[1] | 0;
+          if (rr === s && cc === c) continue;
+          "function" == typeof L.hasEdge && L.hasEdge("red", [s, c], [rr, cc]) ? out.add(k) : 0
+        }
+        return out.size ? out : null
+      };
+      World.prototype._standSync = function() {
+        const st = this._stand,
+          L = this.level,
+          fz = !!(st && L && "function" == typeof L.isFog && L.isFog(st.r, st.c)),
+          /* fix63：雾外也要跟着站位刷新（fogEdge 只看站位），所以位置一律编码进去 */
+          fk = st ? (st.r | 0) + "," + (st.c | 0) + (fz ? "F" : "E") : "";
+        this._fogKey !== fk && (this._fogKey = fk, this.touch());
+        if (st) this.syncAutoView(st.r, st.c);
+        else {
+          const s0 = L && Array.isArray(L.start) ? L.start : null;
+          s0 && this.syncAutoView(s0[0], s0[1])
+        }
+        return this._stand
+      };
+      /* fix62: settings.autoView => the view rect containing the player becomes the active view */
+      World.prototype.syncAutoView = function(r, c) {
+        const L = this.level,
+          rs = (L && L.viewRects) || [];
+        if (!L || !(L.settings || {}).autoView || !rs.length) return !1;
+        if (!isFinite(Number(r)) || !isFinite(Number(c))) return !1;
+        const rr = r | 0,
+          cc = c | 0;
+        for (const q of rs) {
+          if (!q) continue;
+          const R = q.rows | 0,
+            C = q.cols | 0,
+            qr = q.r | 0,
+            qc = q.c | 0;
+          if (!(R > 0 && C > 0)) continue;
+          if (rr < qr || rr >= qr + R || cc < qc || cc >= qc + C) continue;
+          const id = String(q.id);
+          if (this.viewId === id) return !0;
+          return this.viewId = id, this.touch(), !0
+        }
+        return !1
+      };
       World.prototype.view = function() {
         if (this._dirty || !this._view) {
           const v = Object.create(this.level || {}),
@@ -4253,7 +4418,10 @@ function _reachSet(s) {
               set && (o.deleted || !1 === o.enabled || !1 === o.visible) && set.delete(Level.edgeKey(o.place.a, o.place.b))
             };
           this.map && this.map.forEach(_dropEdge), this._virt && this._virt.forEach(_dropEdge);
-          v.viewId = this.viewId, v.viewRect = this.level && this.level.viewRectById ? this.level.viewRectById(this.viewId) : null;
+          v.viewId = this.viewId, v.viewRect = this.level && this.level.viewRectById ? this.level.viewRectById(this.viewId) : null,
+            v.fogView = this._fogViewSet();
+          /* fix63：雾外一步能进雾的格子 + 视野里的红东西（蓝边引导） */
+          v.fogEdge = this._fogEdgeSet(), v.fogHint = this._fogHintSet();
           v.movers = [];
           for (const o of arr) {
             /* fix55：连续位置优先（移动中或移动结束后带小数都按真实位置画） */
@@ -4307,6 +4475,34 @@ function _reachSet(s) {
         return best
       };
 
+      /* fix63：random(a, b) —— 只产生整数，含两端。
+         a / b 可以是数字、变量名（a1 / t / x1 …）或另一个 random；
+         写反了（a > b）也自动取小 / 大。求不出来返回 null。 */
+      World.prototype.rndv = function(spec, ctx) {
+        const s2 = String(null == spec ? "" : spec).trim(),
+          m = /^([-+])?\s*(?:random|rand|rnd)\s*\(([^()]*)\)$/i.exec(s2);
+        if (!m) return null;
+        const args = m[2].split(",");
+        if (args.length < 2) return null;
+        const _n = (txt) => {
+          const raw = String(null == txt ? "" : txt).trim();
+          if (!raw) return NaN;
+          const num = Number(raw);
+          if (isFinite(num)) return num;
+          const rv = this.rndv(raw, ctx);
+          if (null != rv && isFinite(rv)) return rv;
+          const vv = this.varValue(raw, ctx);
+          return null == vv || !isFinite(vv) ? NaN : vv
+        };
+        const a = _n(args[0]),
+          b = _n(args[1]);
+        if (!isFinite(a) || !isFinite(b)) return null;
+        const lo = Math.ceil(Math.min(a, b)),
+          hi = Math.floor(Math.max(a, b));
+        if (hi < lo) return null;
+        const val = lo + Math.floor(Math.random() * (hi - lo + 1));
+        return "-" === m[1] ? -val : val
+      };
       /* fix53：把「变量名」统一求值。
          t   = 当前用时（秒，来自触发时的 ctx.time，或最近一次 step 记下的 this.now）
          xn  = 编号 n 物体的全局 x 坐标（= 列）；yn = 全局 y 坐标（= 行）；边物体取两端中点
@@ -4315,6 +4511,11 @@ function _reachSet(s) {
       World.prototype.varValue = function(name, ctx) {
         const s2 = String(null == name ? "" : name).trim();
         if (!s2) return null;
+        /* fix63：random(a,b) 直接当一个数字用 */
+        if (/^[-+]?\s*(?:random|rand|rnd)\s*\(/i.test(s2)) {
+          const _rv0 = this.rndv(s2, ctx);
+          return null == _rv0 || !isFinite(_rv0) ? null : _rv0
+        }
         if ("t" === s2) {
           const tv = ctx && isFinite(Number(ctx.time)) ? Number(ctx.time) : Number(this.now) || 0;
           return Math.max(0, tv)
@@ -4357,6 +4558,11 @@ function _reachSet(s) {
         if ("string" == typeof x) {
           const s2 = x.trim();
           if (!s2) return dd;
+          /* fix63：负号开头的 random 也要认（扣分动作会存成 "-random(1,7)"） */
+          if (/^[-+]?\s*(?:random|rand|rnd)\s*\(/i.test(s2)) {
+            const rv = this.rndv(s2);
+            return null == rv || !isFinite(rv) ? dd : rv
+          }
           if (/^[A-Za-z_]/.test(s2)) {
             const v = this.varValue(s2);
             return null == v || !isFinite(v) ? dd : v
@@ -4667,7 +4873,7 @@ function _reachSet(s) {
         return out
       };
 
-      World.prototype.checkCond = function(cond, ctx) {
+      World.prototype._condClause = function(cond, ctx) {
         cond = cond || {}, ctx = ctx || {};
         const self = this;
         ctx && isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
@@ -4699,6 +4905,19 @@ function _reachSet(s) {
           return val >= lo(spec.min, -Infinity) && val <= lo(spec.max, Infinity)
         };
         return rng(cond.score, score) && rng(cond.steps, steps) && rng(cond.time, time)
+      };
+      /* fix62: cond.logic "" = only first clause (old saves unchanged)
+         "not" = negate first ; "and"/"or" = first op second(cond.c2); cond.c2.not negates second */
+      World.prototype.checkCond = function(cond, ctx) {
+        cond = cond || {}, ctx = ctx || {};
+        ctx && isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
+        const _lg = String(cond.logic || "").toLowerCase(),
+          _a = !!this._condClause(cond, ctx);
+        if ("not" === _lg) return !_a;
+        const _c2 = cond.c2 && "object" == typeof cond.c2 && !Array.isArray(cond.c2) ? cond.c2 : null;
+        if (!_c2 || ("and" !== _lg && "or" !== _lg)) return _a;
+        const _b = !0 === _c2.not ? !this._condClause(_c2, ctx) : !!this._condClause(_c2, ctx);
+        return "and" === _lg ? _a && _b : _a || _b
       };
 
       /* fix60：这个触发器是不是「设了脉冲间隔」。留空 / null = 不脉冲（走进入瞬间触发）；
@@ -4738,7 +4957,7 @@ function _reachSet(s) {
         ctx = ctx || {};
         isFinite(Number(ctx.time)) && (this.now = Number(ctx.time) || 0);
         /* fix56：记住玩家当前站的格子，「经过」类触发器的脉冲检测靠它 */
-        this._stand = { r: r | 0, c: c | 0 };
+        this._stand = { r: r | 0, c: c | 0 }, this._standSync();
         const out = [];
         for (const o of this.at(r, c)) {
           if (o.enabled) {
@@ -4793,7 +5012,7 @@ function _reachSet(s) {
         return this._stand = p && Array.isArray(p) && isFinite(Number(p[0])) && isFinite(Number(p[1])) ? {
           r: Number(p[0]) | 0,
           c: Number(p[1]) | 0
-        } : null, this._stand
+        } : null, this._standSync(), this._stand
       };
       World.prototype._cellOf = function(o) {
         if (!o) return null;
@@ -5213,7 +5432,7 @@ function _reachSet(s) {
       }
       if (!s.canMove(o, t)) return i.reason = "无法移动到这里（斜向需斜向格）", i;
       if (s.hasEdge("red", o, t)) return i.reason = "红边禁止通过", i;
-      if (s.isFog(r, n)) return i.reason = "这里是雾霾，无法进入", i;
+      /* fix62: fog is walkable now - only blocks sight / hides objects underneath */
       if (s.isObstacle(r, n)) return i.reason = "这里是障碍格", i;
       if (s.isStart(r, n) && !s.isHub(r, n)) return i.reason = "不能重复进入起点", i;
       if (e.length >= 2 && !s.isAdjacent(o, t) && s.isTunnelJump(o, t)) {
@@ -6046,7 +6265,10 @@ function _reachSet(s) {
                     if (_tg > 0) {
                       t.fillStyle = "rgba(63,81,181,0.14)", i(t, c + 1.5, h + 1.5, s - 3, s - 3, .26 * s), t.fill(), t.strokeStyle = "#3f51b5", t.lineWidth = Math.max(1.5, .06 * s), t.setLineDash([Math.max(2, .1 * s), Math.max(2, .08 * s)]), i(t, c + 1.5, h + 1.5, s - 3, s - 3, .26 * s), t.stroke(), t.setLineDash([]), t.fillStyle = "#283593", t.font = "bold " + Math.max(7, .3 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText(String(_tg), f, g + 1)
                     }
-                    const _fogged = !!(n.isFog && n.isFog(a, r)),
+                    const _fogHere = !!(n.isFog && n.isFog(a, r)),
+                      _fogSeen = !!(n.fogView && "function" == typeof n.fogView.has && n.fogView.has(a + "," + r)) || !!(n.fogEdge && "function" == typeof n.fogEdge.has && n.fogEdge.has(a + "," + r)),
+                      _fogClear = _fogHere && _fogSeen,
+                      _fogged = _fogHere && !_fogClear,
                       _obs = _fogged ? [] : n.objectsAt(a, r).filter((ob => ob && ob.place)),
                       _multi = (n.starts && n.starts.length > 1) || (n.ends && n.ends.length > 1);
                     for (const ob of _obs) {
@@ -6270,7 +6492,27 @@ function _reachSet(s) {
                   if (n2.viewRect && !(ob.place.r >= n2.viewRect.r && ob.place.r < n2.viewRect.r + n2.viewRect.rows && ob.place.c >= n2.viewRect.c && ob.place.c < n2.viewRect.c + n2.viewRect.cols)) continue;
                     const x = o2.ox + ob.place.c * o2.cs,
                       y = o2.oy + ob.place.r * o2.cs;
-                    t2.fillStyle = "rgba(38,44,56,1)", t2.fillRect(x, y, o2.cs, o2.cs), t2.strokeStyle = "rgba(120,130,150,0.35)", t2.lineWidth = Math.max(1, .03 * o2.cs), t2.strokeRect(x + .5, y + .5, o2.cs - 1, o2.cs - 1)
+                    /* fix63：站在雾外时，一步能走进的雾霾格也按「看得见」画 */
+                    const _see = !!(n2.fogView && "function" == typeof n2.fogView.has && n2.fogView.has(ob.place.r + "," + ob.place.c)) || !!(n2.fogEdge && "function" == typeof n2.fogEdge.has && n2.fogEdge.has(ob.place.r + "," + ob.place.c));
+                    t2.fillStyle = _see ? "rgba(38,44,56,0.3)" : "rgba(38,44,56,1)", t2.fillRect(x, y, o2.cs, o2.cs), t2.strokeStyle = "rgba(120,130,150,0.35)", t2.lineWidth = Math.max(1, .03 * o2.cs), t2.strokeRect(x + .5, y + .5, o2.cs - 1, o2.cs - 1)
+                  }
+                /* fix63：红东西的「蓝边引导」——视野里若有红障碍格 / 跨红边的方向，
+                   用虚线蓝框提示「这里有红的东西」，不改可达判定 */
+                  if (n2.fogHint && "function" == typeof n2.fogHint.forEach) {
+                    t2.save(), t2.setLineDash([Math.max(2, .08 * o2.cs), Math.max(2, .06 * o2.cs)]), t2.strokeStyle = "rgba(26,115,232,0.85)", t2.lineWidth = Math.max(1.5, .045 * o2.cs);
+                    n2.fogHint.forEach((k) => {
+                      const pp = String(k).split(","),
+                        hx = o2.ox + (pp[1] | 0) * o2.cs,
+                        hy = o2.oy + (pp[0] | 0) * o2.cs,
+                        pd = .1 * o2.cs;
+                      t2.strokeRect(hx + pd, hy + pd, o2.cs - 2 * pd, o2.cs - 2 * pd)
+                    }), t2.setLineDash([]), t2.restore()
+                  }
+                /* fix62: while standing in fog, mask every cell outside the fog sight */
+                  if (n2.fogView && "function" == typeof n2.fogView.has) {
+                    t2.fillStyle = "rgba(30,36,46,0.94)";
+                    for (let _r = 0; _r < (n2.rows | 0); _r++)
+                      for (let _c = 0; _c < (n2.cols | 0); _c++) n2.fogView.has(_r + "," + _c) || t2.fillRect(o2.ox + _c * o2.cs, o2.oy + _r * o2.cs, o2.cs, o2.cs)
                   }
                 }(t, o, n)
               }(M, k, f);
@@ -6406,7 +6648,7 @@ function _reachSet(s) {
         number: "把工具栏的「数字」区间标到格子上：要求第 a~b 步之间到达（b 留空即精确第 a 步）。可与终点/斜向/灰格重合，不可与枢纽重合",
         solution: "从 S 开始画出官方答案路径（灰色虚线）。画完须满足全部规则，关卡才能游玩",
         erase: "擦除格子上的标记以及与该格相连的红/绿边",
-        fog: "点击格子放置/移除雾霾（不可进入；可以让按钮把它关掉来开路）",
+        fog: "点击格子放置/移除雾霾（可以进入；会挡住视线、盖住下面的物体，站在雾里只能看清周围一步）",
         redBlock: "点击格子放置/移除红障碍（踩到就把路径重置）",
         scorePlus: "点击格子放置/移除得分点（默认 +1 分，可改）",
         scoreMinus: "点击格子放置/移除扣分点（默认 -1 分，可改）",
@@ -6984,14 +7226,17 @@ function _reachSet(s) {
         })), _spxLoad(!1)
       }
       function _oMakeAction(op, val, target) {
-        const v = Number(val) || 0;
+        /* fix63：分值也能写 random(a,b)；非数字原样存进 delta，运行时由 numv 求值 */
+        const _rawv = null == val ? "" : String(val).trim(),
+          _isRndV = /^[-+]?\s*(?:random|rand|rnd)\s*\(/i.test(_rawv),
+          v = _isRndV ? 0 : Number(val) || 0;
         if ("score" === op) return {
           op: "score",
-          delta: Math.abs(v) || 1
+          delta: _isRndV ? _rawv.replace(/^\s*\+?\s*/, "") : Math.abs(v) || 1
         };
         if ("scoreMinus" === op) return {
           op: "score",
-          delta: -(Math.abs(v) || 1)
+          delta: _isRndV ? "-" + _rawv.replace(/^\s*[-+]?\s*/, "") : -(Math.abs(v) || 1)
         };
         if ("spawn" === op || "spawnFog" === op) {
           const kindEl = L("obj-spawnkind"),
@@ -7043,7 +7288,7 @@ function _reachSet(s) {
           const _nmEl = L("obj-varname"),
             _vvEl = L("obj-varvalue"),
             _nm = String((_nmEl && _nmEl.value) || "").trim().slice(0, 8),
-            _vv = String((_vvEl && _vvEl.value) || "").trim().slice(0, 12);
+            _vv = String((_vvEl && _vvEl.value) || "").trim().slice(0, 24);
           return /^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(_nm) ? { op: op, varName: _nm, value: _vv } : null
         }
         if ("subpixel" === op) {
@@ -7080,8 +7325,9 @@ function _reachSet(s) {
             dir = (dEl && dEl.value) || "right",
             _spRaw = String((spEl && spEl.value) || "").trim(),
             _tmRaw = String((tmEl && tmEl.value) || "").trim(),
-            sp = /^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(_spRaw) ? _spRaw : Math.max(.1, Number(_spRaw) || 1),
-            tm = /^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(_tmRaw) ? _tmRaw : Math.max(0, Number(_tmRaw) || 0),
+            /* fix63：速度 / 时长也能写 random(a,b)，和其它数字字段一个口径 */
+            sp = /^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(_spRaw) || /^[-+]?\s*(?:random|rand|rnd)\s*\([^()]*\)$/i.test(_spRaw) ? _spRaw : Math.max(.1, Number(_spRaw) || 1),
+            tm = /^[A-Za-z_][A-Za-z0-9_]{0,7}$/.test(_tmRaw) || /^[-+]?\s*(?:random|rand|rnd)\s*\([^()]*\)$/i.test(_tmRaw) ? _tmRaw : Math.max(0, Number(_tmRaw) || 0),
             out = {
               op: "move",
               target: target | 0,
@@ -7164,6 +7410,38 @@ function _reachSet(s) {
         if (void 0 !== mn && (c.min = mn), void 0 !== mx && (c.max = mx), "score" === metric) {
           void 0 !== mn ? c.scoreMin = mn : c.scoreMin = 0, void 0 !== mx && (c.scoreMax = mx)
         }
+        /* fix62: second clause + logic */
+        const _lgEl = L("obj-condlogic"),
+          _lgv = _lgEl ? String(_lgEl.value || "") : "";
+        if ("and" === _lgv || "or" === _lgv) {
+          const _m2raw = (L("obj-condmetric2") || {}).value || "score";
+          let _met2 = _m2raw,
+            _mvar2 = "";
+          if ("__var" === _m2raw) {
+            _mvar2 = String((L("obj-condmetricvar2") || {}).value || "").trim();
+            const _al2 = {
+              s: "score",
+              score: "score",
+              t: "time",
+              time: "time",
+              steps: "steps",
+              step: "steps"
+            }[_mvar2];
+            _al2 ? (_met2 = _al2, _mvar2 = "") : (_met2 = /^[A-Za-z_]/.test(_mvar2) && _mvar2.length <= 16 ? _mvar2 : "score", _mvar2 = "score" === _met2 ? "" : _mvar2)
+          }
+          const _op2 = (L("obj-condop2") || {}).value || "ge";
+          let _mn2 = rd(L("obj-condmin2")),
+            _mx2 = rd(L("obj-condmax2"));
+          "ge" === _op2 ? _mx2 = void 0 : "le" === _op2 ? _mn2 = void 0 : null;
+          const _c2 = {
+            metric: _met2
+          };
+          _mvar2 && (_c2.metricVar = _mvar2);
+          void 0 !== _mn2 && (_c2.min = _mn2), void 0 !== _mx2 && (_c2.max = _mx2);
+          "score" === _met2 && (void 0 !== _mn2 ? _c2.scoreMin = _mn2 : _c2.scoreMin = 0, void 0 !== _mx2 && (_c2.scoreMax = _mx2));
+          L("obj-condnot2") && L("obj-condnot2").checked && (_c2.not = !0);
+          c.logic = _lgv, c.c2 = _c2
+        } else "not" === _lgv && (c.logic = "not");
         tr.cond = c;
         const _evEl = L("obj-condevery"),
           _ev = _evEl && "" !== String(_evEl.value || "").trim() ? Math.max(.05, Number(_evEl.value) || 0) : 0;
@@ -7248,17 +7526,40 @@ function _reachSet(s) {
           const mn = void 0 !== c.min ? c.min : void 0 !== c.scoreMin ? c.scoreMin : void 0 !== c.timeMin ? c.timeMin : void 0 !== c.stepsMin ? c.stepsMin : void 0,
             mx = void 0 !== c.max ? c.max : void 0 !== c.scoreMax ? c.scoreMax : void 0 !== c.timeMax ? c.timeMax : void 0 !== c.stepsMax ? c.stepsMax : void 0;
           setv("obj-condop", void 0 !== mn && void 0 !== mx ? "range" : void 0 !== mx ? "le" : "ge"),
-            setv("obj-condmin", void 0 === mn ? "" : mn), setv("obj-condmax", void 0 === mx ? "" : mx)
+            setv("obj-condmin", void 0 === mn ? "" : mn), setv("obj-condmax", void 0 === mx ? "" : mx);
+          /* fix62: restore second clause + logic */
+          (function(c2, lg) {
+            setv("obj-condlogic", "and" === lg || "or" === lg ? lg : "not" === lg ? "not" : "");
+            const q = c2 && "object" == typeof c2 ? c2 : null;
+            if (!q) {
+              setv("obj-condmetric2", "score"), setv("obj-condmetricvar2", ""), setv("obj-condop2", "ge"),
+                setv("obj-condmin2", ""), setv("obj-condmax2", ""),
+                L("obj-condnot2") && (L("obj-condnot2").checked = !1);
+              return
+            }
+            const _kn2 = {
+                score: 1,
+                time: 1,
+                steps: 1
+              },
+              _cm2 = q.metric || "score";
+            _kn2[_cm2] ? (setv("obj-condmetric2", _cm2), setv("obj-condmetricvar2", "")) : (setv("obj-condmetric2", "__var"), setv("obj-condmetricvar2", q.metricVar || _cm2));
+            const mn2 = void 0 !== q.min ? q.min : void 0 !== q.scoreMin ? q.scoreMin : void 0,
+              mx2 = void 0 !== q.max ? q.max : void 0 !== q.scoreMax ? q.scoreMax : void 0;
+            setv("obj-condop2", void 0 !== mn2 && void 0 !== mx2 ? "range" : void 0 !== mx2 ? "le" : "ge"),
+              setv("obj-condmin2", void 0 === mn2 ? "" : mn2), setv("obj-condmax2", void 0 === mx2 ? "" : mx2),
+              L("obj-condnot2") && (L("obj-condnot2").checked = !0 === q.not)
+          })(c.c2, String(c.logic || "").toLowerCase()), _oCondRowSync()
         })(tr.cond), setv("obj-condevery", tr.every ? tr.every : "");
         let opv = a.op;
-        "score" === a.op && (opv = (Number(a.delta) || 0) < 0 ? "scoreMinus" : "score"),
+        "score" === a.op && (opv = /^\s*-/.test(String(a.delta)) || Number(a.delta) < 0 ? "scoreMinus" : "score"),
           setv("obj-act", opv), setv("obj-target", void 0 === a.target ? "" : a.target);
         ("varset" === a.op || "varadd" === a.op || "varsub" === a.op || "varmul" === a.op || "vardiv" === a.op) && (setv("obj-varname", a.varName || ""), setv("obj-varvalue", void 0 === a.value ? "" : String(a.value)));
         Array.isArray(a.targetGroups) && a.targetGroups.length ? (setv("obj-tmode", "group"), setv("obj-tgroup", a.targetGroups.join(","))) :
           a.targetCell ? (setv("obj-tmode", "cell"), setv("obj-tcell", a.targetCell.r + "," + a.targetCell.c)) :
           (setv("obj-tmode", "id"), setv("obj-tcell", ""), setv("obj-tgroup", ""));
         const _cop = void 0 !== (a.bindCond || null) ? null : null;
-        "score" === a.op ? setv("obj-value", Math.abs(Number(a.delta) || 1)) :
+        "score" === a.op ? setv("obj-value", isFinite(Number(a.delta)) ? Math.abs(Number(a.delta) || 1) : String(a.delta).replace(/^[-+\s]+/, "")) :
           "move" === a.op ? ((mv => {
             setv("obj-movedir", (mv && mv.dir) || "right"),
               setv("obj-movespeed", mv && mv.speed ? mv.speed : 1),
@@ -7304,7 +7605,22 @@ function _reachSet(s) {
           sep = L("obj-condrange-sep");
         mn && (mn.style.display = "le" === op ? "none" : ""),
           mx && (mx.style.display = "ge" === op ? "none" : ""),
-          sep && (sep.style.display = "range" === op ? "" : "none")
+          sep && (sep.style.display = "range" === op ? "" : "none");
+        /* fix62: second clause, shown only when logic is and/or */
+        const _lgV = (L("obj-condlogic") || {}).value || "",
+          _need2 = "and" === _lgV || "or" === _lgV,
+          _c2row = L("obj-cond2-row");
+        _c2row && (_c2row.style.display = _need2 ? "" : "none");
+        const _m2s = L("obj-condmetric2"),
+          _mv2s = L("obj-condmetricvar2");
+        _mv2s && (_mv2s.style.display = _m2s && "__var" === _m2s.value ? "" : "none");
+        const op2 = (L("obj-condop2") || {}).value || "ge",
+          mn2w = L("obj-condmin2-wrap"),
+          mx2w = L("obj-condmax2-wrap"),
+          sep2w = L("obj-condrange2-sep");
+        mn2w && (mn2w.style.display = "le" === op2 ? "none" : ""),
+          mx2w && (mx2w.style.display = "ge" === op2 ? "none" : ""),
+          sep2w && (sep2w.style.display = "range" === op2 ? "" : "none")
       }
       /* fix56：脉冲行只在「点击 / 经过」类按钮上出现；「手指划过也算触发」只对点击类有意义 */
       function _oTrigRowSync() {
@@ -8020,7 +8336,7 @@ function _reachSet(s) {
         zo && (st.allowZoom = !!zo.checked), ck && (st.clickDraw = !!ck.checked),
           dg && (st.dragDraw = !!dg.checked), un && (st.allowUndo = !!un.checked),
           bd && (st.showBorder = !!bd.checked), L("in-set-grid") && (st.showGrid = !!L("in-set-grid").checked), bm && (st.batchMode = "rect" === bm.value ? "rect" : "brush"),
-          um && (st.undoMode = "path" === um.value ? "path" : "legacy");
+          um && (st.undoMode = "path" === um.value ? "path" : "legacy"), L("in-set-autoview") && (st.autoView = !!L("in-set-autoview").checked);
         if (iz) {
           const v = Number(iz.value);
           st.initialZoom = Number.isFinite(v) && v >= 0.1 && v <= 10 ? Math.round(10 * v) / 10 : 0
@@ -8034,7 +8350,7 @@ function _reachSet(s) {
         zo && (zo.checked = !1 !== st.allowZoom), ck && (ck.checked = !1 !== st.clickDraw),
           dg && (dg.checked = !1 !== st.dragDraw), un && (un.checked = !1 !== st.allowUndo),
           bd && (bd.checked = !1 !== st.showBorder), L("in-set-grid") && (L("in-set-grid").checked = !1 !== st.showGrid), bm && (bm.value = "rect" === st.batchMode ? "rect" : "brush"),
-          um && (um.value = "path" === st.undoMode ? "path" : "legacy"),
+          um && (um.value = "path" === st.undoMode ? "path" : "legacy"), L("in-set-autoview") && (L("in-set-autoview").checked = !0 === st.autoView),
           iz && (iz.value = Number(st.initialZoom) > 0 ? st.initialZoom : 0)
       }
       function X() {
@@ -8316,7 +8632,7 @@ function _reachSet(s) {
             "undefined" != typeof Library && Library.inPvpMatch && Library.inPvpMatch() ? App.toast("⚔️ 对战中不可导入关卡") : App.openModal("modal-import")
           })), L("btn-play").addEventListener("click", Z), L("btn-help").addEventListener("click", (() => App.openModal("modal-help"))), L("btn-sol-clear").addEventListener("click", R), L("btn-sol-undo").addEventListener("click", I), L("btn-password").addEventListener("click", J), L("in-sol-numbers").addEventListener("change", (e => {
             g = e.target.checked, $()
-          })), L("in-hide-sol").addEventListener("change", (e => A(e.target.checked))), L("in-difficulty").addEventListener("change", H), ["in-set-zoom", "in-set-izoom", "in-set-click", "in-set-drag", "in-set-undo", "in-set-undo-mode", "in-set-border", "in-set-grid", "in-set-batch"].forEach((function(id) {
+          })), L("in-hide-sol").addEventListener("change", (e => A(e.target.checked))), L("in-difficulty").addEventListener("change", H), ["in-set-zoom", "in-set-izoom", "in-set-click", "in-set-drag", "in-set-undo", "in-set-undo-mode", "in-set-border", "in-set-grid", "in-set-batch", "in-set-autoview"].forEach((function(id) {
             const el = L(id);
             el && el.addEventListener("change", (function() {
               _stRead(), x(), te(ee()), App.toast("⚙ 关卡设置已更新")
@@ -8333,7 +8649,8 @@ function _reachSet(s) {
             const trig = (L("obj-trigger") || {}).value || "click",
               act = (L("obj-act") || {}).value || "score",
               tgt = parseInt((L("obj-target") || {}).value, 10) || 0,
-              val = Number((L("obj-value") || {}).value) || 0;
+              _valRaw = String(null == (L("obj-value") || {}).value ? "" : (L("obj-value") || {}).value).trim(),
+              val = /^[-+]?\s*(?:random|rand|rnd)\s*\(/i.test(_valRaw) ? _valRaw : Number(_valRaw) || 0;
             if (_editActIdx >= 0 && o.actions && o.actions[_editActIdx]) {
               const _na = _oMakeAction(act, val, tgt);
               if (!_na) return void App.toast("⚠ 变量名不合法：字母开头，最多 8 位字母/数字/下划线，例如 b1");
@@ -8663,12 +8980,33 @@ function _reachSet(s) {
             }
             _sl && "cond" === _sl.value && (_oApplyTrigger("cond"), _oSync())
           }));
+          L("obj-condlogic") && L("obj-condlogic").addEventListener("change", (function() {
+            _oCondRowSync();
+            const _sl = L("obj-trigger");
+            _sl && "cond" === _sl.value && (_oApplyTrigger("cond"), _oSync())
+          }));
+          /* fix62: second clause + logic */
+          L("obj-condmetric2") && L("obj-condmetric2").addEventListener("change", (function() {
+            _oCondRowSync();
+            const _sl = L("obj-trigger");
+            if ("__var" === String((L("obj-condmetric2") || {}).value || "")) {
+              const _mv2 = L("obj-condmetricvar2");
+              _mv2 && _mv2.focus && _mv2.focus();
+              return
+            }
+            _sl && "cond" === _sl.value && (_oApplyTrigger("cond"), _oSync())
+          }));
+          L("obj-condmetricvar2") && L("obj-condmetricvar2").addEventListener("change", (function() {
+            const _sl = L("obj-trigger"),
+              _v2 = String((L("obj-condmetricvar2") || {}).value || "").trim();
+            _v2 && _sl && "cond" === _sl.value && (_oApplyTrigger("cond"), _oSync())
+          }));
           L("obj-condmetricvar") && L("obj-condmetricvar").addEventListener("change", (function() {
             const _sl = L("obj-trigger"),
               _v = String((L("obj-condmetricvar") || {}).value || "").trim();
             _v && _sl && "cond" === _sl.value && (_oApplyTrigger("cond"), _oSync())
           }));
-          ["obj-condop", "obj-condmin", "obj-condmax", "obj-condevery"].forEach((function(id) {
+          ["obj-condop", "obj-condmin", "obj-condmax", "obj-condevery", "obj-condop2", "obj-condmin2", "obj-condmax2", "obj-condnot2"].forEach((function(id) {
             const el = L(id);
             el && el.addEventListener("change", (function() {
               const _sl = L("obj-trigger");
@@ -10475,7 +10813,7 @@ function _reachSet(s) {
       function _kindText(o) {
         const k = o.kind || "",
           pr = o.props || {};
-        if ("fog" === k) return "🌫 雾霾（不可进入）";
+        if ("fog" === k) return "🌫 雾霾（可以进入 · 雾中只能看清一步）";
         if ("redBlock" === k) return "🧱 红障碍（碰到会重置）";
         if ("score+" === k) return "➕ 得分点（经过 +" + _kdv(pr) + " 分）";
         if ("score-" === k) return "➖ 扣分点（经过 -" + _kdv(pr) + " 分）";
@@ -10497,7 +10835,7 @@ function _reachSet(s) {
       function _tipStart(cell) {
         _tipHide();
         const _tlv = _lv();
-        if (_tlv && _tlv.isFog(cell[0], cell[1]) && !_tlv.isObstacle(cell[0], cell[1])) return;
+        if (_tlv && _tlv.isFog(cell[0], cell[1]) && !_tlv.isObstacle(cell[0], cell[1]) && !(_tlv.fogView && "function" == typeof _tlv.fogView.has && _tlv.fogView.has(cell[0] + "," + cell[1]))) return;
         _lpTimer = setTimeout((function() {
           _lpTimer = 0;
           const arr = _world ? _world.at(cell[0], cell[1]) : [];
@@ -12589,6 +12927,28 @@ function _reachSet(s) {
           return !1
         }
       }
+      /* fix63：网页访问统计只给「第一开发者」看 —— devs 列表里的第一个人。
+         以前用的是 mt()（devs 名单里任意一个人），等于所有开发者都能看到。 */
+      /* fix64：把「谁是第一开发者」抽成纯函数（devs 列表第一个名字，去首尾空格），
+         这样判定逻辑可以单独自测，不用真去联网读账号库。 */
+      function _firstDevIs(dl, name) {
+        try {
+          const arr = Array.isArray(dl) ? dl : [],
+            nm = String(null == name ? "" : name).trim();
+          return !!nm && arr.length > 0 && String(arr[0]).trim() === nm
+        } catch (e) {
+          return !1
+        }
+      }
+      async function _isFirstDev() {
+        const t = te();
+        if (!t) return !1;
+        try {
+          return _firstDevIs((await ut()).devs || [], t.name)
+        } catch (t) {
+          return !1
+        }
+      }
       async function ft(t) {
         const e = te();
         if (!e) return qt();
@@ -13402,49 +13762,6 @@ function _reachSet(s) {
           return null
         }
       }
-      function _visitCount() {
-        return new Promise((res) => {
-          try {
-            const raw = localStorage.getItem("pg_visit_cnt_v1");
-            if (raw) {
-              const o = JSON.parse(raw);
-              if (o && o.ts && Date.now() - o.ts < 6e5) return res(o)
-            }
-          } catch (e) {}
-          let done = !1;
-          const cb = "BusuanziCallback_" + Math.floor(1e6 * Math.random()),
-            sc = document.createElement("script");
-          const cleanup = () => {
-            clearTimeout(tm);
-            try {
-              delete window[cb]
-            } catch (e) {
-              window[cb] = void 0
-            }
-            try {
-              sc.parentNode && sc.parentNode.removeChild(sc)
-            } catch (e) {}
-          };
-          const tm = setTimeout((() => {
-            done || (done = !0, cleanup(), res(null))
-          }), 6e3);
-          window[cb] = d => {
-            if (done) return;
-            done = !0, cleanup();
-            const o = d && Number.isFinite(Number(d.site_pv)) ? {
-              pv: Number(d.site_pv),
-              uv: Number(d.site_uv) || 0,
-              ts: Date.now()
-            } : null;
-            if (o) try {
-              localStorage.setItem("pg_visit_cnt_v1", JSON.stringify(o))
-            } catch (e) {}
-            res(o)
-          }, sc.onerror = () => {
-            done || (done = !0, cleanup(), res(null))
-          }, sc.src = "https://busuanzi.ibruce.info/busuanzi?jsonpCallback=" + encodeURIComponent(cb), document.head.appendChild(sc)
-        })
-      }
       /* ===== fix61：按小时统计的网页访问次数（仅第一开发者可见）=====
          存码云仓库的 visits.json：{"2026-11-19T14": 3, ...}（本地时间，精确到小时）。
          为什么不用不蒜子：它只给「累计 pv / uv」，没有小时粒度，做不了按小时。 */
@@ -13487,19 +13804,20 @@ function _reachSet(s) {
           return null
         }
       }
-      async function _libTips() {
+      async function _libTips(_devForce) {
         const eu = a("lib-usage-tip"),
           ev = a("lib-visit-tip");
-        /* fix61：访问计数只给第一开发者看（devs 列表里的本人），本地 dev-key 不算 */
+        /* fix63：访问计数只给「第一开发者」（devs 列表里的第一个人）看，本地 dev-key 不算 */
         let _devV = !1;
         if (ev) {
           ev.style.display = "none";
           try {
-            _devV = !!(await mt())
+            /* fix64：允许外部直接指定（自动化测试用），否则按「第一开发者」判定 */
+            _devV = "boolean" == typeof _devForce ? _devForce : !!(await _isFirstDev())
           } catch (e) {
             _devV = !1
           }
-          _devV && (ev.style.display = "")
+          _devV ? ev.style.display = "" : ev.textContent = ""
         }
         eu && (async () => {
           const u = await _repoUsage();
@@ -16620,7 +16938,10 @@ function _reachSet(s) {
         _visits: {
           key: _vhKey,
           hours: _visitHours,
-          hit: _visitHit
+          hit: _visitHit,
+          /* fix64：访问统计显隐的判定入口（供调试/自动化测试直接用） */
+          tips: _libTips,
+          firstDev: _firstDevIs
         }
       }
     }();
@@ -16833,8 +17154,8 @@ function _reachSet(s) {
             } catch (e) {}
           }), !0);
           try {
-            const e = "v2.0.1-dev";
-            window.__ver = e, window.__build = "fix61", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            const e = "v2.0.1";
+            window.__ver = e, window.__build = "fix64", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
