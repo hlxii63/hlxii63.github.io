@@ -1455,7 +1455,8 @@
       min-height: 34px;
       padding: 7px 12px;
       font-size: 13px;
-      border-radius: var(--sp2)
+      border-radius: var(--sp2);
+      touch-action: manipulation
     }
 
     .lib-item-btns button.act {
@@ -2012,6 +2013,7 @@
         <button class="tool" data-tool="subpixel" title="亚像素：每格再分成 6×6 小格，可逐小格上色作画（先点格子，再在下方调色板点小格）">🎨 亚像素</button>
         <button class="tool" data-tool="fog" title="雾霾格：可以进入，但会盖住下面的物体、挡住视线——站在雾霾里只能看清自己这一格和一步能走到的格子（可被按钮/触发器动态开关）">🌫 雾霾</button>
         <button class="tool" data-tool="redBlock" title="红障碍：碰到就重置路径">🚫 红障碍</button>
+        <button class="tool" data-tool="savepoint" title="存档点：路径经过就存一个档（踩到红障碍时回到最近的存档点；同一个点再次经过会覆盖旧档）">💾 存档点</button>
         <button class="tool" data-tool="scorePlus" title="得分点：经过加分（默认 +1，选中后可在「分值」里改）">➕ 得分</button>
         <button class="tool" data-tool="scoreMinus" title="扣分点：经过扣分（默认 -1，选中后可在「分值」里改）">➖ 扣分</button>
         <button class="tool" data-tool="button" title="按钮：点击/经过/条件触发动作（点击后在下方面板配置）">🔘 按钮</button>
@@ -2146,7 +2148,7 @@
           <button id="obj-cond-save" class="act" title="只把这里的条件写进按钮的触发条件，不改已有动作">✔ 应用条件</button>
         </label>
         <span class="field" id="obj-pulse-row" style="display:none">脉冲
-          <input id="obj-pulseevery" type="number" min="0" step="0.1" placeholder="留空=只触发一次" style="width:88px" title="脉冲间隔（秒）：留空 = 只在被点击 / 被踩到的那一刻触发一次；填了数字 = 取消那一次瞬间触发，改成「每隔这么多秒检测一次按钮此刻是否被按下 / 玩家是否还站在这一格」，成立才执行，可以反复触发；填 0 = 每一帧检测一次（等于间隔无穷小，最快，不会卡）">
+          <input id="obj-pulseevery" type="number" min="0" step="0.1" placeholder="留空=只触发一次" style="width:88px" title="脉冲间隔（秒）：留空 = 只在被点击 / 被踩到的那一刻触发一次；填了数字 = 取消那一次瞬间触发，改成「每隔这么多秒检测一次按钮此刻是否被按下 / 玩家是否还站在这一格」，成立才执行，可以反复触发；填 0 = 每一帧检测一次（最灵敏；只改分数 / 变量的脉冲已经优化过不会掉帧，但动作是「生成物体 / 移动 / 改格子颜色」这类时建议先用 0.05~0.1s）">
           <label id="obj-clickswipe-wrap" title="勾上后，手指（鼠标）从这一格划过去，不用点下去也算按下这个按钮"><input type="checkbox" id="obj-clickswipe" style="vertical-align:-2px"> 手指划过也算触发</label>
         </span>
         <label class="field">动作
@@ -2231,6 +2233,7 @@
             <option value="end">终点 E</option>
             <option value="fog">雾霾</option>
             <option value="redBlock">红障碍</option>
+            <option value="savepoint">存档点</option>
             <option value="score+">得分点</option>
             <option value="score-">扣分点</option>
             <option value="button">按钮</option>
@@ -2902,7 +2905,7 @@
           ③ <b>同一个按钮挂了多个触发器：按触发器列表从上到下</b> 全部执行；<br>
           ④ <b>一个按钮的多个动作：按动作列表从上到下</b> 依次执行；<br>
           ⑤ <b>带脉冲间隔的触发排在最后</b>：它们不参与上面这些「瞬间触发」，只在每帧的脉冲轮询里按间隔命中。</p>
-        <p><b>脉冲间隔（可反复触发）</b>：按钮的「脉冲间隔（秒）」<b>留空</b> = 只在点击 / 踩到的那一刻触发一次；<b>填了数字</b> = <b>取消那一次瞬间触发</b>，改成「每隔这么多秒检测一次——此刻按钮是否还被按着 / 玩家是否还站在这一格——成立才执行一次」，按住不放 / 站住不动就会一直重复。<b>填 0</b> = 每一帧检测一次（等于间隔无穷小，最快，不会卡）。条件触发器的「一成立立刻触发一次」仍然保留，只是之后接着按间隔重复。</p>
+        <p><b>脉冲间隔（可反复触发）</b>：按钮的「脉冲间隔（秒）」<b>留空</b> = 只在点击 / 踩到的那一刻触发一次；<b>填了数字</b> = <b>取消那一次瞬间触发</b>，改成「每隔这么多秒检测一次——此刻按钮是否还被按着 / 玩家是否还站在这一格——成立才执行一次」，按住不放 / 站住不动就会一直重复。<b>填 0</b> = 每一帧检测一次（最灵敏；只改分数 / 变量的脉冲已经优化过不会掉帧，但动作是「生成物体 / 移动 / 改格子颜色」这类时建议先用 0.05~0.1s）。条件触发器的「一成立立刻触发一次」仍然保留，只是之后接着按间隔重复。</p>
         <p><b>条件的「且 / 或 / 非」</b>：条件触发器除了第一条子句，还能再挂一条——「逻辑」选 <b>且</b>（两条都成立）、<b>或</b>（任意一条成立）、<b>非</b>（把第一条取反）；选了且 / 或之后会多出「第二条」指标 + 区间，勾上它后面的「取反」就是 <b>且非 / 或非</b>。例：九宫格迷宫要「<code>x0&lt;10 且 y0&lt;10</code>」→ 第一条 <code>x0 &lt; 10</code>、逻辑选「且」、第二条 <code>y0 &lt; 10</code>。</p>
         <p><b>得分 / 扣分与变量</b>：得分点、扣分点、按钮的加减分都能改分值（可填负数，也可填变量名）；变量是每关独立的一本小账本，动作能设值 / 加减 / 乘除，条件里能读；<code>x0</code> / <code>y0</code> 是<b>玩家路径末端</b>的横 / 纵坐标（和 <code>x1</code> / <code>y1</code> 指第 1 号物体的位置并列）。</p>
         <p><b>操作</b>：编辑器里选好工具后点击格子；红/绿边先点一格再点相邻格（含斜向）；数字格先在「数字」输入框填范围（两个框都填 = 区间 a~b，只填第一个 = 精确步数；都留空点击可移除数字）再点格子；答案路径从 S 开始点或拖动画线（与试玩规则相同），可用「撤销一步答案」逐步回退；试玩时从 S 开始点或拖动画线、可显示序号。</p>
@@ -4580,6 +4583,9 @@ function _reachSet(s) {
         };
         if (!act || !act.op) return out;
         const op = act.op;
+        /* fix65：0s 脉冲 + spawn 动作会让物体表无限增长（实测 240 帧涨到 241 个），
+           每个物体每帧都要过一遍触发器，越玩越卡。上限 1500 个，超了就不再生成。 */
+        if ("spawn" === op && this.map && this.map.size >= 1500) return out;
         if ("spawn" === op && World.isEdgeKind(act.kind)) {
           const LL = this.level;
           if (!LL) return out;
@@ -5051,8 +5057,15 @@ function _reachSet(s) {
           _ms = Math.max(0, Number(dt) || 0),
           _ptr = this._ptr || null,
           _stand = this._stand || null,
+          /* fix65：一帧里 _fire 的次数 = 物体数 × 触发器数，0s 脉冲下会成倍叠加，
+             每个 _fire 还可能展开成一串 apply。给单帧一个总量预算，超了就这一帧不再触发（下一帧继续），
+             避免「物体一多就瞬间卡死」。 */
+          _budget = {
+            n: 64
+          },
           _fire = (o) => {
-            this._self = o;
+            if (_budget.n <= 0) return;
+            _budget.n--, this._self = o;
             for (const a of (o.actions || [])) out.push(this.apply(a));
             this._self = null
           };
@@ -5304,7 +5317,10 @@ function _reachSet(s) {
           lastK: 0
         };
         Array.isArray(cells) && cells.length && (an.cells = cells.map((q => [+q[0], +q[1]])));
-        o._anims = Array.isArray(o._anims) ? o._anims : [], o._anims.push(an),
+        o._anims = Array.isArray(o._anims) ? o._anims : [],
+          /* fix65：0s 脉冲每帧压一条移动动画，原来没有上限 —— 实测 60 帧就堆到 56 条，
+             而 tick 每帧要把这些条目全遍历一遍（各自还要 _featSyncMove）。只保留最近 24 条，丢最旧的。 */
+          o._anims.length >= 24 && o._anims.splice(0, o._anims.length - 23), o._anims.push(an),
           o._pos = { r: +from.r, c: +from.c }, o._anim = o._anims[o._anims.length - 1];
         return an
       };
@@ -6218,6 +6234,7 @@ function _reachSet(s) {
                     start: 1,
                     "end": 1,
                     redBlock: 1,
+                    savepoint: 1,
                     "score+": 1,
                     "score-": 1,
                     text: 1,
@@ -6295,6 +6312,10 @@ function _reachSet(s) {
                         t.globalAlpha = ob.enabled ? 1 : .35, t.fillStyle = "#e53935", i(t, c + 1, h + 1, s - 2, s - 2, .12 * s), t.fill(), t.strokeStyle = "#7f1d1d", t.lineWidth = Math.max(1.5, .05 * s);
                         const oo = .2 * s;
                         t.beginPath(), t.moveTo(f - oo, g - oo), t.lineTo(f + oo, g + oo), t.moveTo(f - oo, g + oo), t.lineTo(f + oo, g - oo), t.stroke(), t.globalAlpha = 1
+                      } else if ("savepoint" === ob.kind) {
+                        t.globalAlpha = ob.enabled ? 1 : .35, t.fillStyle = "rgba(0,137,123,0.16)", i(t, c + 1, h + 1, s - 2, s - 2, .12 * s), t.fill(), t.strokeStyle = "#00897b", t.lineWidth = Math.max(1.2, .045 * s);
+                        const _spx = c + .32 * s, _spt = h + .24 * s, _spb = h + .78 * s;
+                        t.beginPath(), t.moveTo(_spx, _spb), t.lineTo(_spx, _spt), t.stroke(), t.beginPath(), t.moveTo(_spx, _spt), t.lineTo(_spx + .34 * s, _spt + .11 * s), t.lineTo(_spx, _spt + .22 * s), t.closePath(), t.fillStyle = "#00897b", t.fill(), t.globalAlpha = 1
                       }
                     }
                     if (_opts && _opts.showIds) {
@@ -6347,6 +6368,10 @@ function _reachSet(s) {
                           t.fillStyle = "#e53935", i(t, _hx + 1, _hy + 1, s - 2, s - 2, .12 * s), t.fill(), t.strokeStyle = "#7f1d1d", t.lineWidth = Math.max(1.5, .05 * s);
                           const _zz = .2 * s;
                           t.beginPath(), t.moveTo(_cx - _zz, _cy - _zz), t.lineTo(_cx + _zz, _cy + _zz), t.moveTo(_cx - _zz, _cy + _zz), t.lineTo(_cx + _zz, _cy - _zz), t.stroke()
+                        } else if ("savepoint" === kd) {
+                          t.fillStyle = "rgba(0,137,123,0.16)", i(t, _hx + 1, _hy + 1, s - 2, s - 2, .12 * s), t.fill(), t.strokeStyle = "#00897b", t.lineWidth = Math.max(1.2, .045 * s);
+                          const _sl2 = _hx + .32 * s, _st2 = _hy + .24 * s, _sb2 = _hy + .78 * s;
+                          t.beginPath(), t.moveTo(_sl2, _sb2), t.lineTo(_sl2, _st2), t.stroke(), t.beginPath(), t.moveTo(_sl2, _st2), t.lineTo(_sl2 + .34 * s, _st2 + .11 * s), t.lineTo(_sl2, _st2 + .22 * s), t.closePath(), t.fillStyle = "#00897b", t.fill()
                         } else if ("score+" === kd || "score-" === kd) {
                           const _pos = "score+" === kd;
                           t.shadowColor = _pos ? "rgba(46,224,110,0.95)" : "rgba(240,74,74,0.95)", t.shadowBlur = Math.max(4, .22 * s), t.fillStyle = _pos ? "#2ee06e" : "#f04a4a", t.beginPath(), t.arc(_cx, _cy, .2 * s, 0, 2 * Math.PI), t.fill(), t.shadowBlur = 0, t.strokeStyle = "rgba(255,255,255,0.85)", t.lineWidth = Math.max(1, .03 * s), t.beginPath(), t.arc(_cx, _cy, .2 * s, 0, 2 * Math.PI), t.stroke(), (function() { const _mv = Math.abs(Number((_pr2 || {}).delta)) || 1; 1 === _mv || (t.fillStyle = _pos ? "#0b3d1f" : "#4a0f0f", t.font = "bold " + Math.max(7, .18 * s) + 'px "Segoe UI", system-ui, sans-serif', t.textAlign = "center", t.textBaseline = "middle", t.fillText(String(_mv), _cx, _cy + .01 * s)) })()
@@ -6671,7 +6696,7 @@ function _reachSet(s) {
       let _applyCell = null;
 
       function _isBatchTool(k) {
-        return ["fog", "redBlock", "scorePlus", "scoreMinus", "button", "text", "obstacle", "hub", "diagonal", "gray", "number", "subpixel", "erase"].indexOf(k) >= 0
+        return ["fog", "redBlock", "savepoint", "scorePlus", "scoreMinus", "button", "text", "obstacle", "hub", "diagonal", "gray", "number", "subpixel", "erase"].indexOf(k) >= 0
       }
 
       function _batchBegin(cell) {
@@ -7746,6 +7771,7 @@ function _reachSet(s) {
           "score-": "扣分点",
           button: "按钮",
           text: "文本",
+          savepoint: "存档点",
           score: "得分物"
         }[k] || (k || "?")
       }
@@ -8170,12 +8196,14 @@ function _reachSet(s) {
               }
               case "fog":
               case "redBlock":
+              case "savepoint":
               case "scorePlus":
               case "scoreMinus":
               case "button": {
                 const kindMap = {
                     fog: "fog",
                     redBlock: "redBlock",
+                    savepoint: "savepoint",
                     scorePlus: "score+",
                     scoreMinus: "score-",
                     button: "button"
@@ -8333,7 +8361,7 @@ function _reachSet(s) {
           zo = L("in-set-zoom"), iz = L("in-set-izoom"), ck = L("in-set-click"),
           dg = L("in-set-drag"), un = L("in-set-undo"), bd = L("in-set-border"), bm = L("in-set-batch"),
           um = L("in-set-undo-mode");
-        zo && (st.allowZoom = !!zo.checked), ck && (st.clickDraw = !!ck.checked),
+          zo && (st.allowZoom = !!zo.checked), ck && (st.clickDraw = !!ck.checked),
           dg && (st.dragDraw = !!dg.checked), un && (st.allowUndo = !!un.checked),
           bd && (st.showBorder = !!bd.checked), L("in-set-grid") && (st.showGrid = !!L("in-set-grid").checked), bm && (st.batchMode = "rect" === bm.value ? "rect" : "brush"),
           um && (st.undoMode = "path" === um.value ? "path" : "legacy"), L("in-set-autoview") && (st.autoView = !!L("in-set-autoview").checked);
@@ -8347,7 +8375,7 @@ function _reachSet(s) {
           zo = L("in-set-zoom"), iz = L("in-set-izoom"), ck = L("in-set-click"),
           dg = L("in-set-drag"), un = L("in-set-undo"), bd = L("in-set-border"), bm = L("in-set-batch"),
           um = L("in-set-undo-mode");
-        zo && (zo.checked = !1 !== st.allowZoom), ck && (ck.checked = !1 !== st.clickDraw),
+          zo && (zo.checked = !1 !== st.allowZoom), ck && (ck.checked = !1 !== st.clickDraw),
           dg && (dg.checked = !1 !== st.dragDraw), un && (un.checked = !1 !== st.allowUndo),
           bd && (bd.checked = !1 !== st.showBorder), L("in-set-grid") && (L("in-set-grid").checked = !1 !== st.showGrid), bm && (bm.value = "rect" === st.batchMode ? "rect" : "brush"),
           um && (um.value = "path" === st.undoMode ? "path" : "legacy"), L("in-set-autoview") && (L("in-set-autoview").checked = !0 === st.autoView),
@@ -10493,6 +10521,7 @@ function _reachSet(s) {
         _lpAt = null,
         _cdFrom = -1,
         _run = [],
+        _saves = [],
         _rp = null,
         _rpSpeed = 1;
 
@@ -10631,23 +10660,30 @@ function _reachSet(s) {
 
       function _showScore() {
         if (!_world || !e) return !1;
+        /* fix65：这个判定每帧会被 _hud / z / S 调好几次，每次都要遍历整关的物体与触发器。
+           结果只跟关卡定义有关，500ms 内的重复调用直接吃缓存，省掉 0s 脉冲下的每帧全表扫描。 */
+        const _sc = _world._ssc;
+        if (_sc && _sc.e === e && Date.now() - _sc.t < 500) return _sc.v;
+        let _v = !1;
         for (const o of (e.objects || [])) {
           if (!o) continue;
           const k = o.kind || "";
-          if ("button" === k || "score" === k || "score+" === k || "score-" === k) return !0;
+          if ("button" === k || "score" === k || "score+" === k || "score-" === k) { _v = !0; break }
           for (const tr of (o.triggers || [])) {
             const c = tr && tr.cond;
-            if (c && (void 0 !== c.scoreMin || void 0 !== c.scoreMax)) return !0
+            if (c && (void 0 !== c.scoreMin || void 0 !== c.scoreMax)) { _v = !0; break }
           }
+          if (_v) break
         }
-        return !1
+        return _world._ssc = { e: e, t: Date.now(), v: _v }, _v
       }
 
       function _hud() {
         const t = x("p-score");
         if (t) {
-          const on = _showScore();
-          t.style.display = on ? "" : "none", on && (t.textContent = "🏆 得分 " + _world.score)
+          const on = _showScore(), _tx = "🏆 得分 " + _world.score;
+          /* fix65：0s 脉冲每帧都可能把得分 +1，原来无条件写一遍 textContent = 每帧一次 DOM 写入。文本没变就不写。 */
+          t.style.display = on ? "" : "none", on && t.textContent !== _tx && (t.textContent = _tx)
         }
         const tm = x("p-time");
         if (!tm || !e) return;
@@ -10667,18 +10703,30 @@ function _reachSet(s) {
 
       function _events(evs) {
         if (!evs || !evs.length) return;
-        let hit = !1;
+        let hit = !1, _scD = 0, aborted = !1;
         for (const ev of evs) {
-          if ("score" === ev.kind) hit = !0, ev.delta >= 0 ? App.toast("🎯 得分 +" + ev.delta + "（当前 " + _world.score + "）") : App.toast("💔 得分 " + ev.delta + "（当前 " + _world.score + "）");
+          /* fix65：0s 脉冲每帧都可能加分。原来「每次得分弹一条 toast」= 每帧一次 DOM 写入 + 定时器抖动，
+             这是掉帧的第二大来源。现在把本帧所有得分合并成一个数字，循环结束后按 250ms 节流弹一次；
+             分数本身在 HUD 与状态栏是逐帧实时的，不依赖 toast。 */
+          if ("score" === ev.kind) hit = !0, _scD += Number(ev.delta) || 0;
           else if ("text" === ev.kind) hit = !0, _showTextModal(ev.text, ev);
           else if ("reset" === ev.kind) {
-            _totalMs = ("number" == typeof _totalMs ? _totalMs : 0) + ("number" == typeof y ? y : 0) + (Date.now() - ("number" == typeof c ? c : Date.now())), y = 0, c = Date.now(), _snaps = [], _run = [], i = [], done = [], paused = [], r = !1, b = new Set, m = null,
+          /* fix66：有有效存档时不再完全重开，直接退回最近的存档点 */
+          if (_backToSave()) { hit = !0, aborted = !0; break }
+            _totalMs = ("number" == typeof _totalMs ? _totalMs : 0) + ("number" == typeof y ? y : 0) + (Date.now() - ("number" == typeof c ? c : Date.now())), y = 0, c = Date.now(), _snaps = [], _saves = [], _run = [], i = [], done = [], paused = [], r = !1, b = new Set, m = null,
               function() { try { _tipHide() } catch (e) {} }(), _world && _world.reset(), hit = !0, _hud(), z(), S(),
               App.toast("⛔ 踩到重置物：已完全重新开始（总用时 " + (Math.round(_totalMs / 100) / 10) + "s 保留）")
           }
           else "actions" === ev.kind && (hit = !0)
         }
-        hit && _world && (_world.touch(), n = _an())
+        /* fix65：本帧得分合并成一条 toast，250ms 内最多弹一次（单次得分本来就间隔够，文案不变）。 */
+        if (_world && _scD) {
+          const _nw = Date.now(), _scT = _world._sct || (_world._sct = { t: 0 });
+          _nw - (_scT.t || 0) >= 250 && (_scT.t = _nw, _scD > 0 ? App.toast("🎯 得分 +" + _scD + "（当前 " + _world.score + "）") : App.toast("💔 得分 " + _scD + "（当前 " + _world.score + "）"))
+        }
+        /* fix65：把这次算出来的分析结果挂到 world 上，_loop 里就不用再算第二遍。 */
+        hit && _world && (_world.touch(), n = _an(), _world._frameAn = n)
+        return aborted
       }
 
       function _advance(pv) {
@@ -10697,7 +10745,12 @@ function _reachSet(s) {
         for (let k = pv; k < seq.length; k++) {
           if (!i.length) break;
           const cell = seq[k];
-          _events(_world.pass(cell[0], cell[1], ctx)), ctx.steps = _steps()
+          if (_events(_world.pass(cell[0], cell[1], ctx))) break;
+          if (!_rp && _hasSavepoint()) {
+            const _so = _saveObjAt(cell[0], cell[1]);
+            _so && _recordSave(_so, k)
+          }
+          ctx.steps = _steps()
         }
         _snaps.length > 400 && _snaps.splice(0, _snaps.length - 400), _hud(), z(), S()
       }
@@ -10722,6 +10775,100 @@ function _reachSet(s) {
         "number" == typeof rec.dlen && (done = done.slice(0, rec.dlen));
         return _hud(), rec
       }
+      /* ===================== fix66：存档点 ===================== */
+      function _saveObjAt(r, c) {
+        if (!_world) return null;
+        /* 注意：运行时 spawn 出来的物体 visible 可能是 undefined（apply 只在 cell-kind 上补默认值），
+           这里统一按「不是明确 false 就算可见」判断，和渲染/判定的实际语义一致。 */
+        const rr = r | 0,
+          cc = c | 0,
+          hit = (o => !!(o && "savepoint" === o.kind && !o.deleted && !1 !== o.enabled && o.place && "cell" === o.place.type && (o.place.r | 0) === rr && (o.place.c | 0) === cc));
+        for (const o of _world.map.values())
+          if (hit(o)) return o;
+        let f = null;
+        return _world._virt && _world._virt.forEach((o => { !f && hit(o) && (f = o) })), f
+      }
+      function _saveAlive(rec) {
+        if (!rec || !_world) return !1;
+        const o = _world.get(rec.oid);
+        return !!(o && "savepoint" === o.kind && !1 !== o.enabled && !o.deleted && !1 !== o.visible && o.place && "cell" === o.place.type)
+      }
+      /* fix66：判定「本关有没有存档点」每帧会被 _hud 调一次，500ms 内吃缓存（与 _showScore 同思路） */
+      function _hasSavepoint() {
+        if (!e) return !1;
+        const c0 = e._hspC;
+        if (c0 && Date.now() - c0.t < 500) return c0.v;
+        let v = !1;
+        for (const o of (e.objects || [])) {
+          if (!o || o.deleted) continue;
+          if ("savepoint" === o.kind) { v = !0; break }
+          for (const a of (o.actions || []))
+            if (a && "spawn" === a.op && "savepoint" === a.kind) { v = !0; break }
+          if (v) break;
+          for (const tr of (o.triggers || [])) {
+            for (const a2 of ((tr && tr.actions) || []))
+              if (a2 && "spawn" === a2.op && "savepoint" === a2.kind) { v = !0; break }
+            if (v) break
+          }
+          if (v) break
+        }
+        return e._hspC = { t: Date.now(), v: v }, v
+      }
+      function _recordSave(obj, idx) {
+        if (!_world || !e) return;
+        /* fix66：同一格里的事件刚刚把路径重置掉了（存档点和红障碍同格、或者按钮在本格清空路径），说明
+           这一格已经不在路径里，这时不能再留一个空档占位（否则存档会平白少一次、还会退到空路径）。 */
+        const _pc = i[idx];
+        if (!_pc || (_pc[0] | 0) !== (obj.place.r | 0) || (_pc[1] | 0) !== (obj.place.c | 0)) return;
+        const rec = {
+          oid: obj.id,
+          cells: i.slice(0, idx + 1).map((u => [u[0], u[1]])),
+          done: done.map((s2 => s2.map((u => [u[0], u[1]])))),
+          paused: paused.map((s2 => s2.map((u => [u[0], u[1]])))),
+          run: _run.slice(),
+          snapsLen: _snaps.length,
+          /* v2.0.4：存档那一刻的回退快照栈（浅拷贝；快照里的 ref 数组不会被就地改写，
+             所以这份备份始终等于存档当时的撤销历史）。回到这个档时整栈还原。 */
+          snapBackup: _snaps.slice(),
+          snap: _world.snapshot(),
+          totalMs: _totalMs,
+          curMs: X()
+        };
+        /* 同一个存档点再次经过 → 覆盖旧档，并挪到栈顶 */
+        _saves = _saves.filter((x2 => x2.oid !== obj.id)), _saves.push(rec),
+          _saves.length > 64 && _saves.splice(0, _saves.length - 64),
+          App.toast("💾 已存档（第 " + _saves.length + " 档）")
+      }
+      function _applySave(rec) {
+        i = rec.cells.map((u => [u[0], u[1]])),
+          done = rec.done.map((s2 => s2.map((u => [u[0], u[1]])))),
+          paused = rec.paused.map((s2 => s2.map((u => [u[0], u[1]])))),
+          _run = rec.run.slice(),
+          /* v2.0.4：整栈还原到存档那一刻的撤销历史。
+             旧实现是 _snaps.slice(0, Math.min(rec.snapsLen, _snaps.length))：
+             存档后又往回走过几步时，快照栈比存档那一刻更短，Math.min 退化成「全留」，
+             存档之后那段路（含踩进红障碍前那一步）的快照还留在栈里，下一次「往回走」
+             弹出的正是那一步 → 路径跳到红障碍前一格（用户报的那个 bug）。 */
+          _snaps = Array.isArray(rec.snapBackup) ? rec.snapBackup.slice() : _snaps.slice(0, Math.min(rec.snapsLen, _snaps.length)),
+          ((function() { try { _world && (_world.restore(rec.snap), _world.touch()) } catch (_e) {} })()),
+          _totalMs = rec.totalMs, y = rec.curMs, c = Date.now(),
+          r = !1, m = null;
+        try { _tipHide() } catch (_t) {}
+        _world && _world.standTo(i.length ? i[i.length - 1] : null),
+          B(), P(), n = _an(), _hud(), S(), z()
+      }
+      /* fix67：只看栈顶那一档、不动存档栈 —— 踩到红障碍时自动退回这一档（不消耗存档） */
+      function _peekSave() {
+        _saves = _saves.filter(_saveAlive);
+        return _saves.length ? _saves[_saves.length - 1] : null
+      }
+      function _backToSave() {
+        /* 踩到红障碍只是「回到」最近一个存档点，**不消耗**存档 —— 同一个档可以无限次兜底。 */
+        const rec = _peekSave();
+        if (!rec) return !1;
+        return _applySave(rec), App.toast("💾 踩到红障碍：已回到最近的存档点"), !0
+      }
+      /* __SAVEPOINT66_END__ */
 
       function _showTextModal(txt, ev) {
         const t = x("p-textbox");
@@ -10815,6 +10962,7 @@ function _reachSet(s) {
           pr = o.props || {};
         if ("fog" === k) return "🌫 雾霾（可以进入 · 雾中只能看清一步）";
         if ("redBlock" === k) return "🧱 红障碍（碰到会重置）";
+        if ("savepoint" === k) return "💾 存档点（经过即存档 · 踩红障碍回到最近存档点）";
         if ("score+" === k) return "➕ 得分点（经过 +" + _kdv(pr) + " 分）";
         if ("score-" === k) return "➖ 扣分点（经过 -" + _kdv(pr) + " 分）";
         if ("score" === k) {
@@ -10866,14 +11014,20 @@ function _reachSet(s) {
           let txt = "#" + id + " " + _kindText(o);
           o.enabled || (txt += "（已禁用）"), o.place && "cell" === o.place.type && (txt += " @(" + o.place.r + "," + o.place.c + ")"), o._anim && (txt += "（移动中）"), lines.push(txt)
         }
-        el.textContent = lines.join("\n"), el.classList.remove("hidden"), el.style.display = "";
-        const rect = t.getBoundingClientRect(),
-          m = Render.metrics(lv, rect.width, rect.height, p);
-        let px = rect.left + m.ox + (c + 1) * m.cs + 6,
-          py = rect.top + m.oy + r * m.cs;
-        const w = el.offsetWidth || 200,
-          hh = el.offsetHeight || 60;
-        px = Math.max(6, Math.min((window.innerWidth || 360) - w - 6, px)), py = Math.max(6, Math.min((window.innerHeight || 640) - hh - 6, py)), el.style.left = px + "px", el.style.top = py + "px"
+        /* fix65：这段原来每帧都做 textContent 写入 + getBoundingClientRect（强制重排）+ offsetWidth。
+           0s 脉冲开着的时候每帧一次重排，比分析路径还贵。内容没变就只保证显示，不动 DOM。 */
+        const _t0 = lines.join("\n");
+        if (el._tipTxt !== _t0) {
+          el._tipTxt = _t0, el.textContent = _t0;
+          const rect = t.getBoundingClientRect(),
+            m = Render.metrics(lv, rect.width, rect.height, p);
+          let px = rect.left + m.ox + (c + 1) * m.cs + 6,
+            py = rect.top + m.oy + r * m.cs;
+          const w = el.offsetWidth || 200,
+            hh = el.offsetHeight || 60;
+          px = Math.max(6, Math.min((window.innerWidth || 360) - w - 6, px)), py = Math.max(6, Math.min((window.innerHeight || 640) - hh - 6, py)), el.style.left = px + "px", el.style.top = py + "px"
+        }
+        el.classList.remove("hidden"), el.style.display = ""
       }
 
       /* ===== fix36: 时间轴回放 ===== */
@@ -10930,15 +11084,52 @@ function _reachSet(s) {
         bar && (bar.classList.remove("hidden"), bar.style.display = ""),
           App.toast("🎬 开始回放（默认 " + _rpSpeed + "×，可点 0.5 / 1 / 2 / 4）")
       }
+      /* fix65：事件分档 —— 软事件（只改分数 / 变量）不改变关卡结构与视觉，可以跳过 analyzePath 与整屏重绘。 */
+      const _SOFT_OPS = {
+          score: 1,
+          varset: 1,
+          varadd: 1,
+          varsub: 1,
+          varmul: 1,
+          vardiv: 1
+        },
+        _PAINT_OPS = {
+          subpixel: 1
+        };
+      /* 返回 0 = 软（只刷 HUD / 状态栏）、1 = 只重绘、2 = 需要重新分析 */
+      function _evsClass(evs) {
+        if (!evs || !evs.length) return 0;
+        let lv = 0;
+        for (let i2 = 0; i2 < evs.length; i2++) {
+          const ev = evs[i2];
+          if (!ev) return 2;
+          if ("score" === ev.kind) continue;
+          if (ev.kind) return 2;
+          if (_SOFT_OPS[ev.op]) continue;
+          if (_PAINT_OPS[ev.op]) { lv = 1; continue }
+          return 2
+        }
+        return lv
+      }
+
       function _loop(ts) {
         if (!_world || !e) return void(_raf = 0);
         _raf = window.requestAnimationFrame(_loop);
         const dt = _last ? Math.min(120, Math.max(0, ts - _last)) : 16;
         _last = ts;
         _rp && _rp.on && _rpTick(dt);
+        _world._frameAn = null;
         const moving = _world.tick(dt),
           evs = _world.step(_ctx(), dt);
-        _hud(), _lpIds && _tipUpdate(), evs.length && _events(evs), (moving || evs.length) && (n = _an(), _hud(), S(), z())
+        _hud(), _lpIds && _tipUpdate(), evs.length && _events(evs);
+        /* fix65：0s 脉冲每帧都产出事件，原来「有事件就 n = _an() + S() + z()」= 每帧跑一遍 analyzePath
+           （99×99 两笔画实测 ≈21ms）再加一次整屏重绘，直接掉到十几帧。现在按事件性质分三档：
+             _cls = 0  软事件（只改分数 / 变量）：路径分析结果不会变，只刷 HUD 与状态栏；
+             _cls = 1  只改视觉（subpixel 改格子颜色）：重绘，但不重新分析；
+             _cls = 2  硬事件（spawn / 删除 / 改边 / reset / actions…）：完整跑 n = _an() + S()。
+           移动中（moving）仍然每帧全绘，因为物体位置在变。 */
+        const _cls = evs.length ? _evsClass(evs) : 0;
+        moving || 2 === _cls ? (n = _world._frameAn || _an(), _hud(), S(), z()) : 1 === _cls ? (S(), z()) : evs.length && z()
       }
 
       function _startLoop() {
@@ -10946,7 +11137,7 @@ function _reachSet(s) {
       }
 
       function C() {
-        i = [], done = [], paused = [], _snaps = [], _run = [], _rp = null, r = !1, b = new Set, m = null, y = 0, c = Date.now(), _tipHide(), _world && _world.reset(), _hud();
+        i = [], done = [], paused = [], _snaps = [], _saves = [], _run = [], _rp = null, r = !1, b = new Set, m = null, y = 0, c = Date.now(), _tipHide(), _world && _world.reset(), _hud();
         const t = x("p-answer");
         t && (t.textContent = "👁 查看答案"), n = analyzePath(_lv(), i), P(), B(), S(), z()
       }
@@ -11149,7 +11340,7 @@ function _reachSet(s) {
         /* fix48 需求1：清空路径 / 重来 不能把已经花掉的时间抹掉。
            以前这里直接把 y 归零，于是「初见总用时」= _totalMs + 本轮，中途清一次就少一大截，
            最后进榜的数字和「本轮用时」几乎一样。现在先把当前这一轮并进 _totalMs 再归零。 */
-        if (_totalMs = ("number" == typeof _totalMs ? _totalMs : 0) + ("number" == typeof y ? y : 0) + (Date.now() - ("number" == typeof c ? c : Date.now())), i = [], done = [], paused = [], _snaps = [], _run = [], r = !1, y = 0, c = Date.now(), _world && _world.reset(), _hud())
+        if (_totalMs = ("number" == typeof _totalMs ? _totalMs : 0) + ("number" == typeof y ? y : 0) + (Date.now() - ("number" == typeof c ? c : Date.now())), i = [], done = [], paused = [], _snaps = [], _saves = [], _run = [], r = !1, y = 0, c = Date.now(), _world && _world.reset(), _hud())
         n = analyzePath(_lv(), i), S(), z(), B()
       }
 
@@ -11181,7 +11372,8 @@ function _reachSet(s) {
           a += " · 限时 " + e.timeLimit + "s·当前 " + gradeOf(i) + "（" + (t / 1e3).toFixed(0) + "s）"
         }
         _showScore() && (a = "🏆 得分 " + _world.score + " ｜ " + a), r ? a = "🎉 通关成功！" + a : t.errors.length ? a += " ｜ ⚠ " + t.errors[0] : a += " ｜ 继续画线，目标：" + t.missingCells.length + " 个普通格 / " + t.missingHubs.length + " 个枢纽 / " + t.missingGreens.length + " 条绿边未覆盖";
-        App.setStatus(a)
+        /* fix65：状态栏 innerHTML 每帧赋一遍同样的串也会触发重排，文本没变就跳过。 */
+        a !== App._statusLast && (App._statusLast = a, App.setStatus(a))
       }
 
       function N() {
@@ -11538,7 +11730,7 @@ function _reachSet(s) {
         reset: C,
         render: S,
         stop: function() {
-          _world = null, _snaps = [], _raf && window.cancelAnimationFrame(_raf), _raf = 0, _last = 0, i = [], done = [], paused = [], r = !1, n = null, o = !1, l = !1, b = new Set, m = null, y = 0;
+          _world = null, _snaps = [], _saves = [], _raf && window.cancelAnimationFrame(_raf), _raf = 0, _last = 0, i = [], done = [], paused = [], r = !1, n = null, o = !1, l = !1, b = new Set, m = null, y = 0;
           const t = x("p-answer");
           if (t && (t.textContent = "👁 查看答案"), P(), B(), "undefined" != typeof Music) try {
             Music.stop()
@@ -17154,8 +17346,8 @@ function _reachSet(s) {
             } catch (e) {}
           }), !0);
           try {
-            const e = "v2.0.1";
-            window.__ver = e, window.__build = "fix64", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            const e = "v2.0.4";
+            window.__ver = e, window.__build = "v2.0.4", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
