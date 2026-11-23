@@ -130,6 +130,63 @@
       -webkit-overflow-scrolling: touch
     }
 
+    /* v2.1.0 需求4：编辑器分区标签 + 分组行 + 常驻操作条 */
+    .ed2-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      position: sticky;
+      top: -8px;
+      z-index: 8;
+      padding: 3px 0 6px;
+      background: rgba(255, 255, 255, .98);
+      border-bottom: 1px solid #e3eaf1
+    }
+    .ed2-tab {
+      padding: 5px 12px;
+      min-height: 30px;
+      font-size: 12.5px;
+      border-radius: 8px;
+      background: #f2f6fa;
+      border: 1px solid #d7e2ec;
+      color: #4a5b6a
+    }
+    .ed2-tab.on {
+      background: #1a73e8;
+      border-color: #1a73e8;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(26, 115, 232, .28)
+    }
+    .ed2-pane {
+      display: none;
+      flex-direction: column;
+      gap: 6px
+    }
+    .ed2-pane.on {
+      display: flex
+    }
+    .ed2-lbl {
+      flex: 0 0 auto;
+      font-size: 11px;
+      color: #748791;
+      padding: 1px 6px;
+      border-radius: 5px;
+      background: #eef3f8;
+      line-height: 1.9
+    }
+    .ed2-dock {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      position: sticky;
+      bottom: -8px;
+      z-index: 8;
+      margin-top: 2px;
+      padding: 6px 0 2px;
+      border-top: 1px solid #e3eaf1;
+      background: rgba(255, 255, 255, .98)
+    }
     .objacts {
       display: block;
       width: 100%;
@@ -1993,85 +2050,72 @@
       <button id="pvp-room-btn" class="act">⚔️ 房间</button>
     </div>
     <section class="toolbar">
-      <div class="tool-row">
-        <button class="tool" data-tool="select" title="选择：点格子选中其中的物体（不改动棋盘）">👆 选择</button>
-        <button class="tool" data-tool="se" title="S/E 分组：点已有的 S 或 E 可以设置它属于第几组（同组号的 S 与 E 配对）；点空格自动补一个">🔗 S/E 分组</button>
-        <button class="tool" data-tool="start" title="起点：点空格加一个 S（自动编号 S1、S2…），点已有的 S 移除">🟦 S</button>
-        <button class="tool" data-tool="end" title="终点：点空格加一个 E（自动编号 E1、E2…），点已有的 E 移除">🟪 E</button>
-        <button class="tool" data-tool="obstacle" title="障碍格">⬛ 障碍</button>
-        <button class="tool" data-tool="hub" title="枢纽（可多次经过）">⭕ 枢纽</button>
-        <button class="tool" data-tool="diagonal" title="斜向连线格（可斜向进出；可与灰格/起终点叠加）">╳ 斜向</button>
-        <button class="tool" data-tool="gray" title="灰色格：可以不经过（可与枢纽/斜向/起终点叠加）">⬜ 灰格</button>
-        <button class="tool" data-tool="number" title="数字格：要求第 a~b 步之间到达（两个框都填=区间；可与终点/斜向/灰格重合，不可与枢纽重合）">🔢 数字</button>
-        <button class="tool" data-tool="tunnel" title="隧道口：同组号的隧道口互通——从任一口进去，可从同组任意另一个口出来（也可以不走）；刚出来不能马上回去，至少要兜一圈；口子本身是普通格，重复经过照样要套枢纽">🕳 隧道</button>
-        <button class="tool" data-tool="solution" title="答案路径（官方解，试玩时隐藏）">🛤️ 答案路径</button>
-        <button class="tool" data-tool="erase" title="擦除格子标记及相连红/绿边">🧽 擦除</button>
-        <button class="tool" data-tool="redEdge" title="红边：禁止通过">🟥 红边</button>
-        <button class="tool" data-tool="greenEdge" title="绿边：必须通过">🟩 绿边</button>
-        <button class="tool" data-tool="blueEdge" title="蓝边：这段路可以重复经过，但不能刚过去就原路返回">🟦 蓝边</button>
-        <button class="tool" data-tool="text" title="文本：路径经过时弹出文本框，内容自定（点格子后输入）">💬 文本</button>
-        <button class="tool" data-tool="subpixel" title="亚像素：每格再分成 6×6 小格，可逐小格上色作画（先点格子，再在下方调色板点小格）">🎨 亚像素</button>
-        <button class="tool" data-tool="fog" title="雾霾格：可以进入，但会盖住下面的物体、挡住视线——站在雾霾里只能看清自己这一格和一步能走到的格子（可被按钮/触发器动态开关）">🌫 雾霾</button>
-        <button class="tool" data-tool="redBlock" title="红障碍：碰到就重置路径">🚫 红障碍</button>
-        <button class="tool" data-tool="savepoint" title="存档点：路径经过就存一个档（踩到红障碍时回到最近的存档点；同一个点再次经过会覆盖旧档）">💾 存档点</button>
-        <button class="tool" data-tool="scorePlus" title="得分点：经过加分（默认 +1，选中后可在「分值」里改）">➕ 得分</button>
-        <button class="tool" data-tool="scoreMinus" title="扣分点：经过扣分（默认 -1，选中后可在「分值」里改）">➖ 扣分</button>
-        <button class="tool" data-tool="button" title="按钮：点击/经过/条件触发动作（点击后在下方面板配置）">🔘 按钮</button>
-              </div>
-      <div class="tool-row">
-        <button id="btn-undo" class="act" title="Ctrl+Z">↩ 撤销</button>
-        <button id="btn-redo" class="act" title="Ctrl+Y">↪ 重做</button>
-        <button id="btn-sol-clear" class="act">🗑️ 清空答案</button>
-        <button id="btn-sol-undo" class="act" title="撤销答案路径最后一步（不含格子编辑）">↩ 撤销一步答案</button>
-        <button id="btn-grid" class="act" title="显示/隐藏棋盘网格（作画时关掉更干净）">🔲 网格</button>
-        <button id="btn-view" class="act" title="视野范围：锁定一个矩形显示区域，游玩时只显示这一块，路径也只能画在里面">👁 视野</button>
-        <button id="btn-solver" class="act primary" title="穷举这一关的所有解（显示进度与预估时间，可随时取消）">🔎 求解</button>
-        <label class="field check">
+
+      <div class="ed2-tabs">
+        <button class="ed2-tab on" data-edtab="draw">🖌 绘制</button>
+        <button class="ed2-tab" data-edtab="obj">🔘 机关</button>
+        <button class="ed2-tab" data-edtab="meta">⚙ 设置</button>
+        <button class="ed2-tab" data-edtab="file">📦 文件</button>
+      </div>
+      <div class="ed2-pane on" data-edpane="draw">
+        <div class="tool-row">
+          <span class="ed2-lbl">格子</span>
+          <button class="tool" data-tool="select" title="选择：点格子选中其中的物体（不改动棋盘）">👆 选择</button>
+          <button class="tool" data-tool="se" title="S/E 分组：点已有的 S 或 E 可以设置它属于第几组（同组号的 S 与 E 配对）；点空格自动补一个">🔗 S/E 分组</button>
+          <button class="tool" data-tool="start" title="起点：点空格加一个 S（自动编号 S1、S2…），点已有的 S 移除">🟦 S</button>
+          <button class="tool" data-tool="end" title="终点：点空格加一个 E（自动编号 E1、E2…），点已有的 E 移除">🟪 E</button>
+          <button class="tool" data-tool="obstacle" title="障碍格">⬛ 障碍</button>
+          <button class="tool" data-tool="hub" title="枢纽（可多次经过）">⭕ 枢纽</button>
+          <button class="tool" data-tool="diagonal" title="斜向连线格（可斜向进出；可与灰格/起终点叠加）">╳ 斜向</button>
+          <button class="tool" data-tool="gray" title="灰色格：可以不经过（可与枢纽/斜向/起终点叠加）">⬜ 灰格</button>
+          <button class="tool" data-tool="number" title="数字格：要求第 a~b 步之间到达（两个框都填=区间；可与终点/斜向/灰格重合，不可与枢纽重合）">🔢 数字</button>
+          <button class="tool" data-tool="tunnel" title="隧道口：同组号的隧道口互通——从任一口进去，可从同组任意另一个口出来（也可以不走）；刚出来不能马上回去，至少要兜一圈；口子本身是普通格，重复经过照样要套枢纽">🕳 隧道</button>
+        </div>
+        <div class="tool-row">
+          <span class="ed2-lbl">边</span>
+          <button class="tool" data-tool="erase" title="擦除格子标记及相连红/绿边">🧽 擦除</button>
+          <button class="tool" data-tool="redEdge" title="红边：禁止通过">🟥 红边</button>
+          <button class="tool" data-tool="greenEdge" title="绿边：必须通过">🟩 绿边</button>
+          <button class="tool" data-tool="blueEdge" title="蓝边：这段路可以重复经过，但不能刚过去就原路返回">🟦 蓝边</button>
+        </div>
+        <div class="tool-row">
+          <span class="ed2-lbl">机关</span>
+          <button class="tool" data-tool="solution" title="答案路径（官方解，试玩时隐藏）">🛤️ 答案路径</button>
+          <button class="tool" data-tool="text" title="文本：路径经过时弹出文本框，内容自定（点格子后输入）">💬 文本</button>
+          <button class="tool" data-tool="subpixel" title="亚像素：每格再分成 6×6 小格，可逐小格上色作画（先点格子，再在下方调色板点小格）">🎨 亚像素</button>
+          <button class="tool" data-tool="fog" title="雾霾格：可以进入，但会盖住下面的物体、挡住视线——站在雾霾里只能看清自己这一格和一步能走到的格子（可被按钮/触发器动态开关）">🌫 雾霾</button>
+          <button class="tool" data-tool="redBlock" title="红障碍：碰到就重置路径">🚫 红障碍</button>
+          <button class="tool" data-tool="savepoint" title="存档点：路径经过就存一个档（踩到红障碍时回到最近的存档点；同一个点再次经过会覆盖旧档）">💾 存档点</button>
+          <button class="tool" data-tool="scorePlus" title="得分点：经过加分（默认 +1，选中后可在「分值」里改）">➕ 得分</button>
+          <button class="tool" data-tool="scoreMinus" title="扣分点：经过扣分（默认 -1，选中后可在「分值」里改）">➖ 扣分</button>
+          <button class="tool" data-tool="button" title="按钮：点击/经过/条件触发动作（点击后在下方面板配置）">🔘 按钮</button>
+        </div>
+        <div class="tool-row">
+          <span class="ed2-lbl">操作</span>
+          <button id="btn-sol-clear" class="act">🗑️ 清空答案</button>
+          <button id="btn-sol-undo" class="act" title="撤销答案路径最后一步（不含格子编辑）">↩ 撤销一步答案</button>
+          <button id="btn-grid" class="act" title="显示/隐藏棋盘网格（作画时关掉更干净）">🔲 网格</button>
+          <button id="btn-view" class="act" title="视野范围：锁定一个矩形显示区域，游玩时只显示这一块，路径也只能画在里面">👁 视野</button>
+          <button id="btn-solver" class="act primary" title="穷举这一关的所有解（显示进度与预估时间，可随时取消）">🔎 求解</button>
+          <label class="field check">
           <input id="in-sol-numbers" type="checkbox" checked> 答案序号
-        </label>
-        <label class="field check">
+          </label>
+          <label class="field check">
           <input id="in-hide-sol" type="checkbox" title="不显示灰色虚线答案路径（防止偷看答案；绘制答案时自动显示）"> 隐藏答案路径
-        </label>
-        <label class="field">数字
+          </label>
+        </div>
+        <div class="tool-row">
+          <span class="ed2-lbl">参数</span>
+          <label class="field">数字
           <input id="in-number" type="number" min="1" max="999" placeholder="步数" value="1" style="width:64px" title="下界 a">
           <span style="color:#78909c">~</span>
           <input id="in-number2" type="number" min="1" max="999" placeholder="同左" style="width:64px" title="上界 b（留空＝精确 a）">
-        </label>
-        <label class="field">隧道组
+          </label>
+          <label class="field">隧道组
           <input id="in-tunnel-group" type="number" min="1" max="99" value="1" style="width:64px" title="同组号的隧道口互通（1~99）">
-        </label>
-        <button id="btn-password" class="act">🔒 密码</button>
-        <button id="btn-clear" class="act">🧹 清空</button>
-        <label class="field">名称
-          <input id="in-name" type="text" maxlength="40" placeholder="关卡名称">
-        </label>
-        <label class="field">简介
-          <input id="in-desc" type="text" maxlength="100" placeholder="一句话简介（可选，最多100字）">
-        </label>
-        <label class="field">难度
-          <input id="in-diff-prefix" type="text" maxlength="12" placeholder="前缀" style="width:70px" title="难度前缀，如 FATE（显示为 FATE 17.0）">
-          <input id="in-difficulty" type="number" min="0" max="999" step="0.1" value="0" title="难度等级（默认 0，可填小数如 15.2）">
-        </label>
-        <label class="field">限时
-          <input id="in-timelimit" type="number" min="0" max="86400" step="1" value="0" style="width:74px" title="限时秒数（0 = 不限时）。限时关卡按完成比例评 Phi/V/S/A/B/C 级">
-        </label>
-        <label class="field">音乐
-          <input id="in-music" type="text" maxlength="40" placeholder="音乐ID" style="width:88px" title="音乐库里的音乐 ID；保存/导出时会自动带上对应 URL，别人也能听到">
-        </label>
-        <button id="btn-music" class="act" title="音乐库：用外链 URL 导入音乐、试听、删除已下载缓存">🎵 音乐库</button>
-        <label class="field">底图
-          <select id="in-bg" title="给这一关选一张底图（铺在棋盘下面，会跟你上传的关卡一起带走）">
-            <option value="">（不选底图）</option>
-          </select>
-        </label>
-        <label class="field">行
-          <input id="in-rows" type="number" min="2" max="99" value="6">
-        </label>
-        <label class="field">列
-          <input id="in-cols" type="number" min="2" max="99" value="6">
-        </label>
-        <button id="btn-new" class="act">🆕 新建</button>
-      </div>
+          </label>
+          <button id="btn-password" class="act">🔒 密码</button>
+        </div>
       <div class="tool-row" id="subpixel-row" style="display:none">
         <span class="levelname">🎨 亚像素 6×6</span>
         <input id="obj-subcolor" type="color" value="#ff7043" title="当前画笔颜色">
@@ -2092,6 +2136,8 @@
         </label>
         <button id="btn-view-help" class="act" title="视野锁定后，游玩时棋盘只显示这一块，路径也只能画在里面；物体动作里可用「设置视野范围」随时切换或解除">ℹ 用法</button>
       </div>
+      </div>
+      <div class="ed2-pane" data-edpane="obj">
 <div class="tool-row" id="obj-panel">
         <span id="obj-info" class="levelname">🔘 物体：未选中</span>
         <label class="field">触发
@@ -2321,6 +2367,46 @@
         </div>
         <div id="obj-list" class="objacts"></div>
       </div>
+      </div>
+      <div class="ed2-pane" data-edpane="meta">
+        <div class="tool-row">
+          <span class="ed2-lbl">关卡</span>
+          <label class="field">名称
+          <input id="in-name" type="text" maxlength="40" placeholder="关卡名称">
+          </label>
+          <label class="field">简介
+          <input id="in-desc" type="text" maxlength="100" placeholder="一句话简介（可选，最多100字）">
+          </label>
+          <label class="field">难度
+          <input id="in-diff-prefix" type="text" maxlength="12" placeholder="前缀" style="width:70px" title="难度前缀，如 FATE（显示为 FATE 17.0）">
+          <input id="in-difficulty" type="number" min="0" max="999" step="0.1" value="0" title="难度等级（默认 0，可填小数如 15.2）">
+          </label>
+          <label class="field">限时
+          <input id="in-timelimit" type="number" min="0" max="86400" step="1" value="0" style="width:74px" title="限时秒数（0 = 不限时）。限时关卡按完成比例评 Phi/V/S/A/B/C 级">
+          </label>
+        </div>
+        <div class="tool-row">
+          <span class="ed2-lbl">外观</span>
+          <label class="field">音乐
+          <input id="in-music" type="text" maxlength="40" placeholder="音乐ID" style="width:88px" title="音乐库里的音乐 ID；保存/导出时会自动带上对应 URL，别人也能听到">
+          </label>
+          <button id="btn-music" class="act" title="音乐库：用外链 URL 导入音乐、试听、删除已下载缓存">🎵 音乐库</button>
+          <label class="field">底图
+          <select id="in-bg" title="给这一关选一张底图（铺在棋盘下面，会跟你上传的关卡一起带走）">
+          <option value="">（不选底图）</option>
+          </select>
+          </label>
+        </div>
+        <div class="tool-row">
+          <span class="ed2-lbl">尺寸</span>
+          <label class="field">行
+          <input id="in-rows" type="number" min="2" max="99" value="6">
+          </label>
+          <label class="field">列
+          <input id="in-cols" type="number" min="2" max="99" value="6">
+          </label>
+          <button id="btn-new" class="act">🆕 新建</button>
+        </div>
       <div class="tool-row" id="set-panel">
         <span class="levelname">⚙ 关卡设置</span>
         <label class="field check" title="允许玩家游玩时缩放棋盘">
@@ -2363,18 +2449,28 @@
           </select>
         </label>
       </div>
-      <div class="tool-row">
-        <label class="field">示例
-          <select id="in-sample">
-            <option value="">— 载入示例 —</option>
-          </select>
-        </label>
-        <button id="btn-export" class="act">📤 导出关卡</button>
-        <button id="btn-import" class="act">📥 导入关卡</button>
-        <button id="btn-play" class="act primary">▶ 试玩当前关卡</button>
-        <button id="btn-help" class="act">❓ 图例说明</button>
       </div>
-    </section>
+      <div class="ed2-pane" data-edpane="file">
+        <div class="tool-row">
+          <span class="ed2-lbl">文件</span>
+          <label class="field">示例
+          <select id="in-sample">
+          <option value="">— 载入示例 —</option>
+          </select>
+          </label>
+          <button id="btn-import" class="act">📥 导入关卡</button>
+          <button id="btn-help" class="act">❓ 图例说明</button>
+        </div>
+      </div>
+      <div class="ed2-dock">
+        <span class="ed2-lbl">常用</span>
+        <button id="btn-undo" class="act" title="Ctrl+Z">↩ 撤销</button>
+        <button id="btn-redo" class="act" title="Ctrl+Y">↪ 重做</button>
+        <button id="btn-clear" class="act">🧹 清空</button>
+        <button id="btn-export" class="act">📤 导出关卡</button>
+        <button id="btn-play" class="act primary">▶ 试玩当前关卡</button>
+      </div>
+        </section>
   </main>
   <div id="cell-tip" class="hidden" style="position:fixed;left:0;top:0;z-index:90;pointer-events:none;background:rgba(28,34,44,.94);color:#fff;border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.55;max-width:250px;box-shadow:0 6px 18px rgba(0,0,0,.35);white-space:pre-line"></div>
   <main id="player-panel" class="panel hidden">
@@ -11691,6 +11787,7 @@ function _reachSet(s) {
               i = "undefined" != typeof Library && Library.inPvpRace && Library.inPvpRace();
             x("p-exit").style.display = !e && !i ? "none" : "", x("p-answer").style.display = "", x("p-back").style.display = ""
           } catch (t) {}
+          try { "undefined" != typeof Library && Library.setDraftSig && Library.setDraftSig(e) } catch (_eS) {}
           if ("undefined" != typeof Library && Library.getDraft) {
             const a = Library.getDraft();
             const _norm = function(arr) {
@@ -11714,6 +11811,11 @@ function _reachSet(s) {
                 t && t.id && Library.viewedMap()[t.id] && (l = !0)
               } catch (t) {}
               if (a.world && _world) { try { _world.restore(a.world) } catch (_e1) {} }
+              /* v2.1.0 需求2：恢复「玩家站着的那一格」。
+                 经过类脉冲（红障碍反复移动那种）靠 _stand 判断条件成立；退出重进时
+                 草稿只存了 world 快照、没存 _stand，重进后 _stand 为 null → 脉冲恒不成立
+                 → 机关彻底停摆。只有「清空路径重新走一遍」才会重新踩格把 _stand 填上。 */
+              if (_world && i.length) { try { _world.standTo(i[i.length - 1]) } catch (_e4) {} }
               if (Array.isArray(a.run) && a.run.length) { try { _run = a.run.slice(-1500) } catch (_e2) {} }
               if (Array.isArray(a.snaps) && a.snaps.length) { try { _snaps = a.snaps.filter((r => r && r.snap)).slice(-24) } catch (_e3) {} }
               o = l, r = !1, n = analyzePath(_lv(), i), _hud(), S(), z();
@@ -12438,8 +12540,33 @@ function _reachSet(s) {
         } catch (_e) {}
       }
 
+      /* v2.1.0 需求1：关卡指纹。草稿原来是「按社区关卡 id」存一个 key，
+         从社区关卡退回编辑器后再试玩别的关，读到的还是那一关的草稿（路径 + 世界快照），
+         于是「试玩变成了社区里的那一关」。现在把关卡指纹拼进 key，并校验草稿里的 sig，
+         草稿只对同一关有效，也不会互相覆盖。 */
+      let _draftSig = "";
+      function _sigOf(lv) {
+        try {
+          const j = lv && lv.toJSON ? lv.toJSON() : lv;
+          if (!j || "object" != typeof j) return "";
+          const ob = (j.objects || []).map((o => {
+            const p = o && o.place;
+            return [o && o.id, o && o.kind, p ? ("cell" === p.type ? (p.r + ":" + p.c) : (p.a + ":" + p.b)) : "-"].join(",")
+          })).join(";");
+          const str = [j.rows, j.cols, String(j.name || ""), (j.starts || []).length, (j.ends || []).length, ob, (j.solution || []).length].join("|");
+          let h = 5381;
+          for (let k = 0; k < str.length; k++) h = ((h * 33) ^ str.charCodeAt(k)) >>> 0;
+          return h.toString(36) + ":" + str.length
+        } catch (e) {
+          return ""
+        }
+      }
+      function _setDraftSig(lv) {
+        _draftSig = _sigOf(lv);
+        return _draftSig
+      }
       function H() {
-        return T ? "path-game:player-draft:" + T.id : ""
+        return T ? "path-game:player-draft:" + T.id + (_draftSig ? "@" + _draftSig : "") : ""
       }
 
       /* fix45：存档存「完整局面」——不只是正在画的那一条笔画，还有已完成笔画、暂停笔画、草稿线、
@@ -12454,6 +12581,8 @@ function _reachSet(s) {
         const i = H();
         if (!i || !Array.isArray(t)) return;
         const a = { v: 2, path: _strokeJSON(t), viewed: !!e, at: Date.now() };
+        /* v2.1.0：草稿记下关卡指纹，读的时候对不上就当作没有草稿 */
+        _draftSig && (a.sig = _draftSig);
         "number" == typeof n && n > 0 && (a.ms = Math.round(n));
         if (x && "object" == typeof x) {
           try {
@@ -12535,6 +12664,8 @@ function _reachSet(s) {
             t && (o.path = t), _t2 && (o.times = _t2)
           }
           /* 初见总用时只认更小的那个（同一关多次通关，第一次的数才是「初见」）；老记录没有 tms 就回填 */
+          /* v2.1.0 需求3：关卡更新后重玩一次 —— 新成绩属于新版，评级恢复正常 */
+          n.ms > 0 && (delete o.stale, o.rev = Math.max(1, Number(r.rev) || 1)),
           _tmsIn > 0 && (o.tms = o.tms > 0 ? Math.min(o.tms, _tmsIn) : _tmsIn),
             _fl.length && (o.flags = Array.from(new Set((Array.isArray(o.flags) ? o.flags : []).concat(_fl))).slice(0, 8)),
             n.pr && "object" == typeof n.pr && (o.pr = n.pr)
@@ -12692,7 +12823,10 @@ function _reachSet(s) {
           tms: (Number(t.tms) || 0) > 0 ? Number(t.tms) : (Number(t.ms) || 0),
           score: _sc(t),
           key: t.key,
-          grade: n > 0 && Number(t.ms) > 0 ? gradeOf(Number(t.ms) / 1e3 / n) : "",
+          /* v2.1.0 需求3：关卡更新后，旧版成绩的评级作废（成绩本身仍然作数） */
+          grade: !t.stale && n > 0 && Number(t.ms) > 0 ? gradeOf(Number(t.ms) / 1e3 / n) : "",
+          stale: !!t.stale,
+          oldGrade: t.stale && n > 0 && Number(t.ms) > 0 ? gradeOf(Number(t.ms) / 1e3 / n) : "",
           hasPath: !!(t.path && t.path.length >= 2),
           suggest: Number(t.suggest) || 0,
           banned: !!t.banned,
@@ -14687,6 +14821,59 @@ function _reachSet(s) {
         return n.json()
       }
 
+      /* v2.1.0 需求3：关卡更新（update）
+         · 作者本人可以把「编辑器里当前的这一关」推成社区关卡的新版（同一个 id，版本号 +1）
+         · 旧成绩仍然作数：completions 一条不删，分数 / 用时 / 过程都留着
+         · 这一关的难度评级（rating / ratingPrefix）被取消 —— 关卡形状变了，旧评级不再成立
+         · 旧成绩自带的评级也作废：记录上打 stale 标记，榜单不再显示评级，重玩一次自动恢复 */
+      async function _updLv(t, e) {
+        if (e && "function" != typeof e.toJSON && e.level && "function" == typeof e.level.toJSON) e = e.level;
+        if (!e || "function" != typeof e.toJSON) throw new Error("没有可更新的关卡数据（请回到编辑器再点更新）");
+        const _apply = function(rec) {
+          if (!rec) throw new Error("关卡不存在（可能已被作者删除）");
+          if (String(rec.ownerKey) !== String(de())) throw new Error("无权更新该关卡（只有作者本人能更新）");
+          const _old = Math.max(1, Number(rec.rev) || 1);
+          rec.name = e.name;
+          rec.desc = String(e.desc || "").trim().slice(0, 100);
+          rec.difficulty = e.difficulty;
+          rec.rows = e.rows;
+          rec.cols = e.cols;
+          rec.data = e.toJSON();
+          rec.rev = _old + 1;
+          rec.updatedAt = Date.now();
+          /* 评级作废：内容变了，旧的开发者评级不再成立，需要重新评一遍 */
+          rec.rating = null;
+          rec.ratingPrefix = "";
+          rec.ratingClearedAt = Date.now();
+          (rec.completions || []).forEach((c => {
+            if (!c || "object" != typeof c) return;
+            c.stale = _old;                      /* 旧版成绩：成绩留着，评级作废 */
+            if (!(Number(c.rev) > 0)) c.rev = _old
+          }));
+          return rec
+        };
+        if ("repo" === c() || "gitee" === c()) {
+          const g = await Ne(),
+            rec = (g.levels || []).find((x => x.id === t));
+          _apply(rec);
+          return await Ie(g), {
+            ok: !0,
+            id: rec.id,
+            rev: rec.rev
+          }
+        }
+        if ("gist" === c()) {
+          const g = await m(),
+            rec = (g.levels || []).find((x => x.id === t));
+          _apply(rec);
+          return await f(g), {
+            ok: !0,
+            id: rec.id,
+            rev: rec.rev
+          }
+        }
+        throw new Error("当前存储方式不支持更新（请用码云 / GitHub Gist 共享）")
+      }
       function He(t, e) {
         if (e = e || {}, T && "undefined" != typeof Player && Player.getPath) try {
           const t = Player.getPath();
@@ -14776,6 +14963,8 @@ function _reachSet(s) {
           r = Ke("div", "lib-item-main"),
           s = Ke("div", "lib-item-title");
         s.appendChild(Ke("span", "", (t.isDraft ? "📝 " : "🧩 ") + t.name)), t.featured && s.appendChild(Ke("span", "badge badge-" + String(t.featured).toLowerCase(), "精选" + t.featured)), t.data && t.data.bg && s.appendChild(Ke("span", "badge", "🖼 底图")), null != t.rating ? s.appendChild(Ke("span", "badge badge-rating", "难度 " + dt(t))) : Number(t.difficulty) > 0 && s.appendChild(Ke("span", "badge badge-author", "难度 " + (t.data && t.data.difficultyPrefix ? String(t.data.difficultyPrefix).trim() + " " : "") + fmtDifficulty(t.difficulty)));
+        /* v2.1.0 需求3：显示关卡版本号（更新过才有） */
+        Number(t.rev) > 1 && s.appendChild(Ke("span", "badge", "v" + (Number(t.rev) || 1)));
         const o = Ke("div", "lib-item-sub");
         o.textContent = t.rows + "×" + t.cols + (t.author ? " · " + t.author : "") + " · " + Je(t.createdAt || t.savedAt);
         const l = (t.completions || []).filter((e => e && e.key && !e.banned && String(e.key) !== String(t.ownerKey))).length;
@@ -14796,6 +14985,19 @@ function _reachSet(s) {
             })
           } catch (t) {
             App.toast(t.message)
+          }
+        }));
+        /* v2.1.0 需求3：作者本人可以把编辑器里当前的关卡推成本关的新版 */
+        t.ownerKey && String(t.ownerKey) === String(de()) && p("↻ 更新", "", (async () => {
+          try {
+            const _lv = ("undefined" != typeof Editor && Editor.getLevel) ? Editor.getLevel() : null;
+            if (!_lv) return void App.toast("先在编辑器里打开要更新的那一关");
+            const _old = Math.max(1, Number(t.rev) || 1);
+            if (!window.confirm("用编辑器里当前的关卡《" + (_lv.name || "未命名") + "》更新社区关卡《" + t.name + "》？\n\n· 版本 " + _old + " → " + (_old + 1) + "\n· 旧成绩仍然作数（留在排行榜上）\n· 这一关的评级会被取消，需要重新评一遍")) return;
+            const r = await _updLv(t.id, _lv);
+            App.toast("✅ 已更新到 v" + r.rev + "：旧成绩保留，评级已取消（重新评一遍即可）"), We()
+          } catch (err) {
+            App.toast("❌ " + (err && err.message ? err.message : err))
           }
         }));
         const u = function(t) {
@@ -14829,7 +15031,7 @@ function _reachSet(s) {
               const r = _(i);
               r.count > 0 && e.appendChild(Ke("div", "lib-panel-sub", "💬 玩家建议评级：平均 " + r.avg + "（" + r.count + " 人评过）")), a.length ? a.slice(0, 20).forEach((i => {
                 const a = Ke("div", "lib-rank" + (i.rank <= 3 ? " top" + i.rank : "") + (i.banned ? " banned" : "")),
-                  r = Ke("span", "", "第" + i.rank + "名  " + i.name + (i.score ? " · 🏆 " + i.score + " 分" : "") + " · " + Je(i.at) + (i.ms > 0 ? " · 初见 " + $(i.ms) : "") + (i.grade ? " · 评级 " + i.grade : "") + (i.suggest > 0 ? " · 💬 建议 " + i.suggest : "") + _flagText(i.flags));
+                  r = Ke("span", "", "第" + i.rank + "名  " + i.name + (i.score ? " · 🏆 " + i.score + " 分" : "") + " · " + Je(i.at) + (i.ms > 0 ? " · 初见 " + $(i.ms) : "") + (i.grade ? " · 评级 " + i.grade : "") + (i.stale ? " · 旧版成绩（评级已作废" + (i.oldGrade ? "，原 " + i.oldGrade : "") + "；重玩可恢复）" : "") + (i.suggest > 0 ? " · 💬 建议 " + i.suggest : "") + _flagText(i.flags));
                 if (a.appendChild(r), i.key === de()) {
                   const e = document.createElement("input");
                   e.type = "number", e.min = "0", e.max = "999", e.step = "0.1", e.className = "lib-suggest-input", e.value = i.suggest > 0 ? String(i.suggest) : "", e.placeholder = "我的建议", e.title = "我的建议评级（留空/0 = 取消）";
@@ -16885,11 +17087,21 @@ function _reachSet(s) {
         getDraft: function() {
           const t = H();
           if (!t) return null;
+          let o = null;
           try {
-            return JSON.parse(localStorage.getItem(t))
+            o = JSON.parse(localStorage.getItem(t))
           } catch (t) {
             return null
           }
+          /* v2.1.0 需求1：草稿必须属于「同一关」—— 从社区关卡退回编辑器后，草稿里
+             还留着那一关的路径与世界快照，试玩编辑器里的另一关时会被整套套上去。 */
+          try {
+            if (o && _draftSig && o.sig !== _draftSig) return null
+          } catch (t) {}
+          return o
+        },
+        setDraftSig: function(t) {
+          return _setDraftSig(t)
         },
         clearDraft: function() {
           const t = H();
@@ -17065,6 +17277,7 @@ function _reachSet(s) {
         openMusicLibrary: ia,
         uploadMusicFile: na,
         uploadLevel: De,
+        updateLevel: _updLv,
         authorRunOf: _authorRunOf,
         appendRankZero: _appendRankZero,
         authorRunDiag: _arDiag,
@@ -17346,8 +17559,8 @@ function _reachSet(s) {
             } catch (e) {}
           }), !0);
           try {
-            const e = "v2.0.4";
-            window.__ver = e, window.__build = "v2.0.4", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍）");
+            const e = "v2.1.0";
+            window.__ver = e, window.__build = "v2.1.0", function(){ try { document.title = "路径谜题 · 关卡编辑器与游玩"; } catch (_t) {} }(), console.info("[路径测验] 版本 " + e + " 开发版加载完成（含多笔画/雾霾/蓝边/红障碍/关卡更新）");
             const t = document.createElement("span");
             t.id = "app-version", t.textContent = e, t.style.cssText = "position:fixed;right:6px;bottom:4px;font-size:9px;color:#8fa3b4;z-index:9;opacity:.75;pointer-events:none;", document.body.appendChild(t)
           } catch (e) {}
@@ -17372,6 +17585,47 @@ function _reachSet(s) {
     document.addEventListener("DOMContentLoaded", App.init);
   </script>
   <div id="up-err" style="display:none;position:fixed;left:10px;right:10px;bottom:14px;z-index:99999;background:#3a0d0d;color:#ffd8d8;border:1px solid #ff5252;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;white-space:pre-wrap;box-shadow:0 4px 18px rgba(0,0,0,.5)" title="点一下关闭"> </div>
+  <script>
+    /* v2.1.0 需求4：编辑器分区标签页（纯展示层，不改动任何既有 id / data-tool 绑定） */
+    (function () {
+      function init() {
+        try {
+          var panel = document.getElementById("editor-panel");
+          if (!panel) return;
+          var tabs = panel.querySelectorAll(".ed2-tab");
+          var panes = panel.querySelectorAll(".ed2-pane");
+          if (!tabs.length || !panes.length) return;
+          var cur = "";
+          function apply(k) {
+            var hit = false;
+            for (var i = 0; i < panes.length; i++) if (panes[i].getAttribute("data-edpane") === k) hit = true;
+            if (!hit) k = "draw";
+            cur = k;
+            for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle("on", tabs[i].getAttribute("data-edtab") === k);
+            for (var i = 0; i < panes.length; i++) panes[i].classList.toggle("on", panes[i].getAttribute("data-edpane") === k);
+            try { localStorage.setItem("path-game:ed-tab", k); } catch (e) {}
+            var bar = panel.querySelector(".toolbar");
+            if (bar) bar.scrollTop = 0;
+          }
+          for (var i = 0; i < tabs.length; i++)(function (t) {
+            t.addEventListener("click", function () { apply(t.getAttribute("data-edtab")); });
+          })(tabs[i]);
+          var last = "";
+          try { last = localStorage.getItem("path-game:ed-tab") || ""; } catch (e) {}
+          apply(last || "draw");
+          window.__edTab = apply;
+          /* 选中物体时自动切到「机关」页，省得手动找面板 */
+          var info = document.getElementById("obj-info");
+          if (info && window.MutationObserver) new MutationObserver(function () {
+            var s = info.textContent || "";
+            if (s && s.indexOf("未选中") < 0 && "obj" !== cur) apply("obj");
+          }).observe(info, { childList: true, characterData: true, subtree: true });
+        } catch (e) {}
+      }
+      if ("loading" === document.readyState) document.addEventListener("DOMContentLoaded", init);
+      else init();
+    })();
+  </script>
 </body>
 
 </html>
